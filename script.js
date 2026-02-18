@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.34';
+var US_VERSION = '1.6.35';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -465,19 +465,19 @@ var Styles = {
       '  border-radius: 12px 0 0 12px !important;',
       '  border: 1px solid rgba(255,255,255,0.22) !important; border-right: none !important;',
       '  box-shadow: -4px 0 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15) !important;',
-      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important;',
       '  transition: width 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;',
       '}',
       '#us-cc-tab:hover { width: 62px !important; background: rgba(255,255,255,0.16) !important; }',
       '#us-cc-tab .us-cc-tab-icon {',
       '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
       '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
-      '  flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 5px !important;',
-      '  min-height: 44px !important; cursor: pointer !important; padding: 6px 0 8px !important; overflow: visible !important;',
+      '  flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 3px !important;',
+      '  min-height: 28px !important; cursor: pointer !important; padding: 2px 0 2px !important; overflow: visible !important;',
       '}',
       '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(0,0,0,0.75) !important; }',
       '#us-cc-tab .us-cc-tab-icon-row {',
-      '  display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 3px !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 2px !important;',
       '  width: fit-content !important; font-size: 11px !important; line-height: 1.2 !important;',
       '}',
       '#us-cc-tab .us-cc-tab-text { writing-mode: horizontal-tb !important; text-orientation: mixed !important; }',
@@ -495,7 +495,7 @@ var Styles = {
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(0,0,0,0.55) !important; }',
       '.us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 8px 0 4px !important; min-height: 22px !important; overflow: visible !important;',
+      '  flex-shrink: 0 !important; padding: 2px 0 2px !important; min-height: 0 !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '  transform: scale(0.7) !important; transform-origin: center center !important; }',
 
