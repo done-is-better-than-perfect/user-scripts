@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.12';
+var US_VERSION = '1.6.13';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -459,38 +459,35 @@ var Styles = {
       '  position: fixed !important; right: 0 !important; top: 50% !important;',
       '  transform: translateY(-50%) !important;',
       '  z-index: 2147483646 !important;',
-      '  width: 32px !important; min-height: 72px !important;',
-      '  background: rgba(30,30,30,0.78) !important;',
-      '  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;',
-      '  border-radius: 6px 0 0 6px !important;',
-      '  border: 1px solid rgba(255,255,255,0.08) !important; border-right: none !important;',
-      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;',
-      '  transition: width 0.15s ease, background 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;',
+      '  width: 36px !important; min-height: 80px !important;',
+      '  background: rgba(38,38,42,0.88) !important;',
+      '  backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important;',
+      '  border-radius: 10px 0 0 10px !important;',
+      '  border: 1px solid rgba(255,255,255,0.06) !important; border-right: none !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important;',
+      '  transition: width 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;',
       '}',
-      '#us-cc-tab:hover { width: 40px !important; background: rgba(50,50,50,0.9) !important; }',
-      '#us-cc-tab svg { width: 14px !important; height: 14px !important; }',
+      '#us-cc-tab:hover { width: 40px !important; background: rgba(42,42,46,0.92) !important; }',
+      '#us-cc-tab .us-cc-tab-icon { color: rgba(255,255,255,0.5) !important; }',
+      '#us-cc-tab .us-cc-tab-icon svg { width: 18px !important; height: 18px !important; display: block !important; }',
+      '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(255,255,255,0.85) !important; }',
       '#us-cc-tab.us-tab-active {',
-      '  border-color: rgba(59,130,246,0.7) !important;',
-      '  background: rgba(30,60,120,0.9) !important;',
+      '  border-color: rgba(59,130,246,0.5) !important;',
+      '  background: rgba(28,35,48,0.94) !important;',
       '  width: 36px !important;',
-      '  box-shadow: -3px 0 16px rgba(59,130,246,0.4), inset 0 0 10px rgba(59,130,246,0.2) !important;',
-      '  animation: us-tab-pulse 2s ease-in-out infinite !important;',
+      '  box-shadow: -2px 0 12px rgba(59,130,246,0.25) !important;',
       '}',
-      '@keyframes us-tab-pulse {',
-      '  0%, 100% { box-shadow: -3px 0 16px rgba(59,130,246,0.4), inset 0 0 10px rgba(59,130,246,0.2); }',
-      '  50% { box-shadow: -3px 0 24px rgba(59,130,246,0.6), inset 0 0 16px rgba(59,130,246,0.35); }',
-      '}',
-      '#us-cc-tab.us-tab-active svg rect { fill: #93c5fd !important; }',
+      '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: #60a5fa !important; }',
       '#us-cc-tab .us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 6px 0 4px !important;',
+      '  flex-shrink: 0 !important; padding: 8px 0 4px !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 38px !important; height: 22px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 18px !important; height: 18px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 36px !important; height: 20px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 16px !important; height: 16px !important; }',
       '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(16px) !important; }',
       '#us-cc-tab .us-cc-tab-icon {',
       '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  min-height: 40px !important; cursor: pointer !important;',
+      '  min-height: 44px !important; cursor: pointer !important; padding-bottom: 8px !important;',
       '}',
 
       /* ── Edit-mode highlight ── */
@@ -1651,11 +1648,9 @@ var Tab = {
     if (this.el) return;
     Styles.inject();
 
-    var svg = makeSvg('svg', { viewBox: '0 0 16 16' },
-      makeSvg('rect', { x: '1', y: '1', width: '6', height: '6', rx: '1', fill: '#60a5fa' }),
-      makeSvg('rect', { x: '9', y: '1', width: '6', height: '6', rx: '1', fill: '#f97316' }),
-      makeSvg('rect', { x: '1', y: '9', width: '6', height: '6', rx: '1', fill: '#a78bfa' }),
-      makeSvg('rect', { x: '9', y: '9', width: '6', height: '6', rx: '1', fill: '#34d399' })
+    // Single droplet icon (color swatch / paint); avoids Figma-style 4-grid
+    var svg = makeSvg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' },
+      makeSvg('path', { d: 'M12 3.2c-.9 1.3-3 4.2-3 7 0 2.2 1.8 4 4 4s4-1.8 4-4c0-2.8-2.1-5.7-3-7z', fill: 'currentColor' })
     );
 
     var toggleWrap = h('div', { className: 'us-cc-tab-toggle-wrap', 'data-us-cc': 'tab-toggle' });
