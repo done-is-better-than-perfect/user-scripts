@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.36';
+var US_VERSION = '1.6.37';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -497,7 +497,7 @@ var Styles = {
       '.us-cc-tab-toggle-wrap {',
       '  flex-shrink: 0 !important; padding: 1px 0 1px !important; min-height: 0 !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  transform: translateY(4px) scale(0.7) !important; transform-origin: center center !important; }',
+      '  transform: translateY(18px) scale(0.7) !important; transform-origin: center center !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
