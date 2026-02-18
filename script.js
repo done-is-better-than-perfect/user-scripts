@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.5';
+var US_VERSION = '1.6.6';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1257,9 +1257,9 @@ var Panel = {
 
     // Import result toast (own UI instead of window.alert)
     var toastBackdrop = h('div', { id: 'us-cc-import-toast-backdrop', 'data-us-cc': 'import-toast' });
-    var toastTitle = h('div', { className: 'us-import-toast-title' }, '');
-    var toastBody = h('div', { className: 'us-import-toast-body' }, '');
-    var toastBox = h('div', { id: 'us-cc-import-toast-box' }, toastTitle, toastBody, h('button', { className: 'us-import-toast-ok' }, 'OK'));
+    var toastTitle = h('div.us-import-toast-title', {}, '');
+    var toastBody = h('div.us-import-toast-body', {}, '');
+    var toastBox = h('div', { id: 'us-cc-import-toast-box' }, toastTitle, toastBody, h('button.us-import-toast-ok', {}, 'OK'));
     toastBackdrop.appendChild(toastBox);
     document.body.appendChild(toastBackdrop);
     this._importToastBackdrop = toastBackdrop;
@@ -1290,10 +1290,11 @@ var Panel = {
 
     backdrop.classList.add('us-visible');
 
+    var okBtn = box.querySelector('.us-import-toast-ok');
     function hide() {
       backdrop.classList.remove('us-visible');
       backdrop.removeEventListener('click', onBackdropClick);
-      box.querySelector('.us-import-toast-ok').removeEventListener('click', onOkClick);
+      if (okBtn) okBtn.removeEventListener('click', onOkClick);
     }
     function onBackdropClick(e) {
       if (e.target === backdrop) hide();
@@ -1301,7 +1302,7 @@ var Panel = {
     function onOkClick() { hide(); }
 
     backdrop.addEventListener('click', onBackdropClick);
-    box.querySelector('.us-import-toast-ok').addEventListener('click', onOkClick);
+    if (okBtn) okBtn.addEventListener('click', onOkClick);
   },
 
   _bindEvents: function () {
