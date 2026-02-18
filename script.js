@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.5.0';
+var US_VERSION = '1.5.1';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -604,7 +604,8 @@ var Styles = {
       '  margin-bottom: 6px !important;',
       '}',
       '#us-cc-popover .us-pop-swatch {',
-      '  all: initial !important; width: 22px !important; height: 22px !important;',
+      '  all: initial !important; display: inline-block !important;',
+      '  width: 22px !important; height: 22px !important;',
       '  border-radius: 4px !important; cursor: pointer !important;',
       '  border: 1px solid rgba(255,255,255,0.12) !important;',
       '  transition: transform 0.1s, box-shadow 0.15s !important;',
@@ -733,6 +734,11 @@ var Styles = {
       '  margin-bottom: 4px !important; display: block !important;',
       '}',
       '#us-cc-panel .us-prof-btn-add-color:hover { color: #60a5fa !important; }',
+
+      /* Placeholders */
+      '#us-cc-popover input::placeholder, #us-cc-panel .us-prof-editor input::placeholder {',
+      '  color: rgba(255,255,255,0.25) !important; opacity: 1 !important;',
+      '}',
     ].join('\n');
   }
 };
@@ -951,13 +957,12 @@ var ColorPopover = {
       );
       var row = h('div.us-pop-palette-row');
       prof.colors.forEach(function (c) {
-        row.appendChild(
-          h('span.us-pop-swatch', {
-            style: 'background:' + c.value + ' !important',
-            'data-color': c.value,
-            title: c.name || c.value
-          })
-        );
+        var sw = h('span.us-pop-swatch', {
+          'data-color': c.value,
+          title: c.name || c.value
+        });
+        sw.style.setProperty('background', c.value, 'important');
+        row.appendChild(sw);
       });
       section.appendChild(row);
       container.appendChild(section);
@@ -1241,9 +1246,11 @@ var Panel = {
 
     rules.forEach(function (r, i) {
       var shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
+      var swatch = h('span.us-rule-swatch');
+      swatch.style.setProperty('background', r.value, 'important');
       container.appendChild(
         h('div.us-rule-item',
-          h('span.us-rule-swatch', { style: 'background:' + r.value + ' !important' }),
+          swatch,
           h('span.us-rule-info',
             h('span.us-rule-selector', { title: r.selector }, shortSel),
             h('span.us-rule-prop', r.property)
@@ -1265,7 +1272,9 @@ var Panel = {
     profiles.forEach(function (prof) {
       var swatches = h('span.us-prof-swatches');
       prof.colors.forEach(function (c) {
-        swatches.appendChild(h('span.us-prof-sw', { style: 'background:' + c.value + ' !important', title: c.name || c.value }));
+        var sw = h('span.us-prof-sw', { title: c.name || c.value });
+        sw.style.setProperty('background', c.value, 'important');
+        swatches.appendChild(sw);
       });
 
       container.appendChild(
