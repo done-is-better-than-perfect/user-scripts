@@ -4,6 +4,7 @@
 // @version      0.5.0
 // @description  Load external script.js (page world) and provide RPC bridge to GM APIs (content world) via postMessage.
 // @match        *://*/*
+// @noframes
 // @run-at       document-end
 // @inject-into  content
 //

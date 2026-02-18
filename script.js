@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.2.0';
+var US_VERSION = '1.3.0';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -500,7 +500,6 @@ var Styles = {
       '  border-radius: 6px !important; color: rgba(255,255,255,0.9) !important;',
       '  font-family: inherit !important; font-size: 12px !important;',
       '  outline: none !important; cursor: pointer !important;',
-      '  -webkit-appearance: none !important; appearance: none !important;',
       '  margin-bottom: 10px !important;',
       '}',
       '#us-cc-popover select option { background: #2c2c2e !important; color: #fff !important; }',
