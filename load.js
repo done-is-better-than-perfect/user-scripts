@@ -41,18 +41,24 @@
   // =========================
   // Config
   // =========================
-  // jsDelivr (recommended):
+  // jsDelivr URL template:
   //   https://cdn.jsdelivr.net/gh/<org>/<repo>@<tag-or-branch>/<path>
   //
-  // Examples:
-  //   @main  : https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts@main/script.js
-  //   @v0.1.0: https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts@v0.1.0/script.js
-  //
-  // NOTE: If you switch to tag pinning, change @main -> @vX.Y.Z here.
-  var SRC = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts@main/script.js';
+  // Default: @main (latest on main branch).
+  // To pin a specific version, add  #version=v1.1.0  to the page URL hash.
+  //   e.g.  https://example.com/page#version=v1.2.0
+  var BASE_SRC = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts';
+  var DEFAULT_REF = 'main';
 
-  // Set to true during development to auto-purge jsDelivr cache on every page load.
-  var DEV_MODE = true;
+  function resolveVersion() {
+    var hash = window.location.hash || '';
+    var m = hash.match(/(?:^#|&)version=([^&]+)/);
+    return m ? m[1] : DEFAULT_REF;
+  }
+
+  var SRC_REF = resolveVersion();
+  var SRC = BASE_SRC + '@' + SRC_REF + '/script.js';
+  console.info('[UserScripts Loader] Version ref:', SRC_REF, '| URL:', SRC);
 
   // =========================
   // One-time guard (per page)
@@ -388,23 +394,13 @@
   // =========================
   // External script injection (page world)
   // =========================
-  function purgeCache() {
-    var purgeUrl = SRC.replace('cdn.jsdelivr.net', 'purge.jsdelivr.net');
-    gmXhr({ url: purgeUrl, method: 'GET' })
-      .then(function () { console.info('[UserScripts Loader] Cache purged:', purgeUrl); })
-      .catch(function (e) { console.warn('[UserScripts Loader] Cache purge failed:', e); });
-  }
-
   function injectExternalScript() {
     var parent = document.body || document.documentElement;
     if (!parent) return;
 
     // Prevent duplicate insertion of the external script
-    var exists = document.querySelector('script[data-userscripts-loader="1"][src="' + SRC + '"]');
+    var exists = document.querySelector('script[data-userscripts-loader="1"]');
     if (exists) return;
-
-    // Purge jsDelivr cache in dev mode to always load latest version
-    if (DEV_MODE) purgeCache();
 
     var s = document.createElement('script');
 
