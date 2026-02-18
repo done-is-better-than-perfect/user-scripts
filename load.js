@@ -51,7 +51,8 @@
   // NOTE: If you switch to tag pinning, change @main -> @vX.Y.Z here.
   var SRC = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts@main/script.js';
 
-  // script.js self-initializes as an ESM module (no AUTO_BOOT needed).
+  // Set to true during development to auto-purge jsDelivr cache on every page load.
+  var DEV_MODE = true;
 
   // =========================
   // One-time guard (per page)
@@ -387,6 +388,13 @@
   // =========================
   // External script injection (page world)
   // =========================
+  function purgeCache() {
+    var purgeUrl = SRC.replace('cdn.jsdelivr.net', 'purge.jsdelivr.net');
+    gmXhr({ url: purgeUrl, method: 'GET' })
+      .then(function () { console.info('[UserScripts Loader] Cache purged:', purgeUrl); })
+      .catch(function (e) { console.warn('[UserScripts Loader] Cache purge failed:', e); });
+  }
+
   function injectExternalScript() {
     var parent = document.body || document.documentElement;
     if (!parent) return;
@@ -394,6 +402,9 @@
     // Prevent duplicate insertion of the external script
     var exists = document.querySelector('script[data-userscripts-loader="1"][src="' + SRC + '"]');
     if (exists) return;
+
+    // Purge jsDelivr cache in dev mode to always load latest version
+    if (DEV_MODE) purgeCache();
 
     var s = document.createElement('script');
 
