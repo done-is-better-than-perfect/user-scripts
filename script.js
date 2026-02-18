@@ -227,7 +227,54 @@ var StyleApplier = {
 };
 
 // =========================
-// 5. CSS Injection (UI styles)
+// 5. DOM helpers (Trusted-Types safe)
+// =========================
+
+/**
+ * Build a DOM element tree without innerHTML.
+ * h(tag, attrs?, ...children)
+ *   tag      – 'div', 'span.cls', 'button#id.cls1.cls2'
+ *   attrs    – plain object  { style: '...', title: '...' } or omitted
+ *   children – strings (→ textNode) or other DOM nodes
+ */
+function h(tag, attrsOrChild) {
+  var parts = tag.split(/([.#])/);
+  var tagName = parts[0] || 'div';
+  var el = document.createElement(tagName);
+  var i = 1;
+  while (i < parts.length) {
+    if (parts[i] === '#') { el.id = parts[i + 1]; i += 2; }
+    else if (parts[i] === '.') { el.classList.add(parts[i + 1]); i += 2; }
+    else { i++; }
+  }
+  var childStart = 1;
+  if (attrsOrChild && typeof attrsOrChild === 'object' && !(attrsOrChild instanceof Node)) {
+    childStart = 2;
+    var attrs = attrsOrChild;
+    Object.keys(attrs).forEach(function (k) {
+      if (k === 'style') el.style.cssText = attrs[k];
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), attrs[k]);
+      else el.setAttribute(k, attrs[k]);
+    });
+  }
+  for (var c = childStart; c < arguments.length; c++) {
+    var child = arguments[c];
+    if (child == null) continue;
+    if (typeof child === 'string') el.appendChild(document.createTextNode(child));
+    else el.appendChild(child);
+  }
+  return el;
+}
+
+function makeSvg(tag, attrs) {
+  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  if (attrs) Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+  for (var i = 2; i < arguments.length; i++) el.appendChild(arguments[i]);
+  return el;
+}
+
+// =========================
+// 6. CSS Injection (UI styles)
 // =========================
 var Styles = {
   injected: false,
@@ -493,7 +540,7 @@ var Styles = {
 };
 
 // =========================
-// 6. EditMode
+// 7. EditMode
 // =========================
 var EditMode = {
   active: false,
@@ -557,7 +604,7 @@ var EditMode = {
 };
 
 // =========================
-// 7. ColorPopover
+// 8. ColorPopover
 // =========================
 var ColorPopover = {
   el: null,
@@ -566,28 +613,25 @@ var ColorPopover = {
 
   _create: function () {
     if (this.el) return;
-    var pop = document.createElement('div');
-    pop.id = 'us-cc-popover';
-    pop.setAttribute('data-us-cc', 'popover');
-    pop.innerHTML = [
-      '<span class="us-pop-label">要素</span>',
-      '<span class="us-pop-selector-text" id="us-pop-sel"></span>',
-      '<span class="us-pop-label">プロパティ</span>',
-      '<select id="us-pop-prop">',
-      '<option value="background-color">background-color</option>',
-      '<option value="color">color</option>',
-      '<option value="border-color">border-color</option>',
-      '</select>',
-      '<span class="us-pop-label">カラー</span>',
-      '<div class="us-pop-color-row">',
-      '<input type="color" id="us-pop-color" value="#3b82f6">',
-      '<input type="text" id="us-pop-hex" placeholder="#000000">',
-      '</div>',
-      '<div class="us-pop-actions">',
-      '<button class="us-pop-btn us-pop-btn-cancel" id="us-pop-cancel">取消</button>',
-      '<button class="us-pop-btn us-pop-btn-apply" id="us-pop-apply">適用</button>',
-      '</div>'
-    ].join('');
+    var pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
+      h('span.us-pop-label', '要素'),
+      h('span.us-pop-selector-text', { id: 'us-pop-sel' }),
+      h('span.us-pop-label', 'プロパティ'),
+      h('select', { id: 'us-pop-prop' },
+        h('option', { value: 'background-color' }, 'background-color'),
+        h('option', { value: 'color' }, 'color'),
+        h('option', { value: 'border-color' }, 'border-color')
+      ),
+      h('span.us-pop-label', 'カラー'),
+      h('div.us-pop-color-row',
+        h('input', { type: 'color', id: 'us-pop-color', value: '#3b82f6' }),
+        h('input', { type: 'text', id: 'us-pop-hex', placeholder: '#000000' })
+      ),
+      h('div.us-pop-actions',
+        h('button.us-pop-btn.us-pop-btn-cancel', { id: 'us-pop-cancel' }, '取消'),
+        h('button.us-pop-btn.us-pop-btn-apply', { id: 'us-pop-apply' }, '適用')
+      )
+    );
     document.body.appendChild(pop);
     this.el = pop;
     this._bindEvents();
@@ -706,7 +750,7 @@ var ColorPopover = {
 };
 
 // =========================
-// 8. Panel
+// 9. Panel
 // =========================
 var Panel = {
   el: null,
@@ -717,34 +761,32 @@ var Panel = {
     if (this.el) return;
 
     // Backdrop
-    var bd = document.createElement('div');
-    bd.id = 'us-cc-backdrop';
-    bd.setAttribute('data-us-cc', 'backdrop');
-    bd.addEventListener('click', function () { Panel.close(); });
+    var bd = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop', onclick: function () { Panel.close(); } });
     document.body.appendChild(bd);
     this.backdrop = bd;
 
+    // Switch label
+    var switchLabel = document.createElement('label');
+    switchLabel.className = 'us-switch';
+    switchLabel.setAttribute('data-us-cc', 'switch');
+    switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-edit-toggle' }));
+    switchLabel.appendChild(h('span.us-slider'));
+
     // Panel
-    var p = document.createElement('div');
-    p.id = 'us-cc-panel';
-    p.setAttribute('data-us-cc', 'panel');
-    p.innerHTML = [
-      '<div class="us-p-header">',
-      '<span class="us-p-title">Color Customizer</span>',
-      '<button class="us-p-close" id="us-p-close">&times;</button>',
-      '</div>',
-      '<div class="us-p-toggle-row">',
-      '<span class="us-p-toggle-label">Edit Mode</span>',
-      '<label class="us-switch" data-us-cc="switch">',
-      '<input type="checkbox" id="us-p-edit-toggle">',
-      '<span class="us-slider"></span>',
-      '</label>',
-      '</div>',
-      '<div class="us-p-rules" id="us-p-rules"></div>',
-      '<div class="us-p-footer">',
-      '<button class="us-btn us-btn-danger" id="us-p-clear">全ルールクリア</button>',
-      '</div>'
-    ].join('');
+    var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' },
+      h('div.us-p-header',
+        h('span.us-p-title', 'Color Customizer'),
+        h('button.us-p-close', { id: 'us-p-close' }, '\u00D7')
+      ),
+      h('div.us-p-toggle-row',
+        h('span.us-p-toggle-label', 'Edit Mode'),
+        switchLabel
+      ),
+      h('div.us-p-rules', { id: 'us-p-rules' }),
+      h('div.us-p-footer',
+        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア')
+      )
+    );
     document.body.appendChild(p);
     this.el = p;
     this._bindEvents();
@@ -824,29 +866,32 @@ var Panel = {
     var container = this.el.querySelector('#us-p-rules');
     var rules = RulesManager.getRules();
 
+    // Clear previous content
+    while (container.firstChild) container.removeChild(container.firstChild);
+
     if (rules.length === 0) {
-      container.innerHTML = '<span class="us-p-empty">ルールがありません</span>';
+      container.appendChild(h('span.us-p-empty', 'ルールがありません'));
       return;
     }
 
-    container.innerHTML = rules.map(function (r, i) {
+    rules.forEach(function (r, i) {
       var shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
-      return [
-        '<div class="us-rule-item">',
-        '<span class="us-rule-swatch" style="background:' + r.value + ' !important;"></span>',
-        '<span class="us-rule-info">',
-        '<span class="us-rule-selector" title="' + r.selector.replace(/"/g, '&quot;') + '">' + shortSel + '</span>',
-        '<span class="us-rule-prop">' + r.property + '</span>',
-        '</span>',
-        '<button class="us-rule-del" data-rule-idx="' + i + '" title="削除">✕</button>',
-        '</div>'
-      ].join('');
-    }).join('');
+      container.appendChild(
+        h('div.us-rule-item',
+          h('span.us-rule-swatch', { style: 'background:' + r.value + ' !important' }),
+          h('span.us-rule-info',
+            h('span.us-rule-selector', { title: r.selector }, shortSel),
+            h('span.us-rule-prop', r.property)
+          ),
+          h('button.us-rule-del', { 'data-rule-idx': String(i), title: '削除' }, '✕')
+        )
+      );
+    });
   }
 };
 
 // =========================
-// 9. Tab
+// 10. Tab
 // =========================
 var Tab = {
   el: null,
@@ -855,29 +900,24 @@ var Tab = {
     if (this.el) return;
     Styles.inject();
 
-    var tab = document.createElement('div');
-    tab.id = 'us-cc-tab';
-    tab.setAttribute('data-us-cc', 'tab');
-    tab.title = 'Color Customizer';
-    // Geometric icon: 4 small colored squares in a 2x2 grid
-    tab.innerHTML = [
-      '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">',
-      '<rect x="1" y="1" width="6" height="6" rx="1" fill="#60a5fa"/>',
-      '<rect x="9" y="1" width="6" height="6" rx="1" fill="#f97316"/>',
-      '<rect x="1" y="9" width="6" height="6" rx="1" fill="#a78bfa"/>',
-      '<rect x="9" y="9" width="6" height="6" rx="1" fill="#34d399"/>',
-      '</svg>'
-    ].join('');
-    tab.addEventListener('click', function () {
-      Panel.open();
-    });
+    // Build SVG icon via namespace-aware API
+    var svg = makeSvg('svg', { viewBox: '0 0 16 16' },
+      makeSvg('rect', { x: '1', y: '1', width: '6', height: '6', rx: '1', fill: '#60a5fa' }),
+      makeSvg('rect', { x: '9', y: '1', width: '6', height: '6', rx: '1', fill: '#f97316' }),
+      makeSvg('rect', { x: '1', y: '9', width: '6', height: '6', rx: '1', fill: '#a78bfa' }),
+      makeSvg('rect', { x: '9', y: '9', width: '6', height: '6', rx: '1', fill: '#34d399' })
+    );
+
+    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab', title: 'Color Customizer', onclick: function () { Panel.open(); } },
+      svg
+    );
     document.body.appendChild(tab);
     this.el = tab;
   }
 };
 
 // =========================
-// 10. Feature Interface + Global API
+// 11. Feature Interface + Global API
 // =========================
 var ColorCustomizerFeature = {
   _initialized: false,
