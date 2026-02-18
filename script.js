@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.1.0';
+var US_VERSION = '1.2.0';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -595,7 +595,12 @@ var EditMode = {
     e.stopPropagation();
     e.stopImmediatePropagation();
     this._clearHighlight();
-    ColorPopover.show(el);
+    console.log('[ColorCustomizer] Element clicked:', el.tagName, el.className);
+    try {
+      ColorPopover.show(el);
+    } catch (err) {
+      console.error('[ColorCustomizer] Popover show failed:', err);
+    }
   },
 
   _clearHighlight: function () {
@@ -616,6 +621,7 @@ var ColorPopover = {
 
   _create: function () {
     if (this.el) return;
+    console.log('[ColorCustomizer] Creating popover DOM');
     var pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
       h('span.us-pop-label', '要素'),
       h('span.us-pop-selector-text', { id: 'us-pop-sel' }),
@@ -638,6 +644,7 @@ var ColorPopover = {
     document.body.appendChild(pop);
     this.el = pop;
     this._bindEvents();
+    console.log('[ColorCustomizer] Popover DOM created and appended');
   },
 
   _bindEvents: function () {
@@ -691,7 +698,8 @@ var ColorPopover = {
     this._setColorInputs(this._rgbToHex(computed));
     this._originalValue = computed;
 
-    // Position near element
+    // Position near element — use setProperty with !important
+    // because #us-cc-popover has 'all: initial !important'
     var rect = el.getBoundingClientRect();
     var popW = 240;
     var popH = 220;
@@ -702,9 +710,10 @@ var ColorPopover = {
     }
     left = Math.max(8, left);
 
-    this.el.style.left = left + 'px';
-    this.el.style.top = top + 'px';
+    this.el.style.setProperty('left', left + 'px', 'important');
+    this.el.style.setProperty('top', top + 'px', 'important');
     this.el.classList.add('us-visible');
+    console.log('[ColorCustomizer] Popover shown at', left, top);
   },
 
   hide: function () {
