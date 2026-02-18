@@ -3,8 +3,8 @@
  * Provides comprehensive color customization capabilities for web pages
  */
 
-(function () {
-  'use strict';
+
+// ESM化
 
   // =========================
   // RPC Client (based on README.md specs)
@@ -352,8 +352,41 @@
   var UI = {
     modal: null,
     isVisible: false,
+    cornerButton: null,
 
+    createCornerButton: function() {
+      if (this.cornerButton) return this.cornerButton;
+      var btn = document.createElement('button');
+      btn.textContent = '🎨';
+      btn.title = 'カスタマイズ';
+      btn.style.cssText = [
+        'position:fixed',
+        'bottom:20px',
+        'right:20px',
+        'z-index:1000000',
+        'width:48px',
+        'height:48px',
+        'border-radius:50%',
+        'background:#fff',
+        'box-shadow:0 2px 8px rgba(0,0,0,0.15)',
+        'border:none',
+        'font-size:24px',
+        'cursor:pointer',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'padding:0',
+        'transition:box-shadow 0.2s',
+      ].join(';');
+      btn.addEventListener('click', function() {
+        UI.show();
+      });
+      document.body.appendChild(btn);
+      this.cornerButton = btn;
+      return btn;
+    },
     createModal: function() {
+      this.createCornerButton();
       if (this.modal) return this.modal;
 
       // Create modal container
@@ -553,10 +586,9 @@
       if (!this.modal) {
         this.createModal();
       }
-
+      if (this.cornerButton) this.cornerButton.style.display = 'none';
       await ColorCustomizer.loadSettings();
       this.updateForm();
-
       this.modal.style.display = 'flex';
       this.isVisible = true;
     },
@@ -566,6 +598,7 @@
         this.modal.style.display = 'none';
       }
       this.isVisible = false;
+      if (this.cornerButton) this.cornerButton.style.display = '';
     },
 
     toggle: function() {
@@ -587,13 +620,8 @@
         await ColorCustomizer.loadSettings();
         await ColorCustomizer.applyStyles();
         
-        // Add keyboard shortcut (Ctrl+Shift+C)
-        document.addEventListener('keydown', function(e) {
-          if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-            e.preventDefault();
-            UI.toggle();
-          }
-        });
+
+        // ショートカット起動は廃止。UIは画面隅ボタンで起動。
 
         console.log('[ColorCustomizer] Initialized successfully for domain:', ColorCustomizer.currentDomain);
         return true;
@@ -649,4 +677,6 @@
     // Additional global initialization can go here
   };
 
-})();
+
+// ESM用: exportは空（グローバルwindow.UserScriptsは維持）
+export {};

@@ -397,7 +397,9 @@
     if (exists) return;
 
     var s = document.createElement('script');
+
     s.src = SRC;
+    s.type = 'module';
     s.async = true;
     s.defer = true;
     s.setAttribute('data-userscripts-loader', '1');
