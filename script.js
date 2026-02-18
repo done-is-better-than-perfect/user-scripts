@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.5.1';
+var US_VERSION = '1.5.2';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -372,14 +372,17 @@ var Styles = {
       '#us-cc-tab:hover { width: 32px !important; background: rgba(50,50,50,0.9) !important; }',
       '#us-cc-tab svg { width: 14px !important; height: 14px !important; }',
       '#us-cc-tab.us-tab-active {',
-      '  border-color: rgba(59,130,246,0.6) !important;',
-      '  box-shadow: -2px 0 12px rgba(59,130,246,0.3), inset 0 0 8px rgba(59,130,246,0.15) !important;',
+      '  border-color: rgba(59,130,246,0.7) !important;',
+      '  background: rgba(30,60,120,0.9) !important;',
+      '  width: 28px !important;',
+      '  box-shadow: -3px 0 16px rgba(59,130,246,0.4), inset 0 0 10px rgba(59,130,246,0.2) !important;',
       '  animation: us-tab-pulse 2s ease-in-out infinite !important;',
       '}',
       '@keyframes us-tab-pulse {',
-      '  0%, 100% { box-shadow: -2px 0 12px rgba(59,130,246,0.3), inset 0 0 8px rgba(59,130,246,0.15); }',
-      '  50% { box-shadow: -2px 0 18px rgba(59,130,246,0.5), inset 0 0 12px rgba(59,130,246,0.25); }',
+      '  0%, 100% { box-shadow: -3px 0 16px rgba(59,130,246,0.4), inset 0 0 10px rgba(59,130,246,0.2); }',
+      '  50% { box-shadow: -3px 0 24px rgba(59,130,246,0.6), inset 0 0 16px rgba(59,130,246,0.35); }',
       '}',
+      '#us-cc-tab.us-tab-active svg rect { fill: #93c5fd !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
@@ -726,7 +729,21 @@ var Styles = {
       '}',
       '#us-cc-panel .us-prof-editor-actions button {',
       '  all: initial !important; cursor: pointer !important; font-family: inherit !important;',
-      '  font-size: 11px !important; padding: 4px 10px !important; border-radius: 4px !important;',
+      '  font-size: 11px !important; padding: 5px 12px !important; border-radius: 4px !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor-actions .us-prof-btn-cancel {',
+      '  background: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.6) !important;',
+      '  border: 1px solid rgba(255,255,255,0.12) !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor-actions .us-prof-btn-cancel:hover {',
+      '  background: rgba(255,255,255,0.15) !important; color: rgba(255,255,255,0.8) !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor-actions .us-prof-btn-save {',
+      '  background: rgba(59,130,246,0.3) !important; color: #93c5fd !important;',
+      '  border: 1px solid rgba(59,130,246,0.4) !important; font-weight: 600 !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor-actions .us-prof-btn-save:hover {',
+      '  background: rgba(59,130,246,0.45) !important;',
       '}',
       '#us-cc-panel .us-prof-btn-add-color {',
       '  all: initial !important; cursor: pointer !important; font-family: inherit !important;',
@@ -1154,8 +1171,8 @@ var Panel = {
       colorsList.appendChild(self._makeColorRow('#888888', '', idx));
     });
 
-    var cancelBtn = h('button', { style: 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.08)' }, 'キャンセル');
-    var saveBtn = h('button', { style: 'background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.25)' }, '保存');
+    var cancelBtn = h('button.us-prof-btn-cancel', 'キャンセル');
+    var saveBtn = h('button.us-prof-btn-save', '保存');
 
     cancelBtn.addEventListener('click', function () {
       while (slot.firstChild) slot.removeChild(slot.firstChild);
