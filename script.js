@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.3';
+var US_VERSION = '1.6.5';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -161,8 +161,7 @@ var RulesManager = {
         console.log('[ColorCustomizer] Imported ' + count + ' rules and saved');
       } catch (e) {
         console.error('[ColorCustomizer] Failed to save imported rules:', e);
-        alert('ルールの保存に失敗しました: ' + e);
-        return 0;
+        throw new Error('ルールの保存に失敗しました: ' + (e && e.message ? e.message : e));
       }
     }
     return count;
@@ -720,6 +719,48 @@ var Styles = {
       '}',
       '#us-cc-popover .us-pop-btn-apply:hover { background: rgba(59,130,246,0.3) !important; }',
 
+      /* ── Import result toast ── */
+      '#us-cc-import-toast-backdrop {',
+      '  all: initial !important; position: fixed !important; inset: 0 !important;',
+      '  z-index: 2147483648 !important;',
+      '  background: rgba(0,0,0,0.4) !important;',
+      '  backdrop-filter: blur(4px) !important; -webkit-backdrop-filter: blur(4px) !important;',
+      '  display: none !important; opacity: 0 !important;',
+      '  transition: opacity 0.2s ease !important;',
+      '}',
+      '#us-cc-import-toast-backdrop.us-visible { display: block !important; opacity: 1 !important; }',
+      '#us-cc-import-toast-box {',
+      '  all: initial !important; position: fixed !important; left: 50% !important; top: 50% !important;',
+      '  transform: translate(-50%, -50%) !important; z-index: 2147483649 !important;',
+      '  background: rgba(38,38,40,0.98) !important;',
+      '  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
+      '  border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 12px !important;',
+      '  padding: 20px !important; min-width: 260px !important; max-width: 90vw !important;',
+      '  color: rgba(255,255,255,0.9) !important; font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 13px !important; line-height: 1.5 !important;',
+      '  box-shadow: 0 12px 40px rgba(0,0,0,0.5) !important;',
+      '}',
+      '#us-cc-import-toast-box .us-import-toast-title {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 14px !important; font-weight: 600 !important; color: #fff !important;',
+      '  margin-bottom: 10px !important;',
+      '}',
+      '#us-cc-import-toast-box .us-import-toast-body {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 12px !important; color: rgba(255,255,255,0.75) !important;',
+      '  margin-bottom: 16px !important; white-space: pre-wrap !important; word-break: break-word !important;',
+      '}',
+      '#us-cc-import-toast-box.us-error .us-import-toast-title { color: #ff453a !important; }',
+      '#us-cc-import-toast-box .us-import-toast-ok {',
+      '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  padding: 8px 20px !important; font-family: inherit !important; font-size: 12px !important; font-weight: 500 !important;',
+      '  border-radius: 8px !important; cursor: pointer !important;',
+      '  background: rgba(59,130,246,0.25) !important; color: #60a5fa !important;',
+      '  border: 1px solid rgba(59,130,246,0.35) !important; width: 100% !important;',
+      '  transition: background 0.15s !important;',
+      '}',
+      '#us-cc-import-toast-box .us-import-toast-ok:hover { background: rgba(59,130,246,0.35) !important; }',
+
       /* ── Profile management (Panel) ── */
       '#us-cc-panel .us-p-section-title {',
       '  all: initial !important; display: flex !important; align-items: center !important;',
@@ -1204,16 +1245,63 @@ var Panel = {
       h('div.us-prof-list', { id: 'us-p-prof-list' }),
       h('div', { id: 'us-p-prof-editor-slot' }),
       h('div.us-p-footer',
-        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア'),
         h('div.us-p-footer-row',
           h('button.us-btn.us-btn-secondary', { id: 'us-p-export' }, 'エクスポート'),
           h('button.us-btn.us-btn-secondary', { id: 'us-p-import' }, 'インポート')
-        )
+        ),
+        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア')
       )
     );
     document.body.appendChild(p);
     this.el = p;
+
+    // Import result toast (own UI instead of window.alert)
+    var toastBackdrop = h('div', { id: 'us-cc-import-toast-backdrop', 'data-us-cc': 'import-toast' });
+    var toastTitle = h('div', { className: 'us-import-toast-title' }, '');
+    var toastBody = h('div', { className: 'us-import-toast-body' }, '');
+    var toastBox = h('div', { id: 'us-cc-import-toast-box' }, toastTitle, toastBody, h('button', { className: 'us-import-toast-ok' }, 'OK'));
+    toastBackdrop.appendChild(toastBox);
+    document.body.appendChild(toastBackdrop);
+    this._importToastBackdrop = toastBackdrop;
+    this._importToastBox = toastBox;
+    this._importToastTitle = toastTitle;
+    this._importToastBody = toastBody;
+
     this._bindEvents();
+  },
+
+  _showImportResult: function (success, data) {
+    var self = this;
+    var backdrop = this._importToastBackdrop;
+    var box = this._importToastBox;
+    var titleEl = this._importToastTitle;
+    var bodyEl = this._importToastBody;
+    if (!backdrop || !box) return;
+
+    if (success) {
+      box.classList.remove('us-error');
+      titleEl.textContent = 'インポートが完了しました';
+      bodyEl.textContent = 'ルール: ' + (data.rulesCount || 0) + '件\nプロファイル: ' + (data.profilesCount || 0) + '件';
+    } else {
+      box.classList.add('us-error');
+      titleEl.textContent = 'インポートに失敗しました';
+      bodyEl.textContent = (data && data.error) ? String(data.error) : '不明なエラー';
+    }
+
+    backdrop.classList.add('us-visible');
+
+    function hide() {
+      backdrop.classList.remove('us-visible');
+      backdrop.removeEventListener('click', onBackdropClick);
+      box.querySelector('.us-import-toast-ok').removeEventListener('click', onOkClick);
+    }
+    function onBackdropClick(e) {
+      if (e.target === backdrop) hide();
+    }
+    function onOkClick() { hide(); }
+
+    backdrop.addEventListener('click', onBackdropClick);
+    box.querySelector('.us-import-toast-ok').addEventListener('click', onOkClick);
   },
 
   _bindEvents: function () {
@@ -1288,10 +1376,14 @@ var Panel = {
               self.refreshRules();
               self.refreshProfiles();
               console.log('[ColorCustomizer] Import complete');
-              alert('インポートが完了しました\nルール: ' + rulesCount + '件\nプロファイル: ' + profilesCount + '件');
+              self._showImportResult(true, { rulesCount: rulesCount, profilesCount: profilesCount });
+            }).catch(function (e) {
+              console.error('[ColorCustomizer] Import failed:', e);
+              self._showImportResult(false, { error: e && e.message ? e.message : String(e) });
             });
           } catch (e) {
             console.error('[ColorCustomizer] Import failed:', e);
+            self._showImportResult(false, { error: e && e.message ? e.message : String(e) });
           }
         };
         reader.readAsText(file);
