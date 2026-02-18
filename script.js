@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.24';
+var US_VERSION = '1.6.25';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1663,7 +1663,7 @@ var Tab = {
     if (this.el) return;
     Styles.inject();
 
-    var toggleWrap = h('div', { className: 'us-cc-tab-toggle-wrap', 'data-us-cc': 'tab-toggle' });
+    var toggleWrap = h('div.us-cc-tab-toggle-wrap', { 'data-us-cc': 'tab-toggle' });
     var switchLabel = document.createElement('label');
     switchLabel.className = 'us-switch';
     var tabEditCheck = h('input', { type: 'checkbox', id: 'us-cc-tab-edit-toggle', title: 'Edit Mode' });
@@ -1671,9 +1671,9 @@ var Tab = {
     switchLabel.appendChild(h('span.us-slider'));
     toggleWrap.appendChild(switchLabel);
 
-    var iconWrap = h('div', { className: 'us-cc-tab-icon', title: 'Color Customizer 設定' });
+    var iconWrap = h('div.us-cc-tab-icon', { title: 'Color Customizer 設定' });
     var row = h('div.us-cc-tab-icon-row', {});
-    var textSpan = h('span', { className: 'us-cc-tab-text' });
+    var textSpan = h('span.us-cc-tab-text', {});
     textSpan.appendChild(document.createTextNode('あAa'));
     row.appendChild(textSpan);
     row.appendChild(h('div.us-cc-tab-swatch', { 'aria-hidden': 'true' }));
