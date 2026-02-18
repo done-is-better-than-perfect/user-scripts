@@ -5,6 +5,9 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
+var US_VERSION = '1.1.0';
+console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
+
 // =========================
 // 1. RPC Client
 // =========================
@@ -949,7 +952,7 @@ var ColorCustomizerFeature = {
 
 // Global API
 window.UserScripts = window.UserScripts || {};
-window.UserScripts.version = '1.0.0';
+window.UserScripts.version = US_VERSION;
 window.UserScripts.init = function () { console.log('[UserScripts] Core initialized'); };
 window.UserScripts.features = window.UserScripts.features || {};
 window.UserScripts.features.colorCustomizer = ColorCustomizerFeature;
