@@ -3,6 +3,15 @@
 本仕様は、**page world（外部 `script.js`）** から **content world（UserScript本体）** へ `window.postMessage` で呼び出す RPC を定義する。
 目的は、iPad Safari（Userscripts/Tampermonkey 等）における **GM_* / 特権API（Storage/XHR/CSS/Clipboard）** を page 側から安全かつ拡張可能に利用すること。
 
+### Loader ファイル
+
+| ファイル | 対象 |
+|----------|------|
+| `load.js` | Safari（Userscripts 等）。`@inject-into content` 使用。外部 script は `type="module"` で読み込み。 |
+| `load.tampermonkey.js` | Chrome Tampermonkey。メタデータは Tampermonkey 用。外部 script は `type="text/javascript"` で読み込み。 |
+
+いずれも同じ RPC 仕様に従い、`script.js` は両方の loader からそのまま利用可能。
+
 ---
 
 ## 1. 用語

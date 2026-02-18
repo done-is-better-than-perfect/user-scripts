@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.8';
+var US_VERSION = '1.6.10';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -13,46 +13,71 @@ console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new 
 // =========================
 var REQ_FLAG = '__US_RPC__';
 var REP_FLAG = '__US_RPC_REPLY__';
+var DOC_EVENT_REQUEST = 'us-rpc-request';
+var DOC_EVENT_REPLY = 'us-rpc-reply';
 
 function makeId() {
   return 'rpc_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
 }
 
+function sendRequest(req) {
+  window.postMessage(req, '*');
+  try {
+    document.dispatchEvent(new CustomEvent(DOC_EVENT_REQUEST, { detail: req }));
+  } catch (e) { }
+}
+
+function oneRpc(id, req, timeoutMs, methodLabel) {
+  return new Promise(function (resolve, reject) {
+    var done = false;
+    var timer = setTimeout(function () {
+      if (done) return;
+      done = true;
+      cleanup();
+      reject(new Error('RPC timeout: ' + methodLabel));
+    }, timeoutMs);
+
+    function onReply(d) {
+      if (!d || d[REP_FLAG] !== true || d.id !== id) return;
+      if (done) return;
+      done = true;
+      cleanup();
+      if (d.ok) resolve(d.result);
+      else reject(new Error(d.error || ('RPC error: ' + methodLabel)));
+    }
+
+    function onMessage(ev) {
+      if (ev.source !== window && ev.source !== window.top) return;
+      onReply(ev.data);
+    }
+
+    function onDocReply(ev) {
+      onReply(ev.detail);
+    }
+
+    function cleanup() {
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      document.removeEventListener(DOC_EVENT_REPLY, onDocReply);
+    }
+
+    window.addEventListener('message', onMessage);
+    document.addEventListener(DOC_EVENT_REPLY, onDocReply);
+    sendRequest(req);
+  });
+}
+
 function rpcCall(token, method, params, timeoutMs) {
   timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 15000;
   var id = makeId();
-  return new Promise(function (resolve, reject) {
-    var timer = setTimeout(function () { cleanup(); reject(new Error('RPC timeout: ' + method)); }, timeoutMs);
-    function onMsg(ev) {
-      if (ev.source !== window) return;
-      var d = ev.data;
-      if (!d || d[REP_FLAG] !== true || d.id !== id) return;
-      cleanup();
-      if (d.ok) resolve(d.result);
-      else reject(new Error(d.error || ('RPC error: ' + method)));
-    }
-    function cleanup() { clearTimeout(timer); window.removeEventListener('message', onMsg); }
-    window.addEventListener('message', onMsg);
-    window.postMessage({ [REQ_FLAG]: true, id: id, token: token, method: method, params: params || [] }, '*');
-  });
+  var req = { [REQ_FLAG]: true, id: id, token: token, method: method, params: params || [] };
+  return oneRpc(id, req, timeoutMs, method);
 }
 
 function handshake() {
   var id = makeId();
-  return new Promise(function (resolve, reject) {
-    var timer = setTimeout(function () { cleanup(); reject(new Error('RPC timeout: core.handshake')); }, 8000);
-    function onMsg(ev) {
-      if (ev.source !== window) return;
-      var d = ev.data;
-      if (!d || d[REP_FLAG] !== true || d.id !== id) return;
-      cleanup();
-      if (d.ok) resolve(d.result);
-      else reject(new Error(d.error || 'RPC error: core.handshake'));
-    }
-    function cleanup() { clearTimeout(timer); window.removeEventListener('message', onMsg); }
-    window.addEventListener('message', onMsg);
-    window.postMessage({ [REQ_FLAG]: true, id: id, token: '', method: 'core.handshake', params: [] }, '*');
-  });
+  var req = { [REQ_FLAG]: true, id: id, token: '', method: 'core.handshake', params: [] };
+  return oneRpc(id, req, 8000, 'core.handshake');
 }
 
 var RPC = {
