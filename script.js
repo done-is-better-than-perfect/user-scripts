@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.0';
+var US_VERSION = '1.6.1';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -139,6 +139,24 @@ var RulesManager = {
     return this._rules;
   },
 
+  async importRules(rules) {
+    if (!Array.isArray(rules)) return;
+    var self = this;
+    var count = 0;
+    rules.forEach(function (r) {
+      if (!r.selector || !r.property || !r.value) return;
+      var idx = self._rules.findIndex(function (x) { return x.selector === r.selector && x.property === r.property; });
+      if (idx >= 0) {
+        self._rules[idx] = r;
+      } else {
+        self._rules.push(r);
+      }
+      count++;
+    });
+    if (count > 0) await self.save();
+    console.log('[ColorCustomizer] Imported ' + count + ' rules');
+  },
+
   async save() {
     try {
       await RPC.call('storage.set', [this._key(), {
@@ -209,6 +227,30 @@ var ProfileManager = {
   },
 
   getProfiles: function () { return this._profiles.slice(); },
+
+  async importProfiles(profiles) {
+    if (!Array.isArray(profiles)) return;
+    var self = this;
+    var count = 0;
+    profiles.forEach(function (p) {
+      if (!p.name || !Array.isArray(p.colors)) return;
+      // Avoid exact duplicates
+      var exists = self._profiles.some(function (x) {
+        return x.name === p.name && JSON.stringify(x.colors) === JSON.stringify(p.colors);
+      });
+      if (exists) return;
+
+      var profile = {
+        id: 'prof_' + Math.random().toString(36).slice(2, 10),
+        name: p.name,
+        colors: p.colors
+      };
+      self._profiles.push(profile);
+      count++;
+    });
+    if (count > 0) await self.save();
+    console.log('[ColorCustomizer] Imported ' + count + ' profiles');
+  },
 
   async addProfile(name, colors) {
     var profile = {
@@ -1136,9 +1178,10 @@ var Panel = {
       };
       var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       var url = URL.createObjectURL(blob);
+      var ts = new Date().toISOString().replace(/[:.]/g, '-');
       var a = document.createElement('a');
       a.href = url;
-      a.download = 'color-customizer-' + window.location.hostname + '.json';
+      a.download = 'color-customizer-' + window.location.hostname + '-' + ts + '.json';
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -1158,19 +1201,11 @@ var Panel = {
             var promises = [];
             // Import rules
             if (Array.isArray(data.rules)) {
-              data.rules.forEach(function (r) {
-                if (r.selector && r.property && r.value) {
-                  promises.push(RulesManager.addRule(r.selector, r.property, r.value, r.mode || 'inline'));
-                }
-              });
+              promises.push(RulesManager.importRules(data.rules));
             }
             // Import profiles
             if (Array.isArray(data.profiles)) {
-              data.profiles.forEach(function (p) {
-                if (p.name && Array.isArray(p.colors)) {
-                  promises.push(ProfileManager.addProfile(p.name, p.colors));
-                }
-              });
+              promises.push(ProfileManager.importProfiles(data.profiles));
             }
             Promise.all(promises).then(function () {
               StyleApplier.clearAll();
@@ -1178,6 +1213,7 @@ var Panel = {
               self.refreshRules();
               self.refreshProfiles();
               console.log('[ColorCustomizer] Import complete');
+              alert('インポートが完了しました');
             });
           } catch (e) {
             console.error('[ColorCustomizer] Import failed:', e);
