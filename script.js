@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.11';
+var US_VERSION = '1.6.12';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -459,21 +459,20 @@ var Styles = {
       '  position: fixed !important; right: 0 !important; top: 50% !important;',
       '  transform: translateY(-50%) !important;',
       '  z-index: 2147483646 !important;',
-      '  width: 24px !important; height: 56px !important;',
+      '  width: 32px !important; min-height: 72px !important;',
       '  background: rgba(30,30,30,0.78) !important;',
       '  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;',
       '  border-radius: 6px 0 0 6px !important;',
       '  border: 1px solid rgba(255,255,255,0.08) !important; border-right: none !important;',
-      '  cursor: pointer !important;',
-      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;',
       '  transition: width 0.15s ease, background 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;',
       '}',
-      '#us-cc-tab:hover { width: 32px !important; background: rgba(50,50,50,0.9) !important; }',
+      '#us-cc-tab:hover { width: 40px !important; background: rgba(50,50,50,0.9) !important; }',
       '#us-cc-tab svg { width: 14px !important; height: 14px !important; }',
       '#us-cc-tab.us-tab-active {',
       '  border-color: rgba(59,130,246,0.7) !important;',
       '  background: rgba(30,60,120,0.9) !important;',
-      '  width: 28px !important;',
+      '  width: 36px !important;',
       '  box-shadow: -3px 0 16px rgba(59,130,246,0.4), inset 0 0 10px rgba(59,130,246,0.2) !important;',
       '  animation: us-tab-pulse 2s ease-in-out infinite !important;',
       '}',
@@ -482,6 +481,17 @@ var Styles = {
       '  50% { box-shadow: -3px 0 24px rgba(59,130,246,0.6), inset 0 0 16px rgba(59,130,246,0.35); }',
       '}',
       '#us-cc-tab.us-tab-active svg rect { fill: #93c5fd !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap {',
+      '  flex-shrink: 0 !important; padding: 6px 0 4px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '}',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 38px !important; height: 22px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 18px !important; height: 18px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(16px) !important; }',
+      '#us-cc-tab .us-cc-tab-icon {',
+      '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  min-height: 40px !important; cursor: pointer !important;',
+      '}',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
@@ -1648,31 +1658,32 @@ var Tab = {
       makeSvg('rect', { x: '9', y: '9', width: '6', height: '6', rx: '1', fill: '#34d399' })
     );
 
-    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab', title: 'Color Customizer（クリック: Edit Mode ON/OFF、ダブルクリック: 設定パネル）' });
-    tab.appendChild(svg);
-    (function () {
-      var pending = null;
-      tab.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (pending) {
-          clearTimeout(pending);
-          pending = null;
-          Panel.open();
-          return;
-        }
-        pending = setTimeout(function () {
-          pending = null;
-          if (EditMode.active) {
-            EditMode.disable();
-          } else {
-            EditMode.enable();
-          }
-        }, 280);
-      });
-    })();
+    var toggleWrap = h('div', { className: 'us-cc-tab-toggle-wrap', 'data-us-cc': 'tab-toggle' });
+    var switchLabel = document.createElement('label');
+    switchLabel.className = 'us-switch';
+    var tabEditCheck = h('input', { type: 'checkbox', id: 'us-cc-tab-edit-toggle', title: 'Edit Mode' });
+    switchLabel.appendChild(tabEditCheck);
+    switchLabel.appendChild(h('span.us-slider'));
+    toggleWrap.appendChild(switchLabel);
+
+    var iconWrap = h('div', { className: 'us-cc-tab-icon', title: 'Color Customizer 設定' });
+    iconWrap.appendChild(svg);
+
+    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
+    tab.appendChild(toggleWrap);
+    tab.appendChild(iconWrap);
+
+    toggleWrap.addEventListener('click', function (e) { e.stopPropagation(); });
+    switchLabel.addEventListener('click', function (e) { e.stopPropagation(); });
+    tabEditCheck.addEventListener('change', function () {
+      if (this.checked) EditMode.enable(); else EditMode.disable();
+    });
+
+    iconWrap.addEventListener('click', function () { Panel.open(); });
+
     document.body.appendChild(tab);
     this.el = tab;
+    this._tabEditCheck = tabEditCheck;
   },
 
   setActive: function (active) {
@@ -1682,6 +1693,7 @@ var Tab = {
     } else {
       this.el.classList.remove('us-tab-active');
     }
+    if (this._tabEditCheck) this._tabEditCheck.checked = !!active;
   }
 };
 
