@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.14';
+var US_VERSION = '1.6.15';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -459,7 +459,7 @@ var Styles = {
       '  position: fixed !important; right: 0 !important; top: 50% !important;',
       '  transform: translateY(-50%) !important;',
       '  z-index: 2147483646 !important;',
-      '  width: 40px !important; min-height: 88px !important;',
+      '  width: 48px !important; min-height: 88px !important;',
       '  background: rgba(255,255,255,0.12) !important;',
       '  backdrop-filter: blur(24px) saturate(180%) !important; -webkit-backdrop-filter: blur(24px) saturate(180%) !important;',
       '  border-radius: 12px 0 0 12px !important;',
@@ -468,7 +468,7 @@ var Styles = {
       '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important;',
       '  transition: width 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;',
       '}',
-      '#us-cc-tab:hover { width: 44px !important; background: rgba(255,255,255,0.16) !important; }',
+      '#us-cc-tab:hover { width: 52px !important; background: rgba(255,255,255,0.16) !important; }',
       '#us-cc-tab .us-cc-tab-icon {',
       '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
       '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
@@ -484,13 +484,13 @@ var Styles = {
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(59,130,246,0.95) !important; }',
       '#us-cc-tab .us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 6px 0 2px !important;',
+      '  flex-shrink: 0 !important; padding: 8px 0 4px !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 24px !important; height: 14px !important; min-width: 24px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 7px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 10px !important; height: 10px !important; left: 2px !important; top: 2px !important; transform: none !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(10px) !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 20px !important; height: 12px !important; min-width: 20px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 6px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 8px !important; height: 8px !important; left: 2px !important; top: 2px !important; transform: none !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(8px) !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
