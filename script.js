@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.4.0';
+var US_VERSION = '1.5.0';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -183,7 +183,61 @@ var RulesManager = {
 };
 
 // =========================
-// 4. StyleApplier
+// 4b. ProfileManager
+// =========================
+var ProfileManager = {
+  _storageKey: 'userscripts:features:colorCustomizer:profiles',
+  _profiles: [],
+
+  async load() {
+    try {
+      var data = await RPC.call('storage.get', [this._storageKey, null]);
+      this._profiles = (data && Array.isArray(data)) ? data : [];
+    } catch (e) {
+      console.warn('[ColorCustomizer] Failed to load profiles:', e);
+      this._profiles = [];
+    }
+    return this._profiles;
+  },
+
+  async save() {
+    try {
+      await RPC.call('storage.set', [this._storageKey, this._profiles]);
+    } catch (e) {
+      console.error('[ColorCustomizer] Failed to save profiles:', e);
+    }
+  },
+
+  getProfiles: function () { return this._profiles.slice(); },
+
+  async addProfile(name, colors) {
+    var profile = {
+      id: 'prof_' + Math.random().toString(36).slice(2, 10),
+      name: name || 'Untitled',
+      colors: colors || [{ value: '#3b82f6', name: '' }]
+    };
+    this._profiles.push(profile);
+    await this.save();
+    return profile;
+  },
+
+  async updateProfile(id, name, colors) {
+    var p = this._profiles.find(function (x) { return x.id === id; });
+    if (!p) return null;
+    p.name = name;
+    p.colors = colors;
+    await this.save();
+    return p;
+  },
+
+  async deleteProfile(id) {
+    this._profiles = this._profiles.filter(function (x) { return x.id !== id; });
+    await this.save();
+  }
+};
+
+// =========================
+// 5. StyleApplier
 // =========================
 var StyleApplier = {
   _applied: [], // { el, property, originalValue }
@@ -313,10 +367,19 @@ var Styles = {
       '  border: 1px solid rgba(255,255,255,0.08) !important; border-right: none !important;',
       '  cursor: pointer !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  transition: width 0.15s ease, background 0.15s ease !important;',
+      '  transition: width 0.15s ease, background 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;',
       '}',
       '#us-cc-tab:hover { width: 32px !important; background: rgba(50,50,50,0.9) !important; }',
       '#us-cc-tab svg { width: 14px !important; height: 14px !important; }',
+      '#us-cc-tab.us-tab-active {',
+      '  border-color: rgba(59,130,246,0.6) !important;',
+      '  box-shadow: -2px 0 12px rgba(59,130,246,0.3), inset 0 0 8px rgba(59,130,246,0.15) !important;',
+      '  animation: us-tab-pulse 2s ease-in-out infinite !important;',
+      '}',
+      '@keyframes us-tab-pulse {',
+      '  0%, 100% { box-shadow: -2px 0 12px rgba(59,130,246,0.3), inset 0 0 8px rgba(59,130,246,0.15); }',
+      '  50% { box-shadow: -2px 0 18px rgba(59,130,246,0.5), inset 0 0 12px rgba(59,130,246,0.25); }',
+      '}',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
@@ -478,8 +541,8 @@ var Styles = {
       '  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
       '  border: 1px solid rgba(255,255,255,0.1) !important;',
       '  border-radius: 12px !important; padding: 14px !important;',
-      '  width: 260px !important;',
-      '  overflow: hidden !important;',
+      '  width: 280px !important;',
+      '  overflow: visible !important;',
       '  color: rgba(255,255,255,0.9) !important;',
       '  font-family: system-ui, -apple-system, sans-serif !important;',
       '  font-size: 12px !important;',
@@ -496,47 +559,64 @@ var Styles = {
       '#us-cc-popover .us-pop-selector-text {',
       '  all: initial !important; display: block !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
-      '  color: rgba(255,255,255,0.45) !important; margin-bottom: 10px !important;',
+      '  color: rgba(255,255,255,0.45) !important; margin-bottom: 12px !important;',
       '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
       '}',
-      /* Property button group */
-      '#us-cc-popover .us-pop-props {',
-      '  display: flex !important; gap: 4px !important; margin-bottom: 10px !important; flex-wrap: wrap !important;',
+
+      /* ── Property rows (one per CSS property) ── */
+      '#us-cc-popover .us-pop-prop-row {',
+      '  display: flex !important; align-items: center !important; gap: 6px !important;',
+      '  margin-bottom: 6px !important; padding: 4px 0 !important;',
       '}',
-      '#us-cc-popover .us-pop-prop-btn {',
-      '  all: initial !important; display: inline-block !important; cursor: pointer !important;',
-      '  padding: 4px 8px !important; font-family: "SF Mono","Menlo",monospace !important;',
-      '  font-size: 10px !important; border-radius: 4px !important;',
-      '  background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.5) !important;',
-      '  border: 1px solid rgba(255,255,255,0.08) !important;',
-      '  transition: background 0.15s, color 0.15s, border-color 0.15s !important;',
+      '#us-cc-popover .us-pop-prop-label {',
+      '  all: initial !important; display: inline-block !important;',
+      '  width: 56px !important; flex-shrink: 0 !important;',
+      '  font-family: inherit !important; font-size: 11px !important;',
+      '  color: rgba(255,255,255,0.6) !important;',
       '}',
-      '#us-cc-popover .us-pop-prop-btn:hover {',
-      '  background: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.7) !important;',
-      '}',
-      '#us-cc-popover .us-pop-prop-btn.us-active {',
-      '  background: rgba(59,130,246,0.2) !important; color: #60a5fa !important;',
-      '  border-color: rgba(59,130,246,0.3) !important;',
-      '}',
-      '#us-cc-popover .us-pop-color-row {',
-      '  display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 12px !important;',
-      '}',
-      '#us-cc-popover input[type="color"] {',
-      '  all: initial !important; width: 36px !important; height: 36px !important;',
-      '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important;',
+      '#us-cc-popover .us-pop-prop-row input[type="color"] {',
+      '  all: initial !important; width: 28px !important; height: 28px !important;',
+      '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important;',
       '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
       '}',
-      '#us-cc-popover input[type="text"] {',
-      '  all: initial !important; flex: 1 !important;',
-      '  padding: 6px 8px !important;',
-      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 12px !important;',
+      '#us-cc-popover .us-pop-prop-row input[type="text"] {',
+      '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
+      '  padding: 4px 6px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
       '  color: rgba(255,255,255,0.8) !important;',
       '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
-      '  border-radius: 6px !important; outline: none !important;',
+      '  border-radius: 4px !important; outline: none !important;',
       '}',
-      '#us-cc-popover input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
+      '#us-cc-popover .us-pop-prop-row input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
+
+      /* ── Palette swatches ── */
+      '#us-cc-popover .us-pop-palette-section {',
+      '  margin-top: 8px !important; margin-bottom: 10px !important;',
+      '  border-top: 1px solid rgba(255,255,255,0.06) !important; padding-top: 8px !important;',
+      '}',
+      '#us-cc-popover .us-pop-palette-name {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 10px !important; color: rgba(255,255,255,0.35) !important;',
+      '  margin-bottom: 4px !important;',
+      '}',
+      '#us-cc-popover .us-pop-palette-row {',
+      '  display: flex !important; flex-wrap: wrap !important; gap: 4px !important;',
+      '  margin-bottom: 6px !important;',
+      '}',
+      '#us-cc-popover .us-pop-swatch {',
+      '  all: initial !important; width: 22px !important; height: 22px !important;',
+      '  border-radius: 4px !important; cursor: pointer !important;',
+      '  border: 1px solid rgba(255,255,255,0.12) !important;',
+      '  transition: transform 0.1s, box-shadow 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-swatch:hover {',
+      '  transform: scale(1.15) !important; box-shadow: 0 0 6px rgba(255,255,255,0.2) !important;',
+      '}',
+
+      /* ── Popover actions ── */
       '#us-cc-popover .us-pop-actions {',
       '  display: flex !important; gap: 8px !important; justify-content: flex-end !important;',
+      '  margin-top: 10px !important;',
       '}',
       '#us-cc-popover .us-pop-btn {',
       '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
@@ -552,6 +632,107 @@ var Styles = {
       '  border: 1px solid rgba(59,130,246,0.25) !important;',
       '}',
       '#us-cc-popover .us-pop-btn-apply:hover { background: rgba(59,130,246,0.3) !important; }',
+
+      /* ── Profile management (Panel) ── */
+      '#us-cc-panel .us-p-section-title {',
+      '  all: initial !important; display: flex !important; align-items: center !important;',
+      '  justify-content: space-between !important; font-family: inherit !important;',
+      '  font-size: 11px !important; font-weight: 600 !important;',
+      '  text-transform: uppercase !important; letter-spacing: 0.5px !important;',
+      '  color: rgba(255,255,255,0.4) !important;',
+      '  padding: 10px 16px 6px !important;',
+      '}',
+      '#us-cc-panel .us-p-section-title button {',
+      '  all: initial !important; cursor: pointer !important; font-family: inherit !important;',
+      '  font-size: 16px !important; color: rgba(59,130,246,0.7) !important;',
+      '  width: 22px !important; height: 22px !important; display: flex !important;',
+      '  align-items: center !important; justify-content: center !important;',
+      '  border-radius: 4px !important; transition: background 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-p-section-title button:hover { background: rgba(59,130,246,0.15) !important; }',
+      '#us-cc-panel .us-prof-list { padding: 0 12px 8px !important; }',
+      '#us-cc-panel .us-prof-item {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '  padding: 6px 8px !important; margin-bottom: 3px !important;',
+      '  background: rgba(255,255,255,0.04) !important; border: 1px solid rgba(255,255,255,0.06) !important;',
+      '  border-radius: 6px !important; cursor: default !important;',
+      '}',
+      '#us-cc-panel .us-prof-item:hover { background: rgba(255,255,255,0.07) !important; }',
+      '#us-cc-panel .us-prof-swatches {',
+      '  display: flex !important; gap: 2px !important; flex: 1 !important; flex-wrap: wrap !important; min-width: 0 !important;',
+      '}',
+      '#us-cc-panel .us-prof-sw {',
+      '  all: initial !important; width: 14px !important; height: 14px !important;',
+      '  border-radius: 3px !important; border: 1px solid rgba(255,255,255,0.1) !important;',
+      '}',
+      '#us-cc-panel .us-prof-name {',
+      '  all: initial !important; font-family: inherit !important;',
+      '  font-size: 11px !important; color: rgba(255,255,255,0.7) !important;',
+      '  white-space: nowrap !important; min-width: 0 !important; flex-shrink: 1 !important;',
+      '  overflow: hidden !important; text-overflow: ellipsis !important;',
+      '}',
+      '#us-cc-panel .us-prof-actions { display: flex !important; gap: 2px !important; flex-shrink: 0 !important; }',
+      '#us-cc-panel .us-prof-actions button {',
+      '  all: initial !important; cursor: pointer !important; font-size: 11px !important;',
+      '  color: rgba(255,255,255,0.3) !important; width: 20px !important; height: 20px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  border-radius: 3px !important; transition: background 0.15s, color 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-prof-actions button:hover { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.6) !important; }',
+
+      /* Profile editor inline form */
+      '#us-cc-panel .us-prof-editor {',
+      '  padding: 8px 12px !important;',
+      '  border: 1px solid rgba(59,130,246,0.2) !important; border-radius: 8px !important;',
+      '  margin: 4px 12px 8px !important; background: rgba(0,0,0,0.15) !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor input[type="text"] {',
+      '  all: initial !important; display: block !important; width: 100% !important;',
+      '  padding: 5px 8px !important; margin-bottom: 8px !important;',
+      '  font-family: inherit !important; font-size: 12px !important;',
+      '  color: rgba(255,255,255,0.9) !important;',
+      '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.1) !important;',
+      '  border-radius: 4px !important; outline: none !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
+      '#us-cc-panel .us-prof-color-item {',
+      '  display: flex !important; align-items: center !important; gap: 4px !important;',
+      '  margin-bottom: 4px !important;',
+      '}',
+      '#us-cc-panel .us-prof-color-item input[type="color"] {',
+      '  all: initial !important; width: 24px !important; height: 24px !important;',
+      '  border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 4px !important;',
+      '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-prof-color-item input[type="text"] {',
+      '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
+      '  padding: 3px 6px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
+      '  color: rgba(255,255,255,0.8) !important;',
+      '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
+      '  border-radius: 3px !important; outline: none !important;',
+      '}',
+      '#us-cc-panel .us-prof-color-item button {',
+      '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.3) !important;',
+      '  font-size: 12px !important; width: 18px !important; height: 18px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  border-radius: 3px !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-prof-color-item button:hover { color: #ff453a !important; }',
+      '#us-cc-panel .us-prof-editor-actions {',
+      '  display: flex !important; gap: 6px !important; margin-top: 8px !important;',
+      '  justify-content: flex-end !important;',
+      '}',
+      '#us-cc-panel .us-prof-editor-actions button {',
+      '  all: initial !important; cursor: pointer !important; font-family: inherit !important;',
+      '  font-size: 11px !important; padding: 4px 10px !important; border-radius: 4px !important;',
+      '}',
+      '#us-cc-panel .us-prof-btn-add-color {',
+      '  all: initial !important; cursor: pointer !important; font-family: inherit !important;',
+      '  font-size: 11px !important; color: rgba(59,130,246,0.7) !important;',
+      '  margin-bottom: 4px !important; display: block !important;',
+      '}',
+      '#us-cc-panel .us-prof-btn-add-color:hover { color: #60a5fa !important; }',
     ].join('\n');
   }
 };
@@ -574,6 +755,7 @@ var EditMode = {
     document.addEventListener('mouseover', this._boundHover, true);
     document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
     document.addEventListener('click', this._boundClick, true);
+    Tab.setActive(true);
   },
 
   disable: function () {
@@ -584,6 +766,7 @@ var EditMode = {
     document.removeEventListener('click', this._boundClick, true);
     this._boundHover = null;
     this._boundClick = null;
+    Tab.setActive(false);
   },
 
   _isOurUI: function (el) {
@@ -628,41 +811,42 @@ var EditMode = {
 // =========================
 // 8. ColorPopover
 // =========================
-var PROP_OPTIONS = [
-  { value: 'background-color', label: '背景' },
-  { value: 'color', label: '文字' },
-  { value: 'border-color', label: 'ボーダー' }
+var PROP_LIST = [
+  { key: 'background-color', label: '背景' },
+  { key: 'color', label: '文字' },
+  { key: 'border-color', label: 'ボーダー' }
 ];
 
 var ColorPopover = {
   el: null,
   _currentTarget: null,
-  _originalValue: null,
-  _selectedProp: 'background-color',
+  _lastActiveProp: 'background-color',
 
   _create: function () {
     if (this.el) return;
     console.log('[ColorCustomizer] Creating popover DOM');
 
-    // Build property buttons
-    var propsDiv = h('div.us-pop-props', { id: 'us-pop-props' });
-    var self = this;
-    PROP_OPTIONS.forEach(function (opt) {
-      var btn = h('button.us-pop-prop-btn', { 'data-prop': opt.value }, opt.label);
-      if (opt.value === self._selectedProp) btn.classList.add('us-active');
-      propsDiv.appendChild(btn);
+    // Build property rows
+    var propsContainer = h('div', { id: 'us-pop-props' });
+    PROP_LIST.forEach(function (p) {
+      propsContainer.appendChild(
+        h('div.us-pop-prop-row', { 'data-prop-key': p.key },
+          h('span.us-pop-prop-label', p.label),
+          h('input', { type: 'color', 'data-role': 'picker', value: '#000000' }),
+          h('input', { type: 'text', 'data-role': 'hex', placeholder: '#000000' })
+        )
+      );
     });
+
+    // Palette container (filled dynamically)
+    var paletteContainer = h('div', { id: 'us-pop-palette' });
 
     var pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
       h('span.us-pop-label', '要素'),
       h('span.us-pop-selector-text', { id: 'us-pop-sel' }),
       h('span.us-pop-label', 'プロパティ'),
-      propsDiv,
-      h('span.us-pop-label', 'カラー'),
-      h('div.us-pop-color-row',
-        h('input', { type: 'color', id: 'us-pop-color', value: '#3b82f6' }),
-        h('input', { type: 'text', id: 'us-pop-hex', placeholder: '#000000' })
-      ),
+      propsContainer,
+      paletteContainer,
       h('div.us-pop-actions',
         h('button.us-pop-btn.us-pop-btn-cancel', { id: 'us-pop-cancel' }, '取消'),
         h('button.us-pop-btn.us-pop-btn-apply', { id: 'us-pop-apply' }, '適用')
@@ -676,72 +860,72 @@ var ColorPopover = {
 
   _bindEvents: function () {
     var self = this;
-    var colorInput = this.el.querySelector('#us-pop-color');
-    var hexInput = this.el.querySelector('#us-pop-hex');
 
-    colorInput.addEventListener('input', function () {
-      hexInput.value = this.value;
-      self._preview();
-    });
+    // Color picker <-> hex input sync per row
+    var rows = this.el.querySelectorAll('.us-pop-prop-row');
+    for (var i = 0; i < rows.length; i++) {
+      (function (row) {
+        var picker = row.querySelector('[data-role="picker"]');
+        var hex = row.querySelector('[data-role="hex"]');
+        picker.addEventListener('input', function () {
+          hex.value = this.value;
+          self._lastActiveProp = row.getAttribute('data-prop-key');
+          self._previewOne(row);
+        });
+        hex.addEventListener('input', function () {
+          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) picker.value = this.value;
+          self._lastActiveProp = row.getAttribute('data-prop-key');
+          self._previewOne(row);
+        });
+        hex.addEventListener('focus', function () {
+          self._lastActiveProp = row.getAttribute('data-prop-key');
+        });
+      })(rows[i]);
+    }
 
-    hexInput.addEventListener('input', function () {
-      if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
-        colorInput.value = this.value;
+    // Palette swatch click (delegated)
+    this.el.querySelector('#us-pop-palette').addEventListener('click', function (e) {
+      var sw = e.target.closest('.us-pop-swatch');
+      if (!sw) return;
+      var color = sw.getAttribute('data-color');
+      if (!color) return;
+      var targetRow = self.el.querySelector('[data-prop-key="' + self._lastActiveProp + '"]');
+      if (targetRow) {
+        targetRow.querySelector('[data-role="picker"]').value = color;
+        targetRow.querySelector('[data-role="hex"]').value = color;
+        self._previewOne(targetRow);
       }
-      self._preview();
     });
 
-    // Property buttons — delegated click
-    this.el.querySelector('#us-pop-props').addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-prop]');
-      if (!btn) return;
-      // Update active state
-      var all = self.el.querySelectorAll('.us-pop-prop-btn');
-      for (var i = 0; i < all.length; i++) all[i].classList.remove('us-active');
-      btn.classList.add('us-active');
-      self._selectedProp = btn.getAttribute('data-prop');
-      // Update color to match current computed value
-      if (self._currentTarget) {
-        var current = getComputedStyle(self._currentTarget).getPropertyValue(self._selectedProp);
-        self._setColorInputs(self._rgbToHex(current));
-      }
-    });
-
-    this.el.querySelector('#us-pop-cancel').addEventListener('click', function () {
-      self.hide();
-    });
-
-    this.el.querySelector('#us-pop-apply').addEventListener('click', function () {
-      self._apply();
-    });
+    this.el.querySelector('#us-pop-cancel').addEventListener('click', function () { self.hide(); });
+    this.el.querySelector('#us-pop-apply').addEventListener('click', function () { self._apply(); });
   },
 
   show: function (el) {
     this._create();
     this._currentTarget = el;
 
-    // Selector
     var selector = SelectorEngine.generate(el);
     this.el.querySelector('#us-pop-sel').textContent = selector;
     this.el.querySelector('#us-pop-sel').title = selector;
 
-    // Read current computed color for selected property
-    var prop = this._selectedProp;
-    var computed = getComputedStyle(el).getPropertyValue(prop);
-    this._setColorInputs(this._rgbToHex(computed));
-    this._originalValue = computed;
-
-    // Sync active property button
-    var allBtns = this.el.querySelectorAll('.us-pop-prop-btn');
-    for (var i = 0; i < allBtns.length; i++) {
-      allBtns[i].classList.toggle('us-active', allBtns[i].getAttribute('data-prop') === prop);
+    // Fill each property row with the element's computed value
+    var rows = this.el.querySelectorAll('.us-pop-prop-row');
+    for (var i = 0; i < rows.length; i++) {
+      var propKey = rows[i].getAttribute('data-prop-key');
+      var computed = getComputedStyle(el).getPropertyValue(propKey);
+      var hex = this._rgbToHex(computed);
+      rows[i].querySelector('[data-role="picker"]').value = hex;
+      rows[i].querySelector('[data-role="hex"]').value = hex;
     }
 
-    // Position near element — use setProperty with !important
-    // because #us-cc-popover has 'all: initial !important'
+    // Build palette swatches from profiles
+    this._buildPalette();
+
+    // Position near element
     var rect = el.getBoundingClientRect();
-    var popW = 240;
-    var popH = 220;
+    var popW = 280;
+    var popH = 320;
     var left = Math.min(rect.left, window.innerWidth - popW - 16);
     var top = rect.bottom + 8;
     if (top + popH > window.innerHeight) {
@@ -755,36 +939,60 @@ var ColorPopover = {
     console.log('[ColorCustomizer] Popover shown at', left, top);
   },
 
+  _buildPalette: function () {
+    var container = this.el.querySelector('#us-pop-palette');
+    while (container.firstChild) container.removeChild(container.firstChild);
+    var profiles = ProfileManager.getProfiles();
+    if (profiles.length === 0) return;
+
+    profiles.forEach(function (prof) {
+      var section = h('div.us-pop-palette-section',
+        h('span.us-pop-palette-name', prof.name)
+      );
+      var row = h('div.us-pop-palette-row');
+      prof.colors.forEach(function (c) {
+        row.appendChild(
+          h('span.us-pop-swatch', {
+            style: 'background:' + c.value + ' !important',
+            'data-color': c.value,
+            title: c.name || c.value
+          })
+        );
+      });
+      section.appendChild(row);
+      container.appendChild(section);
+    });
+  },
+
   hide: function () {
-    if (this.el) {
-      this.el.classList.remove('us-visible');
-    }
+    if (this.el) this.el.classList.remove('us-visible');
     this._currentTarget = null;
   },
 
-  _preview: function () {
+  _previewOne: function (row) {
     if (!this._currentTarget) return;
-    var val = this.el.querySelector('#us-pop-hex').value || this.el.querySelector('#us-pop-color').value;
-    if (val) StyleApplier.previewOne(this._currentTarget, this._selectedProp, val);
+    var key = row.getAttribute('data-prop-key');
+    var val = row.querySelector('[data-role="hex"]').value || row.querySelector('[data-role="picker"]').value;
+    if (val) StyleApplier.previewOne(this._currentTarget, key, val);
   },
 
   async _apply() {
     if (!this._currentTarget) return;
-    var val = this.el.querySelector('#us-pop-hex').value || this.el.querySelector('#us-pop-color').value;
     var selector = SelectorEngine.generate(this._currentTarget);
+    if (!selector) { this.hide(); return; }
 
-    if (val && selector) {
-      await RulesManager.addRule(selector, this._selectedProp, val, 'inline');
-      StyleApplier.previewOne(this._currentTarget, this._selectedProp, val);
-      Panel.refreshRules();
+    var rows = this.el.querySelectorAll('.us-pop-prop-row');
+    for (var i = 0; i < rows.length; i++) {
+      var propKey = rows[i].getAttribute('data-prop-key');
+      var val = rows[i].querySelector('[data-role="hex"]').value || rows[i].querySelector('[data-role="picker"]').value;
+      var computed = this._rgbToHex(getComputedStyle(this._currentTarget).getPropertyValue(propKey));
+      if (val && val !== computed) {
+        await RulesManager.addRule(selector, propKey, val, 'inline');
+        StyleApplier.previewOne(this._currentTarget, propKey, val);
+      }
     }
+    Panel.refreshRules();
     this.hide();
-  },
-
-  _setColorInputs: function (hex) {
-    hex = hex || '#000000';
-    this.el.querySelector('#us-pop-color').value = hex;
-    this.el.querySelector('#us-pop-hex').value = hex;
   },
 
   _rgbToHex: function (rgb) {
@@ -805,6 +1013,8 @@ var Panel = {
   el: null,
   backdrop: null,
   _open: false,
+  _profileEditorEl: null,
+  _editingProfileId: null,
 
   _create: function () {
     if (this.el) return;
@@ -833,6 +1043,12 @@ var Panel = {
         switchLabel
       ),
       h('div.us-p-rules', { id: 'us-p-rules' }),
+      h('div.us-p-section-title', { 'data-us-cc': 'section' },
+        h('span', 'カラープロファイル'),
+        h('button', { id: 'us-p-prof-add', title: '新規追加' }, '+')
+      ),
+      h('div.us-prof-list', { id: 'us-p-prof-list' }),
+      h('div', { id: 'us-p-prof-editor-slot' }),
       h('div.us-p-footer',
         h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア')
       )
@@ -877,6 +1093,31 @@ var Panel = {
       });
     });
 
+    // Profile: add new
+    this.el.querySelector('#us-p-prof-add').addEventListener('click', function () {
+      self._editingProfileId = null;
+      self._showProfileEditor('', [{ value: '#3b82f6', name: '' }]);
+    });
+
+    // Profile list: delegate edit/delete
+    this.el.querySelector('#us-p-prof-list').addEventListener('click', function (e) {
+      var editBtn = e.target.closest('[data-prof-edit]');
+      var delBtn = e.target.closest('[data-prof-del]');
+      if (editBtn) {
+        var id = editBtn.getAttribute('data-prof-edit');
+        var prof = ProfileManager.getProfiles().find(function (p) { return p.id === id; });
+        if (prof) {
+          self._editingProfileId = id;
+          self._showProfileEditor(prof.name, prof.colors);
+        }
+      } else if (delBtn) {
+        var delId = delBtn.getAttribute('data-prof-del');
+        ProfileManager.deleteProfile(delId).then(function () {
+          self.refreshProfiles();
+        });
+      }
+    });
+
     // Escape key
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
@@ -889,10 +1130,86 @@ var Panel = {
     });
   },
 
+  _showProfileEditor: function (name, colors) {
+    var self = this;
+    var slot = this.el.querySelector('#us-p-prof-editor-slot');
+    while (slot.firstChild) slot.removeChild(slot.firstChild);
+
+    var nameInput = h('input', { type: 'text', placeholder: 'プロファイル名', value: name });
+    var colorsList = h('div', { id: 'us-prof-colors-list' });
+
+    // Build color rows
+    colors.forEach(function (c, i) {
+      colorsList.appendChild(self._makeColorRow(c.value, c.name, i));
+    });
+
+    var addBtn = h('button.us-prof-btn-add-color', '+ 色を追加');
+    addBtn.addEventListener('click', function () {
+      var idx = colorsList.children.length;
+      colorsList.appendChild(self._makeColorRow('#888888', '', idx));
+    });
+
+    var cancelBtn = h('button', { style: 'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.08)' }, 'キャンセル');
+    var saveBtn = h('button', { style: 'background:rgba(59,130,246,0.2);color:#60a5fa;border:1px solid rgba(59,130,246,0.25)' }, '保存');
+
+    cancelBtn.addEventListener('click', function () {
+      while (slot.firstChild) slot.removeChild(slot.firstChild);
+      self._editingProfileId = null;
+    });
+
+    saveBtn.addEventListener('click', function () {
+      var n = nameInput.value.trim() || 'Untitled';
+      var rows = colorsList.querySelectorAll('.us-prof-color-item');
+      var cs = [];
+      for (var r = 0; r < rows.length; r++) {
+        var cv = rows[r].querySelector('[data-role="prof-color"]').value;
+        var cn = rows[r].querySelector('[data-role="prof-name"]').value.trim();
+        cs.push({ value: cv, name: cn });
+      }
+      var promise;
+      if (self._editingProfileId) {
+        promise = ProfileManager.updateProfile(self._editingProfileId, n, cs);
+      } else {
+        promise = ProfileManager.addProfile(n, cs);
+      }
+      promise.then(function () {
+        while (slot.firstChild) slot.removeChild(slot.firstChild);
+        self._editingProfileId = null;
+        self.refreshProfiles();
+      });
+    });
+
+    var editor = h('div.us-prof-editor', { 'data-us-cc': 'prof-editor' },
+      nameInput,
+      colorsList,
+      addBtn,
+      h('div.us-prof-editor-actions', cancelBtn, saveBtn)
+    );
+    slot.appendChild(editor);
+  },
+
+  _makeColorRow: function (value, name) {
+    var row = h('div.us-prof-color-item',
+      h('input', { type: 'color', 'data-role': 'prof-color', value: value }),
+      h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' }),
+      h('button', { title: '削除' }, '✕')
+    );
+    row.querySelector('button').addEventListener('click', function () {
+      row.parentNode.removeChild(row);
+    });
+
+    // Sync color picker -> hex display
+    var colorPicker = row.querySelector('[data-role="prof-color"]');
+    var nameField = row.querySelector('[data-role="prof-name"]');
+    // We don't need hex sync here since it's just a picker + name
+
+    return row;
+  },
+
   open: function () {
     this._create();
     this.refreshRules();
-    // Sync toggle state
+    this.refreshProfiles();
     this.el.querySelector('#us-p-edit-toggle').checked = EditMode.active;
 
     this.backdrop.style.display = 'block';
@@ -915,8 +1232,6 @@ var Panel = {
     if (!this.el) return;
     var container = this.el.querySelector('#us-p-rules');
     var rules = RulesManager.getRules();
-
-    // Clear previous content
     while (container.firstChild) container.removeChild(container.firstChild);
 
     if (rules.length === 0) {
@@ -937,6 +1252,33 @@ var Panel = {
         )
       );
     });
+  },
+
+  refreshProfiles: function () {
+    if (!this.el) return;
+    var container = this.el.querySelector('#us-p-prof-list');
+    while (container.firstChild) container.removeChild(container.firstChild);
+    var profiles = ProfileManager.getProfiles();
+
+    if (profiles.length === 0) return;
+
+    profiles.forEach(function (prof) {
+      var swatches = h('span.us-prof-swatches');
+      prof.colors.forEach(function (c) {
+        swatches.appendChild(h('span.us-prof-sw', { style: 'background:' + c.value + ' !important', title: c.name || c.value }));
+      });
+
+      container.appendChild(
+        h('div.us-prof-item',
+          swatches,
+          h('span.us-prof-name', prof.name),
+          h('span.us-prof-actions',
+            h('button', { 'data-prof-edit': prof.id, title: '編集' }, '✎'),
+            h('button', { 'data-prof-del': prof.id, title: '削除' }, '✕')
+          )
+        )
+      );
+    });
   }
 };
 
@@ -950,7 +1292,6 @@ var Tab = {
     if (this.el) return;
     Styles.inject();
 
-    // Build SVG icon via namespace-aware API
     var svg = makeSvg('svg', { viewBox: '0 0 16 16' },
       makeSvg('rect', { x: '1', y: '1', width: '6', height: '6', rx: '1', fill: '#60a5fa' }),
       makeSvg('rect', { x: '9', y: '1', width: '6', height: '6', rx: '1', fill: '#f97316' }),
@@ -963,6 +1304,15 @@ var Tab = {
     );
     document.body.appendChild(tab);
     this.el = tab;
+  },
+
+  setActive: function (active) {
+    if (!this.el) return;
+    if (active) {
+      this.el.classList.add('us-tab-active');
+    } else {
+      this.el.classList.remove('us-tab-active');
+    }
   }
 };
 
@@ -977,10 +1327,11 @@ var ColorCustomizerFeature = {
     try {
       await RPC.init();
       await RulesManager.load();
+      await ProfileManager.load();
       StyleApplier.applyAll(RulesManager.getRules());
       Tab.create();
       this._initialized = true;
-      console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s) for ' + window.location.hostname);
+      console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname);
       return true;
     } catch (e) {
       console.error('[ColorCustomizer] Init failed:', e);
