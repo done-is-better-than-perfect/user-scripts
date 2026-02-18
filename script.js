@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.8';
+var US_VERSION = '1.6.9';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -24,7 +24,8 @@ function rpcCall(token, method, params, timeoutMs) {
   return new Promise(function (resolve, reject) {
     var timer = setTimeout(function () { cleanup(); reject(new Error('RPC timeout: ' + method)); }, timeoutMs);
     function onMsg(ev) {
-      if (ev.source !== window) return;
+      // Tampermonkey: reply may come from isolated world (ev.source !== window); accept same frame.
+      if (ev.source !== window && ev.source !== window.top) return;
       var d = ev.data;
       if (!d || d[REP_FLAG] !== true || d.id !== id) return;
       cleanup();
@@ -42,7 +43,8 @@ function handshake() {
   return new Promise(function (resolve, reject) {
     var timer = setTimeout(function () { cleanup(); reject(new Error('RPC timeout: core.handshake')); }, 8000);
     function onMsg(ev) {
-      if (ev.source !== window) return;
+      // Tampermonkey: reply may come from isolated world (ev.source !== window); accept same frame.
+      if (ev.source !== window && ev.source !== window.top) return;
       var d = ev.data;
       if (!d || d[REP_FLAG] !== true || d.id !== id) return;
       cleanup();

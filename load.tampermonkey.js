@@ -370,7 +370,8 @@
   }
 
   window.addEventListener('message', function (ev) {
-    if (ev.source !== window) return;
+    // Tampermonkey runs in isolated world: ev.source (page) !== window (sandbox). Accept main frame.
+    if (ev.source !== window && ev.source !== window.top) return;
 
     var data = ev.data;
     if (!data || data[REQ_FLAG] !== true) return;
