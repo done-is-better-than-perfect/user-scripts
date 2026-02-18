@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.16';
+var US_VERSION = '1.6.17';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -472,17 +472,18 @@ var Styles = {
       '#us-cc-tab .us-cc-tab-icon {',
       '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
       '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
-      '  writing-mode: vertical-rl !important; text-orientation: mixed !important;',
       '  flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important;',
       '  min-height: 44px !important; cursor: pointer !important; padding: 6px 0 8px !important;',
       '}',
       '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(0,0,0,0.75) !important; }',
+      '#us-cc-tab .us-cc-tab-text { writing-mode: vertical-rl !important; text-orientation: mixed !important; }',
       '#us-cc-tab .us-cc-tab-swatch {',
-      '  width: 10px !important; height: 6px !important; border-radius: 2px !important; overflow: hidden !important; flex-shrink: 0 !important;',
-      '  background: linear-gradient(to bottom, #60a5fa 0 2px, #94a3b8 2px 4px, #e2e8f0 4px 6px) !important;',
-      '  border: 1px solid rgba(0,0,0,0.12) !important;',
+      '  display: block !important; width: 12px !important; height: 8px !important; min-width: 12px !important; min-height: 8px !important;',
+      '  border-radius: 2px !important; overflow: hidden !important; flex-shrink: 0 !important;',
+      '  background: linear-gradient(to bottom, #3b82f6 0 2.67px, #64748b 2.67px 5.33px, #cbd5e1 5.33px 8px) !important;',
+      '  border: 1px solid rgba(0,0,0,0.25) !important; box-sizing: border-box !important;',
       '}',
-      '#us-cc-tab.us-tab-active .us-cc-tab-swatch { border-color: rgba(59,130,246,0.35) !important; }',
+      '#us-cc-tab.us-tab-active .us-cc-tab-swatch { border-color: rgba(59,130,246,0.5) !important; }',
       '#us-cc-tab.us-tab-active {',
       '  border-color: rgba(59,130,246,0.4) !important;',
       '  background: rgba(255,255,255,0.18) !important;',
@@ -493,10 +494,10 @@ var Styles = {
       '  flex-shrink: 0 !important; padding: 8px 0 4px !important; min-height: 22px !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 16px !important; height: 10px !important; min-width: 16px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 5px !important; background: rgba(0,0,0,0.2) !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider { background: #30d158 !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 6px !important; height: 6px !important; left: 2px !important; top: 2px !important; transform: none !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 12px !important; height: 8px !important; min-width: 12px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 4px !important; background: rgba(0,0,0,0.4) !important; border: 1px solid rgba(0,0,0,0.25) !important; box-sizing: border-box !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider { background: #30d158 !important; border-color: rgba(48,209,88,0.5) !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 4px !important; height: 4px !important; left: 1px !important; top: 1px !important; transform: none !important; background: #fff !important; border: 1px solid rgba(0,0,0,0.15) !important; box-sizing: border-box !important; }',
       '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(6px) !important; }',
 
       /* ── Edit-mode highlight ── */
@@ -1667,7 +1668,9 @@ var Tab = {
     toggleWrap.appendChild(switchLabel);
 
     var iconWrap = h('div', { className: 'us-cc-tab-icon', title: 'Color Customizer 設定' });
-    iconWrap.appendChild(document.createTextNode('あAa'));
+    var textSpan = h('span', { className: 'us-cc-tab-text' });
+    textSpan.appendChild(document.createTextNode('あAa'));
+    iconWrap.appendChild(textSpan);
     iconWrap.appendChild(h('div', { className: 'us-cc-tab-swatch', 'aria-hidden': 'true' }));
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
