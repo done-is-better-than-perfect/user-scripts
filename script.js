@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.3.0';
+var US_VERSION = '1.4.0';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -356,13 +356,18 @@ var Styles = {
 
       /* panel header */
       '#us-cc-panel .us-p-header {',
-      '  display: flex !important; align-items: center !important; justify-content: space-between !important;',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
       '  padding: 16px 16px 12px !important;',
       '  border-bottom: 1px solid rgba(255,255,255,0.08) !important; flex-shrink: 0 !important;',
       '}',
       '#us-cc-panel .us-p-title {',
       '  all: initial !important; font-family: inherit !important;',
       '  font-size: 15px !important; font-weight: 600 !important; color: #fff !important;',
+      '}',
+      '#us-cc-panel .us-p-version {',
+      '  all: initial !important; font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 10px !important; color: rgba(255,255,255,0.3) !important;',
+      '  flex: 1 !important;',
       '}',
       '#us-cc-panel .us-p-close {',
       '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.4) !important;',
@@ -473,7 +478,8 @@ var Styles = {
       '  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
       '  border: 1px solid rgba(255,255,255,0.1) !important;',
       '  border-radius: 12px !important; padding: 14px !important;',
-      '  width: 240px !important;',
+      '  width: 260px !important;',
+      '  overflow: hidden !important;',
       '  color: rgba(255,255,255,0.9) !important;',
       '  font-family: system-ui, -apple-system, sans-serif !important;',
       '  font-size: 12px !important;',
@@ -493,16 +499,25 @@ var Styles = {
       '  color: rgba(255,255,255,0.45) !important; margin-bottom: 10px !important;',
       '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
       '}',
-      '#us-cc-popover select {',
-      '  all: initial !important; display: block !important; width: 100% !important;',
-      '  padding: 6px 10px !important;',
-      '  background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.1) !important;',
-      '  border-radius: 6px !important; color: rgba(255,255,255,0.9) !important;',
-      '  font-family: inherit !important; font-size: 12px !important;',
-      '  outline: none !important; cursor: pointer !important;',
-      '  margin-bottom: 10px !important;',
+      /* Property button group */
+      '#us-cc-popover .us-pop-props {',
+      '  display: flex !important; gap: 4px !important; margin-bottom: 10px !important; flex-wrap: wrap !important;',
       '}',
-      '#us-cc-popover select option { background: #2c2c2e !important; color: #fff !important; }',
+      '#us-cc-popover .us-pop-prop-btn {',
+      '  all: initial !important; display: inline-block !important; cursor: pointer !important;',
+      '  padding: 4px 8px !important; font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 10px !important; border-radius: 4px !important;',
+      '  background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.5) !important;',
+      '  border: 1px solid rgba(255,255,255,0.08) !important;',
+      '  transition: background 0.15s, color 0.15s, border-color 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-btn:hover {',
+      '  background: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.7) !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-btn.us-active {',
+      '  background: rgba(59,130,246,0.2) !important; color: #60a5fa !important;',
+      '  border-color: rgba(59,130,246,0.3) !important;',
+      '}',
       '#us-cc-popover .us-pop-color-row {',
       '  display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 12px !important;',
       '}',
@@ -613,23 +628,36 @@ var EditMode = {
 // =========================
 // 8. ColorPopover
 // =========================
+var PROP_OPTIONS = [
+  { value: 'background-color', label: '背景' },
+  { value: 'color', label: '文字' },
+  { value: 'border-color', label: 'ボーダー' }
+];
+
 var ColorPopover = {
   el: null,
   _currentTarget: null,
   _originalValue: null,
+  _selectedProp: 'background-color',
 
   _create: function () {
     if (this.el) return;
     console.log('[ColorCustomizer] Creating popover DOM');
+
+    // Build property buttons
+    var propsDiv = h('div.us-pop-props', { id: 'us-pop-props' });
+    var self = this;
+    PROP_OPTIONS.forEach(function (opt) {
+      var btn = h('button.us-pop-prop-btn', { 'data-prop': opt.value }, opt.label);
+      if (opt.value === self._selectedProp) btn.classList.add('us-active');
+      propsDiv.appendChild(btn);
+    });
+
     var pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
       h('span.us-pop-label', '要素'),
       h('span.us-pop-selector-text', { id: 'us-pop-sel' }),
       h('span.us-pop-label', 'プロパティ'),
-      h('select', { id: 'us-pop-prop' },
-        h('option', { value: 'background-color' }, 'background-color'),
-        h('option', { value: 'color' }, 'color'),
-        h('option', { value: 'border-color' }, 'border-color')
-      ),
+      propsDiv,
       h('span.us-pop-label', 'カラー'),
       h('div.us-pop-color-row',
         h('input', { type: 'color', id: 'us-pop-color', value: '#3b82f6' }),
@@ -650,7 +678,6 @@ var ColorPopover = {
     var self = this;
     var colorInput = this.el.querySelector('#us-pop-color');
     var hexInput = this.el.querySelector('#us-pop-hex');
-    var propSelect = this.el.querySelector('#us-pop-prop');
 
     colorInput.addEventListener('input', function () {
       hexInput.value = this.value;
@@ -664,10 +691,18 @@ var ColorPopover = {
       self._preview();
     });
 
-    propSelect.addEventListener('change', function () {
-      // Read current value from element for this property
+    // Property buttons — delegated click
+    this.el.querySelector('#us-pop-props').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-prop]');
+      if (!btn) return;
+      // Update active state
+      var all = self.el.querySelectorAll('.us-pop-prop-btn');
+      for (var i = 0; i < all.length; i++) all[i].classList.remove('us-active');
+      btn.classList.add('us-active');
+      self._selectedProp = btn.getAttribute('data-prop');
+      // Update color to match current computed value
       if (self._currentTarget) {
-        var current = getComputedStyle(self._currentTarget).getPropertyValue(this.value);
+        var current = getComputedStyle(self._currentTarget).getPropertyValue(self._selectedProp);
         self._setColorInputs(self._rgbToHex(current));
       }
     });
@@ -690,12 +725,17 @@ var ColorPopover = {
     this.el.querySelector('#us-pop-sel').textContent = selector;
     this.el.querySelector('#us-pop-sel').title = selector;
 
-    // Read current computed color for default property
-    var propSelect = this.el.querySelector('#us-pop-prop');
-    var prop = propSelect.value;
+    // Read current computed color for selected property
+    var prop = this._selectedProp;
     var computed = getComputedStyle(el).getPropertyValue(prop);
     this._setColorInputs(this._rgbToHex(computed));
     this._originalValue = computed;
+
+    // Sync active property button
+    var allBtns = this.el.querySelectorAll('.us-pop-prop-btn');
+    for (var i = 0; i < allBtns.length; i++) {
+      allBtns[i].classList.toggle('us-active', allBtns[i].getAttribute('data-prop') === prop);
+    }
 
     // Position near element — use setProperty with !important
     // because #us-cc-popover has 'all: initial !important'
@@ -724,20 +764,18 @@ var ColorPopover = {
 
   _preview: function () {
     if (!this._currentTarget) return;
-    var prop = this.el.querySelector('#us-pop-prop').value;
     var val = this.el.querySelector('#us-pop-hex').value || this.el.querySelector('#us-pop-color').value;
-    if (val) StyleApplier.previewOne(this._currentTarget, prop, val);
+    if (val) StyleApplier.previewOne(this._currentTarget, this._selectedProp, val);
   },
 
   async _apply() {
     if (!this._currentTarget) return;
-    var prop = this.el.querySelector('#us-pop-prop').value;
     var val = this.el.querySelector('#us-pop-hex').value || this.el.querySelector('#us-pop-color').value;
     var selector = SelectorEngine.generate(this._currentTarget);
 
     if (val && selector) {
-      await RulesManager.addRule(selector, prop, val, 'inline');
-      StyleApplier.previewOne(this._currentTarget, prop, val);
+      await RulesManager.addRule(selector, this._selectedProp, val, 'inline');
+      StyleApplier.previewOne(this._currentTarget, this._selectedProp, val);
       Panel.refreshRules();
     }
     this.hide();
@@ -787,6 +825,7 @@ var Panel = {
     var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' },
       h('div.us-p-header',
         h('span.us-p-title', 'Color Customizer'),
+        h('span.us-p-version', 'v' + US_VERSION),
         h('button.us-p-close', { id: 'us-p-close' }, '\u00D7')
       ),
       h('div.us-p-toggle-row',
