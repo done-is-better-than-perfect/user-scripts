@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.7';
+var US_VERSION = '1.6.8';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -732,6 +732,7 @@ var Styles = {
       '#us-cc-import-toast-box {',
       '  all: initial !important; position: fixed !important; left: 50% !important; top: 50% !important;',
       '  transform: translate(-50%, -50%) !important; z-index: 2147483649 !important;',
+      '  box-sizing: border-box !important;',
       '  background: rgba(38,38,40,0.98) !important;',
       '  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
       '  border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 12px !important;',
@@ -752,7 +753,8 @@ var Styles = {
       '}',
       '#us-cc-import-toast-box.us-error .us-import-toast-title { color: #ff453a !important; }',
       '#us-cc-import-toast-box .us-import-toast-ok {',
-      '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  all: initial !important; box-sizing: border-box !important;',
+      '  display: inline-flex !important; align-items: center !important; justify-content: center !important;',
       '  padding: 8px 20px !important; font-family: inherit !important; font-size: 12px !important; font-weight: 500 !important;',
       '  border-radius: 8px !important; cursor: pointer !important;',
       '  background: rgba(59,130,246,0.25) !important; color: #60a5fa !important;',
