@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.6';
+var US_VERSION = '1.6.7';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1255,7 +1255,13 @@ var Panel = {
     document.body.appendChild(p);
     this.el = p;
 
-    // Import result toast (own UI instead of window.alert)
+    this._ensureImportToast();
+
+    this._bindEvents();
+  },
+
+  _ensureImportToast: function () {
+    if (this._importToastBackdrop && this._importToastBox) return;
     var toastBackdrop = h('div', { id: 'us-cc-import-toast-backdrop', 'data-us-cc': 'import-toast' });
     var toastTitle = h('div.us-import-toast-title', {}, '');
     var toastBody = h('div.us-import-toast-body', {}, '');
@@ -1266,12 +1272,10 @@ var Panel = {
     this._importToastBox = toastBox;
     this._importToastTitle = toastTitle;
     this._importToastBody = toastBody;
-
-    this._bindEvents();
   },
 
   _showImportResult: function (success, data) {
-    var self = this;
+    this._ensureImportToast();
     var backdrop = this._importToastBackdrop;
     var box = this._importToastBox;
     var titleEl = this._importToastTitle;
@@ -1288,7 +1292,10 @@ var Panel = {
       bodyEl.textContent = (data && data.error) ? String(data.error) : '不明なエラー';
     }
 
-    backdrop.classList.add('us-visible');
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(function () {
+      backdrop.classList.add('us-visible');
+    });
 
     var okBtn = box.querySelector('.us-import-toast-ok');
     function hide() {
