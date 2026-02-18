@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.20';
+var US_VERSION = '1.6.21';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -483,9 +483,8 @@ var Styles = {
       '#us-cc-tab .us-cc-tab-text { writing-mode: vertical-rl !important; text-orientation: mixed !important; }',
       '#us-cc-tab .us-cc-tab-swatch {',
       '  display: block !important; visibility: visible !important; width: 100% !important; height: 0.5em !important; min-height: 4px !important;',
-      '  border-radius: 2px !important; flex-shrink: 0 !important;',
-      '  background: #3b82f6 !important;',
-      '  background: linear-gradient(to right, #3b82f6 0%, #8b5cf6 33%, #64748b 66%, #cbd5e1 100%) !important;',
+      '  border-radius: 4px !important; flex-shrink: 0 !important;',
+      '  background: linear-gradient(to right, #f44336 0%, #e91e63 12.5%, #9c27b0 25%, #2196f3 37.5%, #00bcd4 50%, #4caf50 62.5%, #ffeb3b 75%, #ff9800 87.5%, #f44336 100%) !important;',
       '  border: none !important; box-sizing: border-box !important;',
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-swatch { opacity: 1 !important; }',
