@@ -1,5 +1,9 @@
 # UserScripts RPC 仕様（確定版）
 
+**リポジトリ**: `userScripts`  
+**CDN（jsDelivr）**: `https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@<tag-or-branch>/script.js`  
+例: 最新 main … `@main/script.js`、固定バージョン … `@v1.6.38/script.js`
+
 本仕様は、**page world（外部 `script.js`）** から **content world（UserScript本体）** へ `window.postMessage` で呼び出す RPC を定義する。
 目的は、iPad Safari（Userscripts/Tampermonkey 等）における **GM_* / 特権API（Storage/XHR/CSS/Clipboard）** を page 側から安全かつ拡張可能に利用すること。
 

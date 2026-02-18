@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         UserScripts Loader (jsDelivr) + RPC Bridge [Tampermonkey]
-// @namespace    done-is-better-than-perfect/user-scripts
+// @namespace    done-is-better-than-perfect/userScripts
 // @version      0.5.0
 // @description  Load external script.js (page world) and provide RPC bridge to GM APIs via postMessage. For Chrome Tampermonkey.
 // @match        *://*/*
@@ -47,7 +47,7 @@
   // Default: @main (latest on main branch).
   // To pin a specific version, add  #version=v1.1.0  to the page URL hash.
   //   e.g.  https://example.com/page#version=v1.2.0
-  var BASE_SRC = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts';
+  var BASE_SRC = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts';
   var DEFAULT_REF = 'main';
 
   function resolveVersion() {
