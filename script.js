@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.10';
+var US_VERSION = '1.6.11';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1648,9 +1648,29 @@ var Tab = {
       makeSvg('rect', { x: '9', y: '9', width: '6', height: '6', rx: '1', fill: '#34d399' })
     );
 
-    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab', title: 'Color Customizer', onclick: function () { Panel.open(); } },
-      svg
-    );
+    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab', title: 'Color Customizer（クリック: Edit Mode ON/OFF、ダブルクリック: 設定パネル）' });
+    tab.appendChild(svg);
+    (function () {
+      var pending = null;
+      tab.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (pending) {
+          clearTimeout(pending);
+          pending = null;
+          Panel.open();
+          return;
+        }
+        pending = setTimeout(function () {
+          pending = null;
+          if (EditMode.active) {
+            EditMode.disable();
+          } else {
+            EditMode.enable();
+          }
+        }, 280);
+      });
+    })();
     document.body.appendChild(tab);
     this.el = tab;
   },
