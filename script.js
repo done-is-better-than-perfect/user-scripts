@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.2';
+var US_VERSION = '1.6.3';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -204,6 +204,14 @@ var RulesManager = {
     }
   },
 
+  async deleteRule(selector, property) {
+    var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
+    if (idx >= 0) {
+      this._rules.splice(idx, 1);
+      await this.save();
+    }
+  },
+
   async clearRules() {
     this._rules = [];
     await this.save();
@@ -331,7 +339,11 @@ var StyleApplier = {
    * Apply a single inline style immediately (for live preview).
    */
   previewOne: function (el, property, value) {
-    el.style.setProperty(property, value, 'important');
+    if (value) {
+      el.style.setProperty(property, value, 'important');
+    } else {
+      el.style.removeProperty(property);
+    }
   }
 };
 
@@ -914,6 +926,7 @@ var ColorPopover = {
   el: null,
   _currentTarget: null,
   _lastActiveProp: 'background-color',
+  _originalRules: {}, // { prop: { exists: bool, value: string|null } }
 
   _create: function () {
     if (this.el) return;
@@ -931,7 +944,7 @@ var ColorPopover = {
       );
     });
 
-    // Palette container (filled dynamically)
+    // Palette container
     var paletteContainer = h('div', { id: 'us-pop-palette' });
 
     var pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
@@ -941,8 +954,7 @@ var ColorPopover = {
       propsContainer,
       paletteContainer,
       h('div.us-pop-actions',
-        h('button.us-pop-btn.us-pop-btn-cancel', { id: 'us-pop-cancel' }, '取消'),
-        h('button.us-pop-btn.us-pop-btn-apply', { id: 'us-pop-apply' }, '適用')
+        h('button.us-pop-btn.us-pop-btn-cancel', { id: 'us-pop-cancel' }, '取消')
       )
     );
     document.body.appendChild(pop);
@@ -954,44 +966,57 @@ var ColorPopover = {
   _bindEvents: function () {
     var self = this;
 
-    // Color picker <-> hex input sync per row
     var rows = this.el.querySelectorAll('.us-pop-prop-row');
     for (var i = 0; i < rows.length; i++) {
       (function (row) {
         var picker = row.querySelector('[data-role="picker"]');
         var hex = row.querySelector('[data-role="hex"]');
+        var propKey = row.getAttribute('data-prop-key');
+
+        // Preview on input
         picker.addEventListener('input', function () {
           hex.value = this.value;
-          self._lastActiveProp = row.getAttribute('data-prop-key');
+          self._lastActiveProp = propKey;
           self._previewOne(row);
         });
         hex.addEventListener('input', function () {
           if (/^#[0-9a-fA-F]{6}$/.test(this.value)) picker.value = this.value;
-          self._lastActiveProp = row.getAttribute('data-prop-key');
+          self._lastActiveProp = propKey;
           self._previewOne(row);
         });
         hex.addEventListener('focus', function () {
-          self._lastActiveProp = row.getAttribute('data-prop-key');
+          self._lastActiveProp = propKey;
+        });
+
+        // Save on change (commit)
+        picker.addEventListener('change', function () {
+          self._saveRule(propKey, this.value);
+        });
+        hex.addEventListener('change', function () {
+          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+            self._saveRule(propKey, this.value);
+          }
         });
       })(rows[i]);
     }
 
-    // Palette swatch click (delegated)
+    // Palette swatch click
     this.el.querySelector('#us-pop-palette').addEventListener('click', function (e) {
       var sw = e.target.closest('.us-pop-swatch');
       if (!sw) return;
       var color = sw.getAttribute('data-color');
       if (!color) return;
+
       var targetRow = self.el.querySelector('[data-prop-key="' + self._lastActiveProp + '"]');
       if (targetRow) {
         targetRow.querySelector('[data-role="picker"]').value = color;
         targetRow.querySelector('[data-role="hex"]').value = color;
         self._previewOne(targetRow);
+        self._saveRule(self._lastActiveProp, color);
       }
     });
 
-    this.el.querySelector('#us-pop-cancel').addEventListener('click', function () { self.hide(); });
-    this.el.querySelector('#us-pop-apply').addEventListener('click', function () { self._apply(); });
+    this.el.querySelector('#us-pop-cancel').addEventListener('click', function () { self._cancel(); });
   },
 
   show: function (el) {
@@ -1002,7 +1027,10 @@ var ColorPopover = {
     this.el.querySelector('#us-pop-sel').textContent = selector;
     this.el.querySelector('#us-pop-sel').title = selector;
 
-    // Fill each property row with the element's computed value
+    var currRules = RulesManager.getRules();
+    this._originalRules = {};
+
+    // Fill each property row
     var rows = this.el.querySelectorAll('.us-pop-prop-row');
     for (var i = 0; i < rows.length; i++) {
       var propKey = rows[i].getAttribute('data-prop-key');
@@ -1010,6 +1038,14 @@ var ColorPopover = {
       var hex = this._rgbToHex(computed);
       rows[i].querySelector('[data-role="picker"]').value = hex;
       rows[i].querySelector('[data-role="hex"]').value = hex;
+
+      // Store initial rule state for revert
+      var existing = currRules.find(function (r) { return r.selector === selector && r.property === propKey; });
+      this._originalRules[propKey] = {
+        exists: !!existing,
+        value: existing ? existing.value : null,
+        mode: existing ? existing.mode : 'inline'
+      };
     }
 
     // Build palette swatches from profiles
@@ -1065,24 +1101,39 @@ var ColorPopover = {
     if (!this._currentTarget) return;
     var key = row.getAttribute('data-prop-key');
     var val = row.querySelector('[data-role="hex"]').value || row.querySelector('[data-role="picker"]').value;
-    if (val) StyleApplier.previewOne(this._currentTarget, key, val);
+    StyleApplier.previewOne(this._currentTarget, key, val);
   },
 
-  async _apply() {
-    if (!this._currentTarget) return;
+  async _saveRule(prop, val) {
+    if (!this._currentTarget || !val) return;
+    var selector = SelectorEngine.generate(this._currentTarget);
+    if (selector) {
+      await RulesManager.addRule(selector, prop, val, 'inline');
+      Panel.refreshRules();
+    }
+  },
+
+  async _cancel() {
+    if (!this._currentTarget) { this.hide(); return; }
     var selector = SelectorEngine.generate(this._currentTarget);
     if (!selector) { this.hide(); return; }
 
-    var rows = this.el.querySelectorAll('.us-pop-prop-row');
-    for (var i = 0; i < rows.length; i++) {
-      var propKey = rows[i].getAttribute('data-prop-key');
-      var val = rows[i].querySelector('[data-role="hex"]').value || rows[i].querySelector('[data-role="picker"]').value;
-      var computed = this._rgbToHex(getComputedStyle(this._currentTarget).getPropertyValue(propKey));
-      if (val && val !== computed) {
-        await RulesManager.addRule(selector, propKey, val, 'inline');
-        StyleApplier.previewOne(this._currentTarget, propKey, val);
+    var self = this;
+    var promises = [];
+    Object.keys(this._originalRules).forEach(function (prop) {
+      var orig = self._originalRules[prop];
+      if (orig.exists) {
+        // Revert to old rule
+        promises.push(RulesManager.addRule(selector, prop, orig.value, orig.mode));
+        StyleApplier.previewOne(self._currentTarget, prop, orig.value);
+      } else {
+        // Delete new rule if created
+        promises.push(RulesManager.deleteRule(selector, prop));
+        StyleApplier.previewOne(self._currentTarget, prop, ''); // Remove style
       }
-    }
+    });
+
+    await Promise.all(promises);
     Panel.refreshRules();
     this.hide();
   },
