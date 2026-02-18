@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.33';
+var US_VERSION = '1.6.34';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -480,7 +480,7 @@ var Styles = {
       '  display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 3px !important;',
       '  width: fit-content !important; font-size: 11px !important; line-height: 1.2 !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-text { writing-mode: vertical-rl !important; text-orientation: mixed !important; }',
+      '#us-cc-tab .us-cc-tab-text { writing-mode: horizontal-tb !important; text-orientation: mixed !important; }',
       '#us-cc-tab .us-cc-tab-swatch {',
       '  display: block !important; visibility: visible !important; width: 100% !important; height: 0.5em !important; min-height: 4px !important;',
       '  border-radius: 4px !important; flex-shrink: 0 !important;',
@@ -493,7 +493,7 @@ var Styles = {
       '  background: rgba(255,255,255,0.18) !important;',
       '  box-shadow: -4px 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.2) !important;',
       '}',
-      '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(59,130,246,0.95) !important; }',
+      '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(0,0,0,0.55) !important; }',
       '.us-cc-tab-toggle-wrap {',
       '  flex-shrink: 0 !important; padding: 8px 0 4px !important; min-height: 22px !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
