@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.23';
+var US_VERSION = '1.6.24';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -494,16 +494,15 @@ var Styles = {
       '  box-shadow: -4px 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.2) !important;',
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(59,130,246,0.95) !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap {',
+      '.us-cc-tab-toggle-wrap {',
       '  flex-shrink: 0 !important; padding: 8px 0 4px !important; min-height: 22px !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  transform: scale(0.8) !important; transform-origin: center center !important;',
-      '}',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 6px !important; height: 4px !important; min-width: 6px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 2px !important; background: rgba(0,0,0,0.5) !important; border: 1px solid rgba(0,0,0,0.35) !important; box-sizing: border-box !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider { background: #30d158 !important; border-color: rgba(48,209,88,0.6) !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 2px !important; height: 2px !important; left: 1px !important; top: 1px !important; transform: none !important; background: #fff !important; border: none !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.3) !important; box-sizing: border-box !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(2px) !important; }',
+      '  transform: scale(0.7) !important; transform-origin: center center !important; }',
+      '.us-cc-tab-toggle-wrap .us-switch { width: 6px !important; height: 4px !important; min-width: 6px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
+      '.us-cc-tab-toggle-wrap .us-slider { border-radius: 2px !important; background: rgba(0,0,0,0.5) !important; border: 1px solid rgba(0,0,0,0.35) !important; box-sizing: border-box !important; }',
+      '.us-cc-tab-toggle-wrap input:checked + .us-slider { background: #30d158 !important; border-color: rgba(48,209,88,0.6) !important; }',
+      '.us-cc-tab-toggle-wrap .us-slider::after { width: 2px !important; height: 2px !important; left: 1px !important; top: 1px !important; transform: none !important; background: #fff !important; border: none !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.3) !important; box-sizing: border-box !important; }',
+      '.us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(2px) !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
