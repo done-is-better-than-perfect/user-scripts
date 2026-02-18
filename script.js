@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.15';
+var US_VERSION = '1.6.16';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -459,7 +459,7 @@ var Styles = {
       '  position: fixed !important; right: 0 !important; top: 50% !important;',
       '  transform: translateY(-50%) !important;',
       '  z-index: 2147483646 !important;',
-      '  width: 48px !important; min-height: 88px !important;',
+      '  width: 48px !important; min-height: 88px !important; overflow: visible !important;',
       '  background: rgba(255,255,255,0.12) !important;',
       '  backdrop-filter: blur(24px) saturate(180%) !important; -webkit-backdrop-filter: blur(24px) saturate(180%) !important;',
       '  border-radius: 12px 0 0 12px !important;',
@@ -473,10 +473,16 @@ var Styles = {
       '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
       '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
       '  writing-mode: vertical-rl !important; text-orientation: mixed !important;',
-      '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important;',
       '  min-height: 44px !important; cursor: pointer !important; padding: 6px 0 8px !important;',
       '}',
       '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(0,0,0,0.75) !important; }',
+      '#us-cc-tab .us-cc-tab-swatch {',
+      '  width: 10px !important; height: 6px !important; border-radius: 2px !important; overflow: hidden !important; flex-shrink: 0 !important;',
+      '  background: linear-gradient(to bottom, #60a5fa 0 2px, #94a3b8 2px 4px, #e2e8f0 4px 6px) !important;',
+      '  border: 1px solid rgba(0,0,0,0.12) !important;',
+      '}',
+      '#us-cc-tab.us-tab-active .us-cc-tab-swatch { border-color: rgba(59,130,246,0.35) !important; }',
       '#us-cc-tab.us-tab-active {',
       '  border-color: rgba(59,130,246,0.4) !important;',
       '  background: rgba(255,255,255,0.18) !important;',
@@ -484,13 +490,14 @@ var Styles = {
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(59,130,246,0.95) !important; }',
       '#us-cc-tab .us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 8px 0 4px !important;',
+      '  flex-shrink: 0 !important; padding: 8px 0 4px !important; min-height: 22px !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 20px !important; height: 12px !important; min-width: 20px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 6px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 8px !important; height: 8px !important; left: 2px !important; top: 2px !important; transform: none !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(8px) !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 16px !important; height: 10px !important; min-width: 16px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 5px !important; background: rgba(0,0,0,0.2) !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider { background: #30d158 !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 6px !important; height: 6px !important; left: 2px !important; top: 2px !important; transform: none !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(6px) !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
@@ -1661,6 +1668,7 @@ var Tab = {
 
     var iconWrap = h('div', { className: 'us-cc-tab-icon', title: 'Color Customizer 設定' });
     iconWrap.appendChild(document.createTextNode('あAa'));
+    iconWrap.appendChild(h('div', { className: 'us-cc-tab-swatch', 'aria-hidden': 'true' }));
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
     tab.appendChild(toggleWrap);
