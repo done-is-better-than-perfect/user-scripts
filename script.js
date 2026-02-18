@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.27';
+var US_VERSION = '1.6.28';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -549,7 +549,10 @@ var Styles = {
       '}',
       '#us-cc-panel .us-p-title {',
       '  all: initial !important; font-family: inherit !important;',
-      '  font-size: 15px !important; font-weight: 600 !important; color: #fff !important;',
+      '  font-size: 15px !important; font-weight: normal !important; color: #fff !important;',
+      '}',
+      '#us-cc-panel .us-p-title .us-title-editor {',
+      '  font-weight: 900 !important;',
       '}',
       '#us-cc-panel .us-p-version {',
       '  all: initial !important; font-family: "SF Mono","Menlo",monospace !important;',
@@ -1278,7 +1281,7 @@ var Panel = {
     // Panel
     var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' },
       h('div.us-p-header',
-        h('span.us-p-title', 'Color Customizer'),
+        h('span.us-p-title', 'color', h('span.us-title-editor', 'Editor')),
         h('span.us-p-version', 'v' + US_VERSION),
         h('button.us-p-close', { id: 'us-p-close' }, '\u00D7')
       ),
