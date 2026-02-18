@@ -1,13 +1,12 @@
 /**
- * UserScript - Web Color Customizer
- * Provides comprehensive color customization capabilities for web pages
+ * UserScript – Element-based Color Customizer (Phase 1)
+ *
+ * Lets users click individual page elements and change their colors.
+ * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-
-// ESM化
-
 // =========================
-// RPC Client (based on README.md specs)
+// 1. RPC Client
 // =========================
 var REQ_FLAG = '__US_RPC__';
 var REP_FLAG = '__US_RPC_REPLY__';
@@ -19,13 +18,8 @@ function makeId() {
 function rpcCall(token, method, params, timeoutMs) {
   timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 15000;
   var id = makeId();
-
   return new Promise(function (resolve, reject) {
-    var timer = setTimeout(function () {
-      cleanup();
-      reject(new Error('RPC timeout: ' + method));
-    }, timeoutMs);
-
+    var timer = setTimeout(function () { cleanup(); reject(new Error('RPC timeout: ' + method)); }, timeoutMs);
     function onMsg(ev) {
       if (ev.source !== window) return;
       var d = ev.data;
@@ -34,35 +28,16 @@ function rpcCall(token, method, params, timeoutMs) {
       if (d.ok) resolve(d.result);
       else reject(new Error(d.error || ('RPC error: ' + method)));
     }
-
-    function cleanup() {
-      clearTimeout(timer);
-      window.removeEventListener('message', onMsg);
-    }
-
+    function cleanup() { clearTimeout(timer); window.removeEventListener('message', onMsg); }
     window.addEventListener('message', onMsg);
-
-    window.postMessage(
-      {
-        [REQ_FLAG]: true,
-        id: id,
-        token: token,
-        method: method,
-        params: params || []
-      },
-      '*'
-    );
+    window.postMessage({ [REQ_FLAG]: true, id: id, token: token, method: method, params: params || [] }, '*');
   });
 }
 
-async function handshake() {
+function handshake() {
   var id = makeId();
   return new Promise(function (resolve, reject) {
-    var timer = setTimeout(function () {
-      cleanup();
-      reject(new Error('RPC timeout: core.handshake'));
-    }, 8000);
-
+    var timer = setTimeout(function () { cleanup(); reject(new Error('RPC timeout: core.handshake')); }, 8000);
     function onMsg(ev) {
       if (ev.source !== window) return;
       var d = ev.data;
@@ -71,32 +46,15 @@ async function handshake() {
       if (d.ok) resolve(d.result);
       else reject(new Error(d.error || 'RPC error: core.handshake'));
     }
-
-    function cleanup() {
-      clearTimeout(timer);
-      window.removeEventListener('message', onMsg);
-    }
-
+    function cleanup() { clearTimeout(timer); window.removeEventListener('message', onMsg); }
     window.addEventListener('message', onMsg);
-
-    window.postMessage(
-      {
-        [REQ_FLAG]: true,
-        id: id,
-        token: '',
-        method: 'core.handshake',
-        params: []
-      },
-      '*'
-    );
+    window.postMessage({ [REQ_FLAG]: true, id: id, token: '', method: 'core.handshake', params: [] }, '*');
   });
 }
 
-// RPC API wrapper
 var RPC = {
   token: null,
   initialized: false,
-
   async init() {
     if (this.initialized) return;
     var hs = await handshake();
@@ -104,7 +62,6 @@ var RPC = {
     this.initialized = true;
     return hs;
   },
-
   async call(method, params) {
     if (!this.initialized) await this.init();
     return await rpcCall(this.token, method, params);
@@ -112,873 +69,866 @@ var RPC = {
 };
 
 // =========================
-// Preset Themes
+// 2. SelectorEngine
 // =========================
-var PRESET_THEMES = {
-  default: {
-    id: 'default',
-    name: 'デフォルト（リセット）',
-    colors: {
-      background: '',
-      text: '',
-      link: '',
-      linkVisited: '',
-      linkHover: '',
-      border: '',
-      code: '',
-      codeBackground: ''
+var SelectorEngine = {
+  /**
+   * Build a unique CSS selector path for a given element.
+   * Prefers id-based shortcuts; falls back to nth-child chains.
+   */
+  generate: function (el) {
+    if (!(el instanceof HTMLElement)) return '';
+    var parts = [];
+    var current = el;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (current.id) {
+        parts.unshift('#' + CSS.escape(current.id));
+        break;
+      }
+      var tag = current.tagName.toLowerCase();
+      var parent = current.parentElement;
+      if (parent) {
+        var siblings = Array.from(parent.children).filter(function (c) { return c.tagName === current.tagName; });
+        if (siblings.length > 1) {
+          var idx = siblings.indexOf(current) + 1;
+          tag += ':nth-of-type(' + idx + ')';
+        }
+      }
+      parts.unshift(tag);
+      current = parent;
     }
+    if (parts.length === 0) return el.tagName.toLowerCase();
+    return parts.join(' > ');
   },
-  dark: {
-    id: 'dark',
-    name: 'ダークモード',
-    colors: {
-      background: '#1a1a1a',
-      text: '#e0e0e0',
-      link: '#4fc3f7',
-      linkVisited: '#ba68c8',
-      linkHover: '#29b6f6',
-      border: '#333333',
-      code: '#ffeb3b',
-      codeBackground: '#2d2d2d'
-    }
-  },
-  light: {
-    id: 'light',
-    name: 'ライトモード',
-    colors: {
-      background: '#ffffff',
-      text: '#333333',
-      link: '#1976d2',
-      linkVisited: '#7b1fa2',
-      linkHover: '#1565c0',
-      border: '#e0e0e0',
-      code: '#d84315',
-      codeBackground: '#f5f5f5'
-    }
-  },
-  sepia: {
-    id: 'sepia',
-    name: 'セピア（目に優しい）',
-    colors: {
-      background: '#f4f3e0',
-      text: '#5d4e37',
-      link: '#8b4513',
-      linkVisited: '#a0522d',
-      linkHover: '#cd853f',
-      border: '#ddd8c0',
-      code: '#b22222',
-      codeBackground: '#faf8e7'
-    }
-  },
-  highContrast: {
-    id: 'highContrast',
-    name: 'ハイコントラスト',
-    colors: {
-      background: '#000000',
-      text: '#ffffff',
-      link: '#00ff00',
-      linkVisited: '#ff00ff',
-      linkHover: '#00ffff',
-      border: '#ffffff',
-      code: '#ffff00',
-      codeBackground: '#333333'
-    }
+
+  /**
+   * Find element(s) matching a selector. Returns first match or null.
+   */
+  find: function (selector) {
+    try { return document.querySelector(selector); } catch (e) { return null; }
   }
 };
 
 // =========================
-// Color Customizer Core
+// 3. RulesManager
 // =========================
-var ColorCustomizer = {
-  currentDomain: window.location.hostname,
-  currentSettings: null,
+var RulesManager = {
+  _storagePrefix: 'userscripts:features:colorCustomizer:site:',
+  _hostname: window.location.hostname,
+  _rules: [],
 
-  // Storage key patterns (per README.md recommendations)
-  getStorageKey: function (key) {
-    return 'userscripts:features:colorCustomizer:' + key;
+  _key: function () {
+    return this._storagePrefix + this._hostname;
   },
 
-  getSiteKey: function (domain) {
-    // Clean domain and create storage key
-    domain = domain || this.currentDomain;
-    return this.getStorageKey('site:' + domain);
-  },
-
-  async loadSettings() {
+  async load() {
     try {
-      var siteKey = this.getSiteKey();
-      var settings = await RPC.call('storage.get', [siteKey, null]);
-
-      // If site-specific settings exist, use them; otherwise use default
-      if (settings && settings.colors) {
-        this.currentSettings = settings;
+      var data = await RPC.call('storage.get', [this._key(), null]);
+      if (data && Array.isArray(data.rules)) {
+        this._rules = data.rules;
       } else {
-        this.currentSettings = this.createDefaultSettings();
+        this._rules = [];
       }
-
-      return this.currentSettings;
     } catch (e) {
-      console.warn('[ColorCustomizer] Failed to load settings:', e);
-      this.currentSettings = this.createDefaultSettings();
-      return this.currentSettings;
+      console.warn('[ColorCustomizer] Failed to load rules:', e);
+      this._rules = [];
     }
+    return this._rules;
   },
 
-  async saveSettings(settings) {
+  async save() {
     try {
-      settings = settings || this.currentSettings;
-      if (!settings) return false;
-
-      var siteKey = this.getSiteKey();
-      await RPC.call('storage.set', [siteKey, settings]);
-      this.currentSettings = settings;
-      return true;
+      await RPC.call('storage.set', [this._key(), {
+        origin: this._hostname,
+        rules: this._rules,
+        updatedAt: Date.now()
+      }]);
     } catch (e) {
-      console.error('[ColorCustomizer] Failed to save settings:', e);
-      return false;
+      console.error('[ColorCustomizer] Failed to save rules:', e);
     }
   },
 
-  createDefaultSettings: function () {
-    return {
-      enabled: true,
-      theme: 'default',
-      colors: Object.assign({}, PRESET_THEMES.default.colors),
-      lastModified: Date.now()
-    };
+  getRules: function () {
+    return this._rules.slice();
   },
 
-  applyTheme: function (themeId) {
-    var theme = PRESET_THEMES[themeId];
-    if (!theme) {
-      console.warn('[ColorCustomizer] Unknown theme:', themeId);
-      return false;
+  async addRule(selector, property, value, mode) {
+    mode = mode || 'inline';
+    // Replace existing rule for same selector+property, or add new
+    var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
+    var rule = { selector: selector, property: property, value: value, mode: mode };
+    if (idx >= 0) {
+      this._rules[idx] = rule;
+    } else {
+      this._rules.push(rule);
     }
-
-    this.currentSettings = this.currentSettings || this.createDefaultSettings();
-    this.currentSettings.theme = themeId;
-    this.currentSettings.colors = Object.assign({}, theme.colors);
-    this.currentSettings.lastModified = Date.now();
-
-    this.applyStyles();
-    return true;
+    await this.save();
+    return rule;
   },
 
-  applyColorChange: function (colorType, value) {
-    this.currentSettings = this.currentSettings || this.createDefaultSettings();
-    this.currentSettings.colors = this.currentSettings.colors || {};
-    this.currentSettings.colors[colorType] = value;
-    this.currentSettings.theme = 'custom'; // Mark as custom when manually changed
-    this.currentSettings.lastModified = Date.now();
-
-    this.applyStyles();
-  },
-
-  generateCSS: function (colors) {
-    colors = colors || (this.currentSettings && this.currentSettings.colors) || {};
-    var css = '/* UserScript Color Customizer */\n';
-
-    // Only add rules for non-empty color values
-    if (colors.background) {
-      css += '*, *::before, *::after { background-color: ' + colors.background + ' !important; }\n';
-      css += 'body, html { background-color: ' + colors.background + ' !important; }\n';
-    }
-
-    if (colors.text) {
-      css += '*, *::before, *::after { color: ' + colors.text + ' !important; }\n';
-    }
-
-    if (colors.link) {
-      css += 'a, a:link { color: ' + colors.link + ' !important; }\n';
-    }
-
-    if (colors.linkVisited) {
-      css += 'a:visited { color: ' + colors.linkVisited + ' !important; }\n';
-    }
-
-    if (colors.linkHover) {
-      css += 'a:hover, a:focus { color: ' + colors.linkHover + ' !important; }\n';
-    }
-
-    if (colors.border) {
-      css += '*, *::before, *::after { border-color: ' + colors.border + ' !important; }\n';
-    }
-
-    if (colors.code) {
-      css += 'code, kbd, samp, pre { color: ' + colors.code + ' !important; }\n';
-    }
-
-    if (colors.codeBackground) {
-      css += 'code, kbd, samp, pre { background-color: ' + colors.codeBackground + ' !important; }\n';
-    }
-
-    return css;
-  },
-
-  async applyStyles() {
-    try {
-      var styleId = this.getStorageKey('runtime');
-      var css = '';
-
-      if (this.currentSettings && this.currentSettings.enabled) {
-        css = this.generateCSS(this.currentSettings.colors);
-      }
-
-      await RPC.call('style.add', [css, { id: styleId, replace: true }]);
-    } catch (e) {
-      console.error('[ColorCustomizer] Failed to apply styles:', e);
+  async removeRule(index) {
+    if (index >= 0 && index < this._rules.length) {
+      this._rules.splice(index, 1);
+      await this.save();
     }
   },
 
-  async reset() {
-    this.currentSettings = this.createDefaultSettings();
-    await this.saveSettings();
-    await this.applyStyles();
-  },
-
-  async toggle() {
-    this.currentSettings = this.currentSettings || this.createDefaultSettings();
-    this.currentSettings.enabled = !this.currentSettings.enabled;
-    await this.saveSettings();
-    await this.applyStyles();
-    return this.currentSettings.enabled;
+  async clearRules() {
+    this._rules = [];
+    await this.save();
   }
 };
 
 // =========================
-// UI Components
+// 4. StyleApplier
 // =========================
-var UI = {
-  modal: null,
-  isVisible: false,
-  cornerButton: null,
-  styleInjected: false,
+var StyleApplier = {
+  _applied: [], // { el, property, originalValue }
 
-  injectStyles: function () {
-    if (this.styleInjected) return;
+  /**
+   * Apply all rules to the page (inline mode).
+   */
+  applyAll: function (rules) {
+    var self = this;
+    self.clearAll();
+    rules.forEach(function (rule) {
+      if (rule.mode !== 'inline') return; // Phase 1: inline only
+      self.applyOne(rule);
+    });
+  },
+
+  applyOne: function (rule) {
+    var el = SelectorEngine.find(rule.selector);
+    if (!el) return;
+    var original = el.style.getPropertyValue(rule.property);
+    this._applied.push({ el: el, property: rule.property, originalValue: original });
+    el.style.setProperty(rule.property, rule.value, 'important');
+  },
+
+  clearAll: function () {
+    this._applied.forEach(function (rec) {
+      try {
+        if (rec.originalValue) {
+          rec.el.style.setProperty(rec.property, rec.originalValue);
+        } else {
+          rec.el.style.removeProperty(rec.property);
+        }
+      } catch (e) { /* element may no longer exist */ }
+    });
+    this._applied = [];
+  },
+
+  /**
+   * Apply a single inline style immediately (for live preview).
+   */
+  previewOne: function (el, property, value) {
+    el.style.setProperty(property, value, 'important');
+  }
+};
+
+// =========================
+// 5. CSS Injection (UI styles)
+// =========================
+var Styles = {
+  injected: false,
+
+  inject: function () {
+    if (this.injected) return;
     var style = document.createElement('style');
-    style.textContent = [
-      '/* UserScripts Color Customizer UI */',
+    style.setAttribute('data-us-cc-styles', '1');
+    style.textContent = this._css();
+    (document.head || document.documentElement).appendChild(style);
+    this.injected = true;
+  },
+
+  _css: function () {
+    return [
+      '/* === UserScripts Color Customizer === */',
+
+      /* ── Reset for our UI ── */
       '[data-us-cc] *, [data-us-cc] *::before, [data-us-cc] *::after {',
-      '  box-sizing: border-box !important;',
-      '  margin: 0 !important;',
-      '  padding: 0 !important;',
+      '  box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;',
       '}',
 
-      /* ── Tab trigger ── */
+      /* ── Tab ── */
       '#us-cc-tab {',
       '  all: initial !important;',
-      '  position: fixed !important;',
-      '  right: 0 !important;',
-      '  top: 50% !important;',
+      '  position: fixed !important; right: 0 !important; top: 50% !important;',
       '  transform: translateY(-50%) !important;',
-      '  z-index: 1000000 !important;',
-      '  width: 28px !important;',
-      '  height: 64px !important;',
-      '  background: rgba(30, 30, 30, 0.75) !important;',
-      '  backdrop-filter: blur(8px) !important;',
-      '  -webkit-backdrop-filter: blur(8px) !important;',
-      '  border-radius: 8px 0 0 8px !important;',
-      '  border: 1px solid rgba(255,255,255,0.08) !important;',
-      '  border-right: none !important;',
+      '  z-index: 2147483646 !important;',
+      '  width: 24px !important; height: 56px !important;',
+      '  background: rgba(30,30,30,0.78) !important;',
+      '  backdrop-filter: blur(8px) !important; -webkit-backdrop-filter: blur(8px) !important;',
+      '  border-radius: 6px 0 0 6px !important;',
+      '  border: 1px solid rgba(255,255,255,0.08) !important; border-right: none !important;',
       '  cursor: pointer !important;',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: center !important;',
-      '  font-size: 14px !important;',
-      '  transition: width 0.2s ease, background 0.2s ease !important;',
-      '  overflow: hidden !important;',
-      '  white-space: nowrap !important;',
-      '  font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;',
-      '  color: rgba(255,255,255,0.85) !important;',
-      '  line-height: 1 !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  transition: width 0.15s ease, background 0.15s ease !important;',
       '}',
-      '#us-cc-tab:hover {',
-      '  width: 40px !important;',
-      '  background: rgba(50, 50, 50, 0.88) !important;',
+      '#us-cc-tab:hover { width: 32px !important; background: rgba(50,50,50,0.9) !important; }',
+      '#us-cc-tab svg { width: 14px !important; height: 14px !important; }',
+
+      /* ── Edit-mode highlight ── */
+      '.us-cc-highlight {',
+      '  outline: 2px solid rgba(59,130,246,0.8) !important;',
+      '  outline-offset: 1px !important;',
+      '  cursor: crosshair !important;',
       '}',
 
       /* ── Backdrop ── */
       '#us-cc-backdrop {',
-      '  all: initial !important;',
-      '  position: fixed !important;',
-      '  inset: 0 !important;',
-      '  z-index: 999999 !important;',
-      '  background: rgba(0, 0, 0, 0.45) !important;',
-      '  backdrop-filter: blur(4px) !important;',
-      '  -webkit-backdrop-filter: blur(4px) !important;',
-      '  display: none !important;',
-      '  align-items: center !important;',
-      '  justify-content: center !important;',
-      '  opacity: 0 !important;',
-      '  transition: opacity 0.25s ease !important;',
+      '  all: initial !important; position: fixed !important; inset: 0 !important;',
+      '  z-index: 2147483645 !important;',
+      '  background: rgba(0,0,0,0.35) !important;',
+      '  backdrop-filter: blur(3px) !important; -webkit-backdrop-filter: blur(3px) !important;',
+      '  display: none !important; opacity: 0 !important;',
+      '  transition: opacity 0.2s ease !important;',
       '}',
-      '#us-cc-backdrop.us-visible {',
-      '  display: flex !important;',
-      '  opacity: 1 !important;',
-      '}',
+      '#us-cc-backdrop.us-visible { display: block !important; opacity: 1 !important; }',
 
-      /* ── Panel card ── */
+      /* ── Panel (slides from right) ── */
       '#us-cc-panel {',
-      '  all: initial !important;',
-      '  display: block !important;',
-      '  width: 460px !important;',
-      '  max-width: 92vw !important;',
-      '  max-height: 85vh !important;',
-      '  overflow-y: auto !important;',
-      '  background: rgba(28, 28, 30, 0.92) !important;',
-      '  backdrop-filter: blur(20px) saturate(1.4) !important;',
-      '  -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;',
-      '  border: 1px solid rgba(255,255,255,0.1) !important;',
-      '  border-radius: 16px !important;',
-      '  padding: 24px !important;',
+      '  all: initial !important; position: fixed !important;',
+      '  top: 0 !important; right: 0 !important; bottom: 0 !important;',
+      '  width: 320px !important; max-width: 85vw !important;',
+      '  z-index: 2147483647 !important;',
+      '  background: rgba(28,28,30,0.95) !important;',
+      '  backdrop-filter: blur(20px) saturate(1.4) !important; -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;',
+      '  border-left: 1px solid rgba(255,255,255,0.1) !important;',
       '  color: rgba(255,255,255,0.9) !important;',
-      '  font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;',
-      '  font-size: 13px !important;',
-      '  line-height: 1.5 !important;',
-      '  box-shadow: 0 24px 80px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(255,255,255,0.06) inset !important;',
-      '  transform: translateY(12px) !important;',
-      '  transition: transform 0.3s cubic-bezier(.2,.9,.3,1) !important;',
+      '  font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 13px !important; line-height: 1.5 !important;',
+      '  display: flex !important; flex-direction: column !important;',
+      '  transform: translateX(100%) !important;',
+      '  transition: transform 0.25s cubic-bezier(.2,.9,.3,1) !important;',
       '}',
-      '#us-cc-backdrop.us-visible #us-cc-panel {',
-      '  transform: translateY(0) !important;',
+      '#us-cc-panel.us-open { transform: translateX(0) !important; }',
+
+      /* panel header */
+      '#us-cc-panel .us-p-header {',
+      '  display: flex !important; align-items: center !important; justify-content: space-between !important;',
+      '  padding: 16px 16px 12px !important;',
+      '  border-bottom: 1px solid rgba(255,255,255,0.08) !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-title {',
+      '  all: initial !important; font-family: inherit !important;',
+      '  font-size: 15px !important; font-weight: 600 !important; color: #fff !important;',
+      '}',
+      '#us-cc-panel .us-p-close {',
+      '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.4) !important;',
+      '  font-size: 18px !important; width: 28px !important; height: 28px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  border-radius: 6px !important; transition: background 0.15s, color 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-p-close:hover { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.7) !important; }',
+
+      /* Edit Mode toggle row */
+      '#us-cc-panel .us-p-toggle-row {',
+      '  display: flex !important; align-items: center !important; justify-content: space-between !important;',
+      '  padding: 12px 16px !important;',
+      '  border-bottom: 1px solid rgba(255,255,255,0.06) !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-toggle-label {',
+      '  all: initial !important; font-family: inherit !important;',
+      '  font-size: 13px !important; color: rgba(255,255,255,0.8) !important;',
       '}',
 
-      /* scrollbar */
-      '#us-cc-panel::-webkit-scrollbar { width: 4px !important; }',
-      '#us-cc-panel::-webkit-scrollbar-track { background: transparent !important; }',
-      '#us-cc-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15) !important; border-radius: 4px !important; }',
+      /* iOS-style toggle switch */
+      '.us-switch {',
+      '  all: initial !important; position: relative !important; display: inline-block !important;',
+      '  width: 44px !important; height: 24px !important; cursor: pointer !important;',
+      '}',
+      '.us-switch input { opacity: 0 !important; width: 0 !important; height: 0 !important; position: absolute !important; }',
+      '.us-switch .us-slider {',
+      '  position: absolute !important; inset: 0 !important;',
+      '  background: rgba(255,255,255,0.15) !important; border-radius: 12px !important;',
+      '  transition: background 0.2s !important;',
+      '}',
+      '.us-switch .us-slider::after {',
+      '  content: "" !important; position: absolute !important;',
+      '  left: 2px !important; top: 2px !important; width: 20px !important; height: 20px !important;',
+      '  background: #fff !important; border-radius: 50% !important;',
+      '  transition: transform 0.2s !important;',
+      '}',
+      '.us-switch input:checked + .us-slider { background: #30d158 !important; }',
+      '.us-switch input:checked + .us-slider::after { transform: translateX(20px) !important; }',
 
-      /* ── Header ── */
-      '#us-cc-panel .us-header {',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: space-between !important;',
-      '  margin-bottom: 20px !important;',
-      '  padding-bottom: 14px !important;',
-      '  border-bottom: 1px solid rgba(255,255,255,0.08) !important;',
+      /* Rules list */
+      '#us-cc-panel .us-p-rules {',
+      '  flex: 1 !important; overflow-y: auto !important; padding: 8px 16px !important;',
       '}',
-      '#us-cc-panel .us-header h3 {',
-      '  all: initial !important;',
-      '  font-family: inherit !important;',
-      '  font-size: 16px !important;',
-      '  font-weight: 600 !important;',
-      '  color: #fff !important;',
-      '  letter-spacing: -0.2px !important;',
+      '#us-cc-panel .us-p-rules::-webkit-scrollbar { width: 3px !important; }',
+      '#us-cc-panel .us-p-rules::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12) !important; border-radius: 3px !important; }',
+      '#us-cc-panel .us-p-empty {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  text-align: center !important; color: rgba(255,255,255,0.3) !important;',
+      '  font-size: 12px !important; padding: 32px 16px !important;',
       '}',
-      '#us-cc-panel .us-close {',
-      '  all: initial !important;',
-      '  cursor: pointer !important;',
-      '  color: rgba(255,255,255,0.4) !important;',
-      '  font-size: 18px !important;',
-      '  width: 28px !important;',
-      '  height: 28px !important;',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: center !important;',
-      '  border-radius: 6px !important;',
+      '#us-cc-panel .us-rule-item {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '  padding: 8px 10px !important; margin-bottom: 4px !important;',
+      '  background: rgba(255,255,255,0.04) !important; border: 1px solid rgba(255,255,255,0.06) !important;',
+      '  border-radius: 8px !important; transition: background 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-rule-item:hover { background: rgba(255,255,255,0.07) !important; }',
+      '#us-cc-panel .us-rule-swatch {',
+      '  all: initial !important; width: 18px !important; height: 18px !important;',
+      '  border-radius: 4px !important; border: 1px solid rgba(255,255,255,0.15) !important;',
+      '  flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-rule-info {',
+      '  flex: 1 !important; overflow: hidden !important; min-width: 0 !important;',
+      '}',
+      '#us-cc-panel .us-rule-selector {',
+      '  all: initial !important; display: block !important; font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
+      '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
+      '}',
+      '#us-cc-panel .us-rule-prop {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 11px !important; color: rgba(255,255,255,0.7) !important;',
+      '}',
+      '#us-cc-panel .us-rule-del {',
+      '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.25) !important;',
+      '  font-size: 14px !important; width: 22px !important; height: 22px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  border-radius: 4px !important; flex-shrink: 0 !important;',
       '  transition: background 0.15s, color 0.15s !important;',
       '}',
-      '#us-cc-panel .us-close:hover {',
-      '  background: rgba(255,255,255,0.08) !important;',
-      '  color: rgba(255,255,255,0.7) !important;',
-      '}',
+      '#us-cc-panel .us-rule-del:hover { background: rgba(255,69,58,0.15) !important; color: #ff453a !important; }',
 
-      /* ── Section label ── */
-      '#us-cc-panel .us-label {',
-      '  all: initial !important;',
-      '  display: block !important;',
-      '  font-family: inherit !important;',
-      '  font-size: 11px !important;',
-      '  font-weight: 600 !important;',
-      '  text-transform: uppercase !important;',
-      '  letter-spacing: 0.6px !important;',
-      '  color: rgba(255,255,255,0.4) !important;',
-      '  margin-bottom: 8px !important;',
-      '}',
-
-      /* ── Select ── */
-      '#us-cc-panel select {',
-      '  all: initial !important;',
-      '  display: block !important;',
-      '  width: 100% !important;',
-      '  padding: 8px 12px !important;',
-      '  background: rgba(255,255,255,0.06) !important;',
-      '  border: 1px solid rgba(255,255,255,0.1) !important;',
-      '  border-radius: 8px !important;',
-      '  color: rgba(255,255,255,0.9) !important;',
-      '  font-family: inherit !important;',
-      '  font-size: 13px !important;',
-      '  outline: none !important;',
-      '  cursor: pointer !important;',
-      '  -webkit-appearance: none !important;',
-      '  appearance: none !important;',
-      '  transition: border-color 0.15s !important;',
-      '}',
-      '#us-cc-panel select:focus {',
-      '  border-color: rgba(100,160,255,0.5) !important;',
-      '}',
-      '#us-cc-panel select option {',
-      '  background: #2c2c2e !important;',
-      '  color: #fff !important;',
-      '}',
-
-      /* ── Color grid ── */
-      '#us-cc-panel .us-colors {',
-      '  display: grid !important;',
-      '  grid-template-columns: 1fr 1fr !important;',
-      '  gap: 6px !important;',
-      '  margin-bottom: 20px !important;',
-      '}',
-      '#us-cc-panel .us-color-item {',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  gap: 8px !important;',
-      '  padding: 8px 10px !important;',
-      '  background: rgba(255,255,255,0.04) !important;',
-      '  border: 1px solid rgba(255,255,255,0.06) !important;',
-      '  border-radius: 8px !important;',
-      '  transition: background 0.15s !important;',
-      '}',
-      '#us-cc-panel .us-color-item:hover {',
-      '  background: rgba(255,255,255,0.07) !important;',
-      '}',
-      '#us-cc-panel .us-color-item label {',
-      '  all: initial !important;',
-      '  flex: 1 !important;',
-      '  font-family: inherit !important;',
-      '  font-size: 12px !important;',
-      '  color: rgba(255,255,255,0.7) !important;',
-      '  white-space: nowrap !important;',
-      '}',
-      '#us-cc-panel .us-color-item input[type="color"] {',
-      '  all: initial !important;',
-      '  width: 28px !important;',
-      '  height: 28px !important;',
-      '  border: 2px solid rgba(255,255,255,0.12) !important;',
-      '  border-radius: 6px !important;',
-      '  cursor: pointer !important;',
-      '  background: transparent !important;',
+      /* Panel footer */
+      '#us-cc-panel .us-p-footer {',
+      '  padding: 12px 16px !important; border-top: 1px solid rgba(255,255,255,0.06) !important;',
       '  flex-shrink: 0 !important;',
-      '}',
-      '#us-cc-panel .us-color-item input[type="text"] {',
-      '  all: initial !important;',
-      '  width: 58px !important;',
-      '  padding: 4px 6px !important;',
-      '  font-family: "SF Mono", "Menlo", monospace !important;',
-      '  font-size: 11px !important;',
-      '  color: rgba(255,255,255,0.7) !important;',
-      '  background: rgba(0,0,0,0.2) !important;',
-      '  border: 1px solid rgba(255,255,255,0.08) !important;',
-      '  border-radius: 5px !important;',
-      '  outline: none !important;',
-      '  flex-shrink: 0 !important;',
-      '}',
-      '#us-cc-panel .us-color-item input[type="text"]:focus {',
-      '  border-color: rgba(100,160,255,0.4) !important;',
-      '}',
-      '#us-cc-panel .us-color-item .us-clear-btn {',
-      '  all: initial !important;',
-      '  width: 20px !important;',
-      '  height: 20px !important;',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: center !important;',
-      '  font-size: 10px !important;',
-      '  color: rgba(255,255,255,0.3) !important;',
-      '  cursor: pointer !important;',
-      '  border-radius: 4px !important;',
-      '  flex-shrink: 0 !important;',
-      '  transition: background 0.15s, color 0.15s !important;',
-      '}',
-      '#us-cc-panel .us-color-item .us-clear-btn:hover {',
-      '  background: rgba(255,255,255,0.1) !important;',
-      '  color: rgba(255,255,255,0.6) !important;',
-      '}',
-
-      /* ── Divider ── */
-      '#us-cc-panel .us-divider {',
-      '  height: 1px !important;',
-      '  background: rgba(255,255,255,0.06) !important;',
-      '  margin: 16px 0 !important;',
-      '}',
-
-      /* ── Footer buttons ── */
-      '#us-cc-panel .us-footer {',
-      '  display: flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: space-between !important;',
-      '}',
-      '#us-cc-panel .us-footer-right {',
-      '  display: flex !important;',
-      '  gap: 8px !important;',
       '}',
       '#us-cc-panel .us-btn {',
-      '  all: initial !important;',
-      '  display: inline-flex !important;',
-      '  align-items: center !important;',
-      '  justify-content: center !important;',
-      '  padding: 7px 16px !important;',
-      '  font-family: inherit !important;',
-      '  font-size: 12px !important;',
-      '  font-weight: 500 !important;',
-      '  border-radius: 8px !important;',
-      '  cursor: pointer !important;',
-      '  transition: filter 0.15s, transform 0.1s !important;',
-      '  white-space: nowrap !important;',
+      '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  padding: 7px 14px !important; font-family: inherit !important; font-size: 12px !important; font-weight: 500 !important;',
+      '  border-radius: 8px !important; cursor: pointer !important;',
+      '  transition: filter 0.15s, transform 0.1s !important; white-space: nowrap !important;',
       '}',
-      '#us-cc-panel .us-btn:active {',
-      '  transform: scale(0.96) !important;',
-      '}',
+      '#us-cc-panel .us-btn:active { transform: scale(0.96) !important; }',
       '#us-cc-panel .us-btn-danger {',
-      '  background: rgba(255, 69, 58, 0.15) !important;',
-      '  color: #ff453a !important;',
-      '  border: 1px solid rgba(255, 69, 58, 0.2) !important;',
+      '  background: rgba(255,69,58,0.12) !important; color: #ff453a !important;',
+      '  border: 1px solid rgba(255,69,58,0.18) !important;',
       '}',
-      '#us-cc-panel .us-btn-danger:hover { background: rgba(255, 69, 58, 0.25) !important; }',
-      '#us-cc-panel .us-btn-toggle {',
-      '  background: rgba(255, 159, 10, 0.15) !important;',
-      '  color: #ff9f0a !important;',
-      '  border: 1px solid rgba(255, 159, 10, 0.2) !important;',
+      '#us-cc-panel .us-btn-danger:hover { background: rgba(255,69,58,0.22) !important; }',
+
+      /* ── Color Popover ── */
+      '#us-cc-popover {',
+      '  all: initial !important; position: fixed !important;',
+      '  z-index: 2147483647 !important;',
+      '  background: rgba(38,38,40,0.96) !important;',
+      '  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
+      '  border: 1px solid rgba(255,255,255,0.1) !important;',
+      '  border-radius: 12px !important; padding: 14px !important;',
+      '  width: 240px !important;',
+      '  color: rgba(255,255,255,0.9) !important;',
+      '  font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 12px !important;',
+      '  box-shadow: 0 12px 40px rgba(0,0,0,0.5) !important;',
+      '  display: none !important;',
       '}',
-      '#us-cc-panel .us-btn-toggle:hover { background: rgba(255, 159, 10, 0.25) !important; }',
-      '#us-cc-panel .us-btn-primary {',
-      '  background: rgba(48, 209, 88, 0.15) !important;',
-      '  color: #30d158 !important;',
-      '  border: 1px solid rgba(48, 209, 88, 0.2) !important;',
+      '#us-cc-popover.us-visible { display: block !important; }',
+      '#us-cc-popover .us-pop-label {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 10px !important; font-weight: 600 !important; text-transform: uppercase !important;',
+      '  letter-spacing: 0.5px !important; color: rgba(255,255,255,0.4) !important;',
+      '  margin-bottom: 6px !important;',
       '}',
-      '#us-cc-panel .us-btn-primary:hover { background: rgba(48, 209, 88, 0.25) !important; }',
+      '#us-cc-popover .us-pop-selector-text {',
+      '  all: initial !important; display: block !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
+      '  color: rgba(255,255,255,0.45) !important; margin-bottom: 10px !important;',
+      '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
+      '}',
+      '#us-cc-popover select {',
+      '  all: initial !important; display: block !important; width: 100% !important;',
+      '  padding: 6px 10px !important;',
+      '  background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.1) !important;',
+      '  border-radius: 6px !important; color: rgba(255,255,255,0.9) !important;',
+      '  font-family: inherit !important; font-size: 12px !important;',
+      '  outline: none !important; cursor: pointer !important;',
+      '  -webkit-appearance: none !important; appearance: none !important;',
+      '  margin-bottom: 10px !important;',
+      '}',
+      '#us-cc-popover select option { background: #2c2c2e !important; color: #fff !important; }',
+      '#us-cc-popover .us-pop-color-row {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 12px !important;',
+      '}',
+      '#us-cc-popover input[type="color"] {',
+      '  all: initial !important; width: 36px !important; height: 36px !important;',
+      '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important;',
+      '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-popover input[type="text"] {',
+      '  all: initial !important; flex: 1 !important;',
+      '  padding: 6px 8px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 12px !important;',
+      '  color: rgba(255,255,255,0.8) !important;',
+      '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
+      '  border-radius: 6px !important; outline: none !important;',
+      '}',
+      '#us-cc-popover input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
+      '#us-cc-popover .us-pop-actions {',
+      '  display: flex !important; gap: 8px !important; justify-content: flex-end !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn {',
+      '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  padding: 6px 14px !important; font-family: inherit !important; font-size: 11px !important; font-weight: 500 !important;',
+      '  border-radius: 6px !important; cursor: pointer !important; transition: filter 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn-cancel {',
+      '  background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.6) !important;',
+      '  border: 1px solid rgba(255,255,255,0.08) !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn-apply {',
+      '  background: rgba(59,130,246,0.2) !important; color: #60a5fa !important;',
+      '  border: 1px solid rgba(59,130,246,0.25) !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn-apply:hover { background: rgba(59,130,246,0.3) !important; }',
     ].join('\n');
-    (document.head || document.documentElement).appendChild(style);
-    this.styleInjected = true;
+  }
+};
+
+// =========================
+// 6. EditMode
+// =========================
+var EditMode = {
+  active: false,
+  _highlighted: null,
+  _boundHover: null,
+  _boundClick: null,
+
+  enable: function () {
+    if (this.active) return;
+    this.active = true;
+    var self = this;
+    this._boundHover = function (e) { self._onHover(e); };
+    this._boundClick = function (e) { self._onClick(e); };
+    document.addEventListener('mouseover', this._boundHover, true);
+    document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
+    document.addEventListener('click', this._boundClick, true);
   },
 
-  createCornerButton: function () {
-    if (this.cornerButton) return this.cornerButton;
-    this.injectStyles();
-
-    var tab = document.createElement('div');
-    tab.id = 'us-cc-tab';
-    tab.setAttribute('data-us-cc', 'tab');
-    tab.innerHTML = '🎨';
-    tab.title = 'Color Customizer';
-    tab.addEventListener('click', function () {
-      UI.show();
-    });
-    document.body.appendChild(tab);
-    this.cornerButton = tab;
-    return tab;
+  disable: function () {
+    if (!this.active) return;
+    this.active = false;
+    this._clearHighlight();
+    document.removeEventListener('mouseover', this._boundHover, true);
+    document.removeEventListener('click', this._boundClick, true);
+    this._boundHover = null;
+    this._boundClick = null;
   },
 
-  createModal: function () {
-    this.createCornerButton();
-    if (this.modal) return this.modal;
-
-    var backdrop = document.createElement('div');
-    backdrop.id = 'us-cc-backdrop';
-    backdrop.setAttribute('data-us-cc', 'backdrop');
-
-    var panel = document.createElement('div');
-    panel.id = 'us-cc-panel';
-    panel.setAttribute('data-us-cc', 'panel');
-    panel.innerHTML = this.getModalHTML();
-
-    backdrop.appendChild(panel);
-    document.body.appendChild(backdrop);
-
-    backdrop.addEventListener('click', function (e) {
-      if (e.target === backdrop) UI.hide();
-    });
-
-    this.bindEvents(panel);
-    this.modal = backdrop;
-    return backdrop;
+  _isOurUI: function (el) {
+    // Don't interact with our own UI elements
+    return !!(el && el.closest && el.closest('[data-us-cc]'));
   },
 
-  getModalHTML: function () {
-    return [
-      '<div class="us-header">',
-      '<h3>カラーカスタマイザー</h3>',
-      '<button class="us-close" id="color-customizer-close">&times;</button>',
-      '</div>',
+  _onHover: function (e) {
+    if (!this.active) return;
+    var el = e.target;
+    if (this._isOurUI(el)) { this._clearHighlight(); return; }
+    if (el === this._highlighted) return;
+    this._clearHighlight();
+    el.classList.add('us-cc-highlight');
+    this._highlighted = el;
+  },
 
-      '<span class="us-label">テーマ</span>',
-      '<select id="color-customizer-theme">',
-      Object.keys(PRESET_THEMES).map(function (id) {
-        return '<option value="' + id + '">' + PRESET_THEMES[id].name + '</option>';
-      }).join(''),
+  _onClick: function (e) {
+    if (!this.active) return;
+    var el = e.target;
+    if (this._isOurUI(el)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    this._clearHighlight();
+    ColorPopover.show(el);
+  },
+
+  _clearHighlight: function () {
+    if (this._highlighted) {
+      this._highlighted.classList.remove('us-cc-highlight');
+      this._highlighted = null;
+    }
+  }
+};
+
+// =========================
+// 7. ColorPopover
+// =========================
+var ColorPopover = {
+  el: null,
+  _currentTarget: null,
+  _originalValue: null,
+
+  _create: function () {
+    if (this.el) return;
+    var pop = document.createElement('div');
+    pop.id = 'us-cc-popover';
+    pop.setAttribute('data-us-cc', 'popover');
+    pop.innerHTML = [
+      '<span class="us-pop-label">要素</span>',
+      '<span class="us-pop-selector-text" id="us-pop-sel"></span>',
+      '<span class="us-pop-label">プロパティ</span>',
+      '<select id="us-pop-prop">',
+      '<option value="background-color">background-color</option>',
+      '<option value="color">color</option>',
+      '<option value="border-color">border-color</option>',
       '</select>',
-
-      '<div class="us-divider"></div>',
-
-      '<span class="us-label">カスタムカラー</span>',
-      '<div class="us-colors">',
-      this.createColorInput('background', '背景'),
-      this.createColorInput('text', 'テキスト'),
-      this.createColorInput('link', 'リンク'),
-      this.createColorInput('linkVisited', '訪問済み'),
-      this.createColorInput('linkHover', 'ホバー'),
-      this.createColorInput('border', 'ボーダー'),
-      this.createColorInput('code', 'コード文字'),
-      this.createColorInput('codeBackground', 'コード背景'),
+      '<span class="us-pop-label">カラー</span>',
+      '<div class="us-pop-color-row">',
+      '<input type="color" id="us-pop-color" value="#3b82f6">',
+      '<input type="text" id="us-pop-hex" placeholder="#000000">',
       '</div>',
-
-      '<div class="us-divider"></div>',
-
-      '<div class="us-footer">',
-      '<button class="us-btn us-btn-danger" id="color-customizer-reset">リセット</button>',
-      '<div class="us-footer-right">',
-      '<button class="us-btn us-btn-toggle" id="color-customizer-toggle">ON</button>',
-      '<button class="us-btn us-btn-primary" id="color-customizer-save">保存</button>',
-      '</div>',
+      '<div class="us-pop-actions">',
+      '<button class="us-pop-btn us-pop-btn-cancel" id="us-pop-cancel">取消</button>',
+      '<button class="us-pop-btn us-pop-btn-apply" id="us-pop-apply">適用</button>',
       '</div>'
     ].join('');
+    document.body.appendChild(pop);
+    this.el = pop;
+    this._bindEvents();
   },
 
-  createColorInput: function (colorType, label) {
-    return [
-      '<div class="us-color-item">',
-      '<label>' + label + '</label>',
-      '<input type="color" id="color-customizer-' + colorType + '">',
-      '<input type="text" id="color-customizer-' + colorType + '-text" placeholder="#000000">',
-      '<button type="button" class="us-clear-btn" data-color-clear="' + colorType + '">✕</button>',
+  _bindEvents: function () {
+    var self = this;
+    var colorInput = this.el.querySelector('#us-pop-color');
+    var hexInput = this.el.querySelector('#us-pop-hex');
+    var propSelect = this.el.querySelector('#us-pop-prop');
+
+    colorInput.addEventListener('input', function () {
+      hexInput.value = this.value;
+      self._preview();
+    });
+
+    hexInput.addEventListener('input', function () {
+      if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+        colorInput.value = this.value;
+      }
+      self._preview();
+    });
+
+    propSelect.addEventListener('change', function () {
+      // Read current value from element for this property
+      if (self._currentTarget) {
+        var current = getComputedStyle(self._currentTarget).getPropertyValue(this.value);
+        self._setColorInputs(self._rgbToHex(current));
+      }
+    });
+
+    this.el.querySelector('#us-pop-cancel').addEventListener('click', function () {
+      self.hide();
+    });
+
+    this.el.querySelector('#us-pop-apply').addEventListener('click', function () {
+      self._apply();
+    });
+  },
+
+  show: function (el) {
+    this._create();
+    this._currentTarget = el;
+
+    // Selector
+    var selector = SelectorEngine.generate(el);
+    this.el.querySelector('#us-pop-sel').textContent = selector;
+    this.el.querySelector('#us-pop-sel').title = selector;
+
+    // Read current computed color for default property
+    var propSelect = this.el.querySelector('#us-pop-prop');
+    var prop = propSelect.value;
+    var computed = getComputedStyle(el).getPropertyValue(prop);
+    this._setColorInputs(this._rgbToHex(computed));
+    this._originalValue = computed;
+
+    // Position near element
+    var rect = el.getBoundingClientRect();
+    var popW = 240;
+    var popH = 220;
+    var left = Math.min(rect.left, window.innerWidth - popW - 16);
+    var top = rect.bottom + 8;
+    if (top + popH > window.innerHeight) {
+      top = Math.max(8, rect.top - popH - 8);
+    }
+    left = Math.max(8, left);
+
+    this.el.style.left = left + 'px';
+    this.el.style.top = top + 'px';
+    this.el.classList.add('us-visible');
+  },
+
+  hide: function () {
+    if (this.el) {
+      this.el.classList.remove('us-visible');
+    }
+    this._currentTarget = null;
+  },
+
+  _preview: function () {
+    if (!this._currentTarget) return;
+    var prop = this.el.querySelector('#us-pop-prop').value;
+    var val = this.el.querySelector('#us-pop-hex').value || this.el.querySelector('#us-pop-color').value;
+    if (val) StyleApplier.previewOne(this._currentTarget, prop, val);
+  },
+
+  async _apply() {
+    if (!this._currentTarget) return;
+    var prop = this.el.querySelector('#us-pop-prop').value;
+    var val = this.el.querySelector('#us-pop-hex').value || this.el.querySelector('#us-pop-color').value;
+    var selector = SelectorEngine.generate(this._currentTarget);
+
+    if (val && selector) {
+      await RulesManager.addRule(selector, prop, val, 'inline');
+      StyleApplier.previewOne(this._currentTarget, prop, val);
+      Panel.refreshRules();
+    }
+    this.hide();
+  },
+
+  _setColorInputs: function (hex) {
+    hex = hex || '#000000';
+    this.el.querySelector('#us-pop-color').value = hex;
+    this.el.querySelector('#us-pop-hex').value = hex;
+  },
+
+  _rgbToHex: function (rgb) {
+    if (!rgb) return '#000000';
+    if (rgb.charAt(0) === '#') return rgb;
+    var m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m) return '#000000';
+    return '#' + [m[1], m[2], m[3]].map(function (x) {
+      return parseInt(x, 10).toString(16).padStart(2, '0');
+    }).join('');
+  }
+};
+
+// =========================
+// 8. Panel
+// =========================
+var Panel = {
+  el: null,
+  backdrop: null,
+  _open: false,
+
+  _create: function () {
+    if (this.el) return;
+
+    // Backdrop
+    var bd = document.createElement('div');
+    bd.id = 'us-cc-backdrop';
+    bd.setAttribute('data-us-cc', 'backdrop');
+    bd.addEventListener('click', function () { Panel.close(); });
+    document.body.appendChild(bd);
+    this.backdrop = bd;
+
+    // Panel
+    var p = document.createElement('div');
+    p.id = 'us-cc-panel';
+    p.setAttribute('data-us-cc', 'panel');
+    p.innerHTML = [
+      '<div class="us-p-header">',
+      '<span class="us-p-title">Color Customizer</span>',
+      '<button class="us-p-close" id="us-p-close">&times;</button>',
+      '</div>',
+      '<div class="us-p-toggle-row">',
+      '<span class="us-p-toggle-label">Edit Mode</span>',
+      '<label class="us-switch" data-us-cc="switch">',
+      '<input type="checkbox" id="us-p-edit-toggle">',
+      '<span class="us-slider"></span>',
+      '</label>',
+      '</div>',
+      '<div class="us-p-rules" id="us-p-rules"></div>',
+      '<div class="us-p-footer">',
+      '<button class="us-btn us-btn-danger" id="us-p-clear">全ルールクリア</button>',
       '</div>'
     ].join('');
+    document.body.appendChild(p);
+    this.el = p;
+    this._bindEvents();
   },
 
-  bindEvents: function (container) {
+  _bindEvents: function () {
     var self = this;
 
-    // Close button
-    container.querySelector('#color-customizer-close').addEventListener('click', function () {
-      self.hide();
+    this.el.querySelector('#us-p-close').addEventListener('click', function () {
+      self.close();
+    });
+
+    this.el.querySelector('#us-p-edit-toggle').addEventListener('change', function () {
+      if (this.checked) {
+        EditMode.enable();
+        self.close();
+      } else {
+        EditMode.disable();
+      }
+    });
+
+    this.el.querySelector('#us-p-clear').addEventListener('click', function () {
+      RulesManager.clearRules().then(function () {
+        StyleApplier.clearAll();
+        self.refreshRules();
+      });
+    });
+
+    // Delegate: delete rule
+    this.el.querySelector('#us-p-rules').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-rule-idx]');
+      if (!btn) return;
+      var idx = parseInt(btn.getAttribute('data-rule-idx'), 10);
+      RulesManager.removeRule(idx).then(function () {
+        StyleApplier.clearAll();
+        StyleApplier.applyAll(RulesManager.getRules());
+        self.refreshRules();
+      });
     });
 
     // Escape key
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && self.isVisible) self.hide();
-    });
-
-    // Theme selector
-    container.querySelector('#color-customizer-theme').addEventListener('change', function () {
-      var themeId = this.value;
-      ColorCustomizer.applyTheme(themeId);
-      self.updateForm();
-    });
-
-    // Color inputs
-    var colorTypes = ['background', 'text', 'link', 'linkVisited', 'linkHover', 'border', 'code', 'codeBackground'];
-    colorTypes.forEach(function (colorType) {
-      var colorInput = container.querySelector('#color-customizer-' + colorType);
-      var textInput = container.querySelector('#color-customizer-' + colorType + '-text');
-
-      if (colorInput) {
-        colorInput.addEventListener('input', function () {
-          textInput.value = this.value;
-          self.handleColorChange(colorType, this.value);
-        });
-      }
-
-      if (textInput) {
-        textInput.addEventListener('input', function () {
-          if (this.value && /^#[0-9a-fA-F]{6}$/.test(this.value)) {
-            colorInput.value = this.value;
-          }
-          self.handleColorChange(colorType, this.value);
-        });
+      if (e.key === 'Escape') {
+        if (ColorPopover.el && ColorPopover.el.classList.contains('us-visible')) {
+          ColorPopover.hide();
+        } else if (self._open) {
+          self.close();
+        }
       }
     });
-
-    // Clear buttons (delegated)
-    container.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-color-clear]');
-      if (!btn) return;
-      var ct = btn.getAttribute('data-color-clear');
-      var ci = container.querySelector('#color-customizer-' + ct);
-      var ti = container.querySelector('#color-customizer-' + ct + '-text');
-      if (ci) ci.value = '';
-      if (ti) ti.value = '';
-      self.handleColorChange(ct, '');
-    });
-
-    // Action buttons
-    container.querySelector('#color-customizer-reset').addEventListener('click', function () {
-      ColorCustomizer.reset().then(function () {
-        self.updateForm();
-      });
-    });
-
-    container.querySelector('#color-customizer-toggle').addEventListener('click', function () {
-      ColorCustomizer.toggle().then(function (enabled) {
-        this.textContent = enabled ? 'ON' : 'OFF';
-      }.bind(this));
-    });
-
-    container.querySelector('#color-customizer-save').addEventListener('click', function () {
-      ColorCustomizer.saveSettings().then(function (success) {
-        var saveBtn = container.querySelector('#color-customizer-save');
-        if (success) {
-          saveBtn.textContent = '✓ 保存済';
-          setTimeout(function () { saveBtn.textContent = '保存'; }, 1500);
-        }
-      });
-    });
   },
 
-  handleColorChange: function (colorType, value) {
-    ColorCustomizer.applyColorChange(colorType, value);
+  open: function () {
+    this._create();
+    this.refreshRules();
+    // Sync toggle state
+    this.el.querySelector('#us-p-edit-toggle').checked = EditMode.active;
+
+    this.backdrop.style.display = 'block';
+    void this.backdrop.offsetWidth;
+    this.backdrop.classList.add('us-visible');
+    this.el.classList.add('us-open');
+    this._open = true;
   },
 
-  updateForm: function () {
-    if (!this.modal || !ColorCustomizer.currentSettings) return;
-
-    var panel = this.modal.querySelector('#us-cc-panel') || this.modal;
-    var settings = ColorCustomizer.currentSettings;
-
-    // Update theme selector
-    var themeSelect = panel.querySelector('#color-customizer-theme');
-    if (themeSelect) {
-      themeSelect.value = settings.theme || 'default';
-    }
-
-    // Update color inputs
-    var colors = settings.colors || {};
-    Object.keys(colors).forEach(function (colorType) {
-      var colorInput = panel.querySelector('#color-customizer-' + colorType);
-      var textInput = panel.querySelector('#color-customizer-' + colorType + '-text');
-
-      var value = colors[colorType] || '';
-      if (colorInput) colorInput.value = value;
-      if (textInput) textInput.value = value;
-    });
-
-    // Update toggle button
-    var toggleBtn = panel.querySelector('#color-customizer-toggle');
-    if (toggleBtn) {
-      toggleBtn.textContent = settings.enabled ? 'ON' : 'OFF';
-    }
+  close: function () {
+    if (this.el) this.el.classList.remove('us-open');
+    if (this.backdrop) this.backdrop.classList.remove('us-visible');
+    setTimeout(function () {
+      if (Panel.backdrop && !Panel._open) Panel.backdrop.style.display = 'none';
+    }, 250);
+    this._open = false;
   },
 
-  async show() {
-    if (!this.modal) {
-      this.createModal();
-    }
-    if (this.cornerButton) this.cornerButton.style.display = 'none';
-    await ColorCustomizer.loadSettings();
-    this.updateForm();
+  refreshRules: function () {
+    if (!this.el) return;
+    var container = this.el.querySelector('#us-p-rules');
+    var rules = RulesManager.getRules();
 
-    // Animate in
-    this.modal.style.display = 'flex';
-    // Force reflow for animation
-    void this.modal.offsetWidth;
-    this.modal.classList.add('us-visible');
-    this.isVisible = true;
-  },
-
-  hide: function () {
-    if (this.modal) {
-      this.modal.classList.remove('us-visible');
-      // Wait for animation to finish
-      setTimeout(function () {
-        if (!UI.isVisible && UI.modal) {
-          UI.modal.style.display = 'none';
-        }
-      }, 260);
+    if (rules.length === 0) {
+      container.innerHTML = '<span class="us-p-empty">ルールがありません</span>';
+      return;
     }
-    this.isVisible = false;
-    if (this.cornerButton) this.cornerButton.style.display = '';
-  },
 
-  toggle: function () {
-    if (this.isVisible) {
-      this.hide();
-    } else {
-      this.show();
-    }
+    container.innerHTML = rules.map(function (r, i) {
+      var shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
+      return [
+        '<div class="us-rule-item">',
+        '<span class="us-rule-swatch" style="background:' + r.value + ' !important;"></span>',
+        '<span class="us-rule-info">',
+        '<span class="us-rule-selector" title="' + r.selector.replace(/"/g, '&quot;') + '">' + shortSel + '</span>',
+        '<span class="us-rule-prop">' + r.property + '</span>',
+        '</span>',
+        '<button class="us-rule-del" data-rule-idx="' + i + '" title="削除">✕</button>',
+        '</div>'
+      ].join('');
+    }).join('');
   }
 };
 
 // =========================
-// Feature Interface for external access
+// 9. Tab
+// =========================
+var Tab = {
+  el: null,
+
+  create: function () {
+    if (this.el) return;
+    Styles.inject();
+
+    var tab = document.createElement('div');
+    tab.id = 'us-cc-tab';
+    tab.setAttribute('data-us-cc', 'tab');
+    tab.title = 'Color Customizer';
+    // Geometric icon: 4 small colored squares in a 2x2 grid
+    tab.innerHTML = [
+      '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">',
+      '<rect x="1" y="1" width="6" height="6" rx="1" fill="#60a5fa"/>',
+      '<rect x="9" y="1" width="6" height="6" rx="1" fill="#f97316"/>',
+      '<rect x="1" y="9" width="6" height="6" rx="1" fill="#a78bfa"/>',
+      '<rect x="9" y="9" width="6" height="6" rx="1" fill="#34d399"/>',
+      '</svg>'
+    ].join('');
+    tab.addEventListener('click', function () {
+      Panel.open();
+    });
+    document.body.appendChild(tab);
+    this.el = tab;
+  }
+};
+
+// =========================
+// 10. Feature Interface + Global API
 // =========================
 var ColorCustomizerFeature = {
+  _initialized: false,
+
   async init() {
+    if (this._initialized) return true;
     try {
       await RPC.init();
-      await ColorCustomizer.loadSettings();
-      await ColorCustomizer.applyStyles();
-
-
-      // ショートカット起動は廃止。UIは画面隅ボタンで起動。
-
-      console.log('[ColorCustomizer] Initialized successfully for domain:', ColorCustomizer.currentDomain);
+      await RulesManager.load();
+      StyleApplier.applyAll(RulesManager.getRules());
+      Tab.create();
+      this._initialized = true;
+      console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s) for ' + window.location.hostname);
       return true;
     } catch (e) {
-      console.error('[ColorCustomizer] Failed to initialize:', e);
+      console.error('[ColorCustomizer] Init failed:', e);
       return false;
     }
   },
 
-  showUI() {
-    return UI.show();
+  enable: function () {
+    EditMode.enable();
   },
 
-  hideUI() {
-    return UI.hide();
-  },
-
-  toggleUI() {
-    return UI.toggle();
-  },
-
-  applyTheme(themeId) {
-    return ColorCustomizer.applyTheme(themeId);
-  },
-
-  reset() {
-    return ColorCustomizer.reset();
-  },
-
-  getPresetThemes() {
-    return PRESET_THEMES;
-  },
-
-  getCurrentSettings() {
-    return ColorCustomizer.currentSettings;
+  disable: function () {
+    EditMode.disable();
   }
 };
 
-// =========================
 // Global API
-// =========================
-window.US = window.US || {};
-window.US.rpc = RPC;
-
-// Features namespace
 window.UserScripts = window.UserScripts || {};
+window.UserScripts.version = '1.0.0';
+window.UserScripts.init = function () { console.log('[UserScripts] Core initialized'); };
 window.UserScripts.features = window.UserScripts.features || {};
 window.UserScripts.features.colorCustomizer = ColorCustomizerFeature;
 
-// Global init function
-window.UserScripts.init = function () {
-  console.log('[UserScripts] Core initialized');
-  // Additional global initialization can go here
-};
-
+// RPC is also exposed for extensibility
+window.US = window.US || {};
+window.US.rpc = RPC;
 
 // =========================
-// Auto-initialize (page world)
+// Auto-initialize
 // =========================
 (async function () {
   try {
     await ColorCustomizerFeature.init();
-    UI.createCornerButton();
     console.log('[UserScripts] Auto-init complete');
   } catch (e) {
     console.error('[UserScripts] Auto-init failed:', e);
   }
 })();
 
-// ESM用: exportは空（グローバルwindow.UserScriptsは維持）
+// ESM export (keeps module semantics for jsDelivr)
 export { };
