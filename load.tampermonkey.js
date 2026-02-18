@@ -405,9 +405,8 @@
     var s = document.createElement('script');
 
     s.src = SRC;
-    // Tampermonkey: injected script runs in page context; avoid type=module
-    // so script.js (classic script) runs consistently across Safari Userscripts and Chrome Tampermonkey.
-    s.type = 'text/javascript';
+    // script.js uses ESM (export {} at end); must load as module in both Safari and Chrome.
+    s.type = 'module';
     s.async = true;
     s.defer = true;
     s.setAttribute('data-userscripts-loader', '1');
