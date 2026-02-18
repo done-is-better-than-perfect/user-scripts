@@ -498,11 +498,11 @@ var Styles = {
       '  flex-shrink: 0 !important; padding: 8px 0 4px !important; min-height: 22px !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '  transform: scale(0.7) !important; transform-origin: center center !important; }',
-      '.us-cc-tab-toggle-wrap .us-switch { width: 6px !important; height: 4px !important; min-width: 6px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
-      '.us-cc-tab-toggle-wrap .us-slider { border-radius: 2px !important; background: rgba(0,0,0,0.5) !important; border: 1px solid rgba(0,0,0,0.35) !important; box-sizing: border-box !important; }',
+      '.us-cc-tab-toggle-wrap .us-switch { width: 44px !important; height: 24px !important; min-width: 44px !important; flex-shrink: 0 !important; opacity: 1 !important; visibility: visible !important; }',
+      '.us-cc-tab-toggle-wrap .us-slider { position: absolute !important; inset: 0 !important; border-radius: 12px !important; background: rgba(0,0,0,0.5) !important; border: 1px solid rgba(0,0,0,0.35) !important; box-sizing: border-box !important; }',
       '.us-cc-tab-toggle-wrap input:checked + .us-slider { background: #30d158 !important; border-color: rgba(48,209,88,0.6) !important; }',
-      '.us-cc-tab-toggle-wrap .us-slider::after { width: 2px !important; height: 2px !important; left: 1px !important; top: 1px !important; transform: none !important; background: #fff !important; border: none !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.3) !important; box-sizing: border-box !important; }',
-      '.us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(2px) !important; }',
+      '.us-cc-tab-toggle-wrap .us-slider::after { content: "" !important; position: absolute !important; left: 2px !important; top: 2px !important; width: 20px !important; height: 20px !important; background: #fff !important; border-radius: 50% !important; box-shadow: 0 0 0 1px rgba(0,0,0,0.3) !important; box-sizing: border-box !important; transition: transform 0.2s !important; }',
+      '.us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(20px) !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
