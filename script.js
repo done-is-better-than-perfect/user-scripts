@@ -162,8 +162,10 @@ var RulesManager = {
       } catch (e) {
         console.error('[ColorCustomizer] Failed to save imported rules:', e);
         alert('ルールの保存に失敗しました: ' + e);
+        return 0;
       }
     }
+    return count;
   },
 
   async save() {
@@ -247,27 +249,36 @@ var ProfileManager = {
   getProfiles: function () { return this._profiles.slice(); },
 
   async importProfiles(profiles) {
-    if (!Array.isArray(profiles)) return;
+    if (!Array.isArray(profiles)) return 0;
     var self = this;
     var count = 0;
     profiles.forEach(function (p) {
       if (!p.name || !Array.isArray(p.colors)) return;
-      // Avoid exact duplicates
-      var exists = self._profiles.some(function (x) {
-        return x.name === p.name && JSON.stringify(x.colors) === JSON.stringify(p.colors);
-      });
-      if (exists) return;
 
-      var profile = {
-        id: 'prof_' + Math.random().toString(36).slice(2, 10),
-        name: p.name,
-        colors: p.colors
-      };
-      self._profiles.push(profile);
+      // Update existing by ID if possible, otherwise add
+      var existing = p.id ? self._profiles.find(function (x) { return x.id === p.id; }) : null;
+      if (existing) {
+        existing.name = p.name;
+        existing.colors = p.colors;
+      } else {
+        // Avoid exact duplicates by name/content if no ID match
+        var duplicate = self._profiles.some(function (x) {
+          return x.name === p.name && JSON.stringify(x.colors) === JSON.stringify(p.colors);
+        });
+        if (duplicate) return;
+
+        var profile = {
+          id: p.id || ('prof_' + Math.random().toString(36).slice(2, 10)),
+          name: p.name,
+          colors: p.colors
+        };
+        self._profiles.push(profile);
+      }
       count++;
     });
     if (count > 0) await self.save();
     console.log('[ColorCustomizer] Imported ' + count + ' profiles');
+    return count;
   },
 
   async addProfile(name, colors) {
@@ -1268,13 +1279,16 @@ var Panel = {
             if (Array.isArray(data.profiles)) {
               promises.push(ProfileManager.importProfiles(data.profiles));
             }
-            Promise.all(promises).then(function () {
+            Promise.all(promises).then(function (results) {
+              var rulesCount = results[0] || 0;
+              var profilesCount = results[1] || 0;
+
               StyleApplier.clearAll();
               StyleApplier.applyAll(RulesManager.getRules());
               self.refreshRules();
               self.refreshProfiles();
               console.log('[ColorCustomizer] Import complete');
-              alert('インポートが完了しました');
+              alert('インポートが完了しました\nルール: ' + rulesCount + '件\nプロファイル: ' + profilesCount + '件');
             });
           } catch (e) {
             console.error('[ColorCustomizer] Import failed:', e);
