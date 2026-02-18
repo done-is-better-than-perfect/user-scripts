@@ -71,6 +71,8 @@
   // =========================
   var REQ_FLAG = '__US_RPC__';
   var REP_FLAG = '__US_RPC_REPLY__';
+  var DOC_EVENT_REQUEST = 'us-rpc-request';
+  var DOC_EVENT_REPLY = 'us-rpc-reply';
   var BRIDGE_VERSION = 'bridge-0.1.0';
 
   // Token to prevent arbitrary page scripts from calling privileged APIs.
@@ -90,6 +92,13 @@
   function reply(id, ok, payload) {
     var msg = Object.assign({ [REP_FLAG]: true, id: id, ok: ok }, payload || {});
     window.postMessage(msg, '*');
+  }
+
+  function replyViaDocument(id, ok, payload) {
+    var msg = Object.assign({ [REP_FLAG]: true, id: id, ok: ok }, payload || {});
+    try {
+      document.dispatchEvent(new CustomEvent(DOC_EVENT_REPLY, { detail: msg }));
+    } catch (e) { }
   }
 
   function safeJson(x) {
@@ -369,27 +378,29 @@
     throw new Error('Unknown method: ' + method);
   }
 
-  window.addEventListener('message', function (ev) {
-    // Tampermonkey runs in isolated world: ev.source (page) !== window (sandbox). Accept main frame.
-    if (ev.source !== window && ev.source !== window.top) return;
-
-    var data = ev.data;
+  function handleRequest(data, replyFn) {
     if (!data || data[REQ_FLAG] !== true) return;
-
     var id = data.id;
     var token = data.token;
     var method = data.method;
     var params = data.params || [];
-
     if (!ensureToken(method, token)) {
-      reply(id, false, { error: 'Unauthorized' });
+      replyFn(id, false, { error: 'Unauthorized' });
       return;
     }
-
     Promise.resolve()
       .then(function () { return handle(method, params); })
-      .then(function (result) { reply(id, true, { result: safeJson(result) }); })
-      .catch(function (e) { reply(id, false, { error: String(e && e.message ? e.message : e) }); });
+      .then(function (result) { replyFn(id, true, { result: safeJson(result) }); })
+      .catch(function (e) { replyFn(id, false, { error: String(e && e.message ? e.message : e) }); });
+  }
+
+  window.addEventListener('message', function (ev) {
+    if (ev.source !== window && ev.source !== window.top) return;
+    handleRequest(ev.data, reply);
+  });
+
+  document.addEventListener(DOC_EVENT_REQUEST, function (ev) {
+    handleRequest(ev.detail, replyViaDocument);
   });
 
   // =========================
