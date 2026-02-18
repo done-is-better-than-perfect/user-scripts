@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.1';
+var US_VERSION = '1.6.2';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -121,14 +121,16 @@ var RulesManager = {
   _rules: [],
 
   _key: function () {
-    return this._storagePrefix + this._pageKey;
+    return this._storagePrefix + encodeURIComponent(this._pageKey);
   },
 
   async load() {
     try {
+      console.log('[ColorCustomizer] Loading rules for:', this._pageKey);
       var data = await RPC.call('storage.get', [this._key(), null]);
       if (data && Array.isArray(data.rules)) {
         this._rules = data.rules;
+        console.log('[ColorCustomizer] Loaded', this._rules.length, 'rules');
       } else {
         this._rules = [];
       }
@@ -153,12 +155,20 @@ var RulesManager = {
       }
       count++;
     });
-    if (count > 0) await self.save();
-    console.log('[ColorCustomizer] Imported ' + count + ' rules');
+    if (count > 0) {
+      try {
+        await self.save();
+        console.log('[ColorCustomizer] Imported ' + count + ' rules and saved');
+      } catch (e) {
+        console.error('[ColorCustomizer] Failed to save imported rules:', e);
+        alert('ルールの保存に失敗しました: ' + e);
+      }
+    }
   },
 
   async save() {
     try {
+      console.log('[ColorCustomizer] Saving rules for:', this._pageKey);
       await RPC.call('storage.set', [this._key(), {
         origin: this._pageKey,
         rules: this._rules,
