@@ -678,5 +678,18 @@
   };
 
 
+// =========================
+// Auto-initialize (page world)
+// =========================
+(async function () {
+  try {
+    await ColorCustomizerFeature.init();
+    UI.createCornerButton();
+    console.log('[UserScripts] Auto-init complete');
+  } catch (e) {
+    console.error('[UserScripts] Auto-init failed:', e);
+  }
+})();
+
 // ESM用: exportは空（グローバルwindow.UserScriptsは維持）
 export {};

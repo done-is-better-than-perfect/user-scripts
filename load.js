@@ -51,8 +51,7 @@
   // NOTE: If you switch to tag pinning, change @main -> @vX.Y.Z here.
   var SRC = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/user-scripts@main/script.js';
 
-  // Optional: set true to always call window.UserScripts.init() and then colorCustomizer.init()
-  var AUTO_BOOT = true;
+  // script.js self-initializes as an ESM module (no AUTO_BOOT needed).
 
   // =========================
   // One-time guard (per page)
@@ -187,7 +186,7 @@
         await navigator.clipboard.writeText(String(text));
         return true;
       }
-    } catch (e) {}
+    } catch (e) { }
     return false;
   }
 
@@ -405,25 +404,10 @@
     s.setAttribute('data-userscripts-loader', '1');
 
     s.onload = function () {
-      if (!AUTO_BOOT) return;
-
-      try {
-        if (window.UserScripts && typeof window.UserScripts.init === 'function') {
-          window.UserScripts.init();
-        }
-
-        // Current mandatory: allow calling colorCustomizer alone
-        if (
-          window.UserScripts &&
-          window.UserScripts.features &&
-          window.UserScripts.features.colorCustomizer &&
-          typeof window.UserScripts.features.colorCustomizer.init === 'function'
-        ) {
-          window.UserScripts.features.colorCustomizer.init();
-        }
-      } catch (e) {
-        console.warn('[UserScripts Loader] init error:', e);
-      }
+      // NOTE: This callback runs in content world, so page world's
+      // window.UserScripts is not accessible here.
+      // script.js self-initializes as an ESM module.
+      console.info('[UserScripts Loader] External script loaded:', SRC);
     };
 
     s.onerror = function (e) {
