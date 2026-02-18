@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.5.2';
+var US_VERSION = '1.6.0';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -116,12 +116,12 @@ var SelectorEngine = {
 // 3. RulesManager
 // =========================
 var RulesManager = {
-  _storagePrefix: 'userscripts:features:colorCustomizer:site:',
-  _hostname: window.location.hostname,
+  _storagePrefix: 'userscripts:features:colorCustomizer:page:',
+  _pageKey: window.location.hostname + window.location.pathname,
   _rules: [],
 
   _key: function () {
-    return this._storagePrefix + this._hostname;
+    return this._storagePrefix + this._pageKey;
   },
 
   async load() {
@@ -142,7 +142,7 @@ var RulesManager = {
   async save() {
     try {
       await RPC.call('storage.set', [this._key(), {
-        origin: this._hostname,
+        origin: this._pageKey,
         rules: this._rules,
         updatedAt: Date.now()
       }]);
@@ -521,7 +521,10 @@ var Styles = {
       /* Panel footer */
       '#us-cc-panel .us-p-footer {',
       '  padding: 12px 16px !important; border-top: 1px solid rgba(255,255,255,0.06) !important;',
-      '  flex-shrink: 0 !important;',
+      '  flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; gap: 8px !important;',
+      '}',
+      '#us-cc-panel .us-p-footer-row {',
+      '  display: flex !important; gap: 6px !important;',
       '}',
       '#us-cc-panel .us-btn {',
       '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
@@ -535,6 +538,11 @@ var Styles = {
       '  border: 1px solid rgba(255,69,58,0.18) !important;',
       '}',
       '#us-cc-panel .us-btn-danger:hover { background: rgba(255,69,58,0.22) !important; }',
+      '#us-cc-panel .us-btn-secondary {',
+      '  background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.6) !important;',
+      '  border: 1px solid rgba(255,255,255,0.08) !important; flex: 1 !important;',
+      '}',
+      '#us-cc-panel .us-btn-secondary:hover { background: rgba(255,255,255,0.12) !important; }',
 
       /* ── Color Popover ── */
       '#us-cc-popover {',
@@ -779,6 +787,7 @@ var EditMode = {
     document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
     document.addEventListener('click', this._boundClick, true);
     Tab.setActive(true);
+    this._persist(true);
   },
 
   disable: function () {
@@ -790,6 +799,7 @@ var EditMode = {
     this._boundHover = null;
     this._boundClick = null;
     Tab.setActive(false);
+    this._persist(false);
   },
 
   _isOurUI: function (el) {
@@ -827,6 +837,14 @@ var EditMode = {
     if (this._highlighted) {
       this._highlighted.classList.remove('us-cc-highlight');
       this._highlighted = null;
+    }
+  },
+
+  _persist: async function (active) {
+    try {
+      await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode', active]);
+    } catch (e) {
+      console.error('[ColorCustomizer] Failed to save EditMode state:', e);
     }
   }
 };
@@ -1072,7 +1090,11 @@ var Panel = {
       h('div.us-prof-list', { id: 'us-p-prof-list' }),
       h('div', { id: 'us-p-prof-editor-slot' }),
       h('div.us-p-footer',
-        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア')
+        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア'),
+        h('div.us-p-footer-row',
+          h('button.us-btn.us-btn-secondary', { id: 'us-p-export' }, 'エクスポート'),
+          h('button.us-btn.us-btn-secondary', { id: 'us-p-import' }, 'インポート')
+        )
       )
     );
     document.body.appendChild(p);
@@ -1101,6 +1123,69 @@ var Panel = {
         StyleApplier.clearAll();
         self.refreshRules();
       });
+    });
+
+    // Export
+    this.el.querySelector('#us-p-export').addEventListener('click', function () {
+      var data = {
+        version: US_VERSION,
+        exportedAt: new Date().toISOString(),
+        page: window.location.hostname + window.location.pathname,
+        rules: RulesManager.getRules(),
+        profiles: ProfileManager.getProfiles()
+      };
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'color-customizer-' + window.location.hostname + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Import
+    this.el.querySelector('#us-p-import').addEventListener('click', function () {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.addEventListener('change', function () {
+        var file = input.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = JSON.parse(reader.result);
+            var promises = [];
+            // Import rules
+            if (Array.isArray(data.rules)) {
+              data.rules.forEach(function (r) {
+                if (r.selector && r.property && r.value) {
+                  promises.push(RulesManager.addRule(r.selector, r.property, r.value, r.mode || 'inline'));
+                }
+              });
+            }
+            // Import profiles
+            if (Array.isArray(data.profiles)) {
+              data.profiles.forEach(function (p) {
+                if (p.name && Array.isArray(p.colors)) {
+                  promises.push(ProfileManager.addProfile(p.name, p.colors));
+                }
+              });
+            }
+            Promise.all(promises).then(function () {
+              StyleApplier.clearAll();
+              StyleApplier.applyAll(RulesManager.getRules());
+              self.refreshRules();
+              self.refreshProfiles();
+              console.log('[ColorCustomizer] Import complete');
+            });
+          } catch (e) {
+            console.error('[ColorCustomizer] Import failed:', e);
+          }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
     });
 
     // Delegate: delete rule
@@ -1356,8 +1441,13 @@ var ColorCustomizerFeature = {
       await ProfileManager.load();
       StyleApplier.applyAll(RulesManager.getRules());
       Tab.create();
+      // Restore Edit Mode state
+      var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
+      if (editState) {
+        EditMode.enable();
+      }
       this._initialized = true;
-      console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname);
+      console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
       return true;
     } catch (e) {
       console.error('[ColorCustomizer] Init failed:', e);
