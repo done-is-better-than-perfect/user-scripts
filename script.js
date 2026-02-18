@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.13';
+var US_VERSION = '1.6.14';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -453,42 +453,44 @@ var Styles = {
       '  box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;',
       '}',
 
-      /* ── Tab ── */
+      /* ── Tab (Liquid Glass) ── */
       '#us-cc-tab {',
       '  all: initial !important;',
       '  position: fixed !important; right: 0 !important; top: 50% !important;',
       '  transform: translateY(-50%) !important;',
       '  z-index: 2147483646 !important;',
-      '  width: 36px !important; min-height: 80px !important;',
-      '  background: rgba(38,38,42,0.88) !important;',
-      '  backdrop-filter: blur(12px) !important; -webkit-backdrop-filter: blur(12px) !important;',
-      '  border-radius: 10px 0 0 10px !important;',
-      '  border: 1px solid rgba(255,255,255,0.06) !important; border-right: none !important;',
-      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important;',
+      '  width: 40px !important; min-height: 88px !important;',
+      '  background: rgba(255,255,255,0.12) !important;',
+      '  backdrop-filter: blur(24px) saturate(180%) !important; -webkit-backdrop-filter: blur(24px) saturate(180%) !important;',
+      '  border-radius: 12px 0 0 12px !important;',
+      '  border: 1px solid rgba(255,255,255,0.22) !important; border-right: none !important;',
+      '  box-shadow: -4px 0 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15) !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 4px !important;',
       '  transition: width 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;',
       '}',
-      '#us-cc-tab:hover { width: 40px !important; background: rgba(42,42,46,0.92) !important; }',
-      '#us-cc-tab .us-cc-tab-icon { color: rgba(255,255,255,0.5) !important; }',
-      '#us-cc-tab .us-cc-tab-icon svg { width: 18px !important; height: 18px !important; display: block !important; }',
-      '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(255,255,255,0.85) !important; }',
-      '#us-cc-tab.us-tab-active {',
-      '  border-color: rgba(59,130,246,0.5) !important;',
-      '  background: rgba(28,35,48,0.94) !important;',
-      '  width: 36px !important;',
-      '  box-shadow: -2px 0 12px rgba(59,130,246,0.25) !important;',
+      '#us-cc-tab:hover { width: 44px !important; background: rgba(255,255,255,0.16) !important; }',
+      '#us-cc-tab .us-cc-tab-icon {',
+      '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
+      '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
+      '  writing-mode: vertical-rl !important; text-orientation: mixed !important;',
+      '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  min-height: 44px !important; cursor: pointer !important; padding: 6px 0 8px !important;',
       '}',
-      '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: #60a5fa !important; }',
+      '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(0,0,0,0.75) !important; }',
+      '#us-cc-tab.us-tab-active {',
+      '  border-color: rgba(59,130,246,0.4) !important;',
+      '  background: rgba(255,255,255,0.18) !important;',
+      '  box-shadow: -4px 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.2) !important;',
+      '}',
+      '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(59,130,246,0.95) !important; }',
       '#us-cc-tab .us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 8px 0 4px !important;',
+      '  flex-shrink: 0 !important; padding: 6px 0 2px !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 36px !important; height: 20px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 16px !important; height: 16px !important; }',
-      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(16px) !important; }',
-      '#us-cc-tab .us-cc-tab-icon {',
-      '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  min-height: 44px !important; cursor: pointer !important; padding-bottom: 8px !important;',
-      '}',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-switch { width: 24px !important; height: 14px !important; min-width: 24px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider { border-radius: 7px !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap .us-slider::after { width: 10px !important; height: 10px !important; left: 2px !important; top: 2px !important; transform: none !important; }',
+      '#us-cc-tab .us-cc-tab-toggle-wrap input:checked + .us-slider::after { transform: translateX(10px) !important; }',
 
       /* ── Edit-mode highlight ── */
       '.us-cc-highlight {',
@@ -497,32 +499,33 @@ var Styles = {
       '  cursor: crosshair !important;',
       '}',
 
-      /* ── Backdrop ── */
+      /* ── Backdrop (Liquid Glass) ── */
       '#us-cc-backdrop {',
       '  all: initial !important; position: fixed !important; inset: 0 !important;',
       '  z-index: 2147483645 !important;',
-      '  background: rgba(0,0,0,0.35) !important;',
-      '  backdrop-filter: blur(3px) !important; -webkit-backdrop-filter: blur(3px) !important;',
+      '  background: rgba(0,0,0,0.25) !important;',
+      '  backdrop-filter: blur(12px) saturate(120%) !important; -webkit-backdrop-filter: blur(12px) saturate(120%) !important;',
       '  display: none !important; opacity: 0 !important;',
-      '  transition: opacity 0.2s ease !important;',
+      '  transition: opacity 0.25s ease !important;',
       '}',
       '#us-cc-backdrop.us-visible { display: block !important; opacity: 1 !important; }',
 
-      /* ── Panel (slides from right) ── */
+      /* ── Panel (Liquid Glass, slides from right) ── */
       '#us-cc-panel {',
       '  all: initial !important; position: fixed !important;',
       '  top: 0 !important; right: 0 !important; bottom: 0 !important;',
       '  width: 320px !important; max-width: 85vw !important;',
       '  z-index: 2147483647 !important;',
-      '  background: rgba(28,28,30,0.95) !important;',
-      '  backdrop-filter: blur(20px) saturate(1.4) !important; -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;',
-      '  border-left: 1px solid rgba(255,255,255,0.1) !important;',
-      '  color: rgba(255,255,255,0.9) !important;',
+      '  background: rgba(38,38,42,0.78) !important;',
+      '  backdrop-filter: blur(40px) saturate(160%) !important; -webkit-backdrop-filter: blur(40px) saturate(160%) !important;',
+      '  border-left: 1px solid rgba(255,255,255,0.15) !important;',
+      '  box-shadow: -8px 0 32px rgba(0,0,0,0.2), inset 1px 0 0 rgba(255,255,255,0.08) !important;',
+      '  color: rgba(255,255,255,0.92) !important;',
       '  font-family: system-ui, -apple-system, sans-serif !important;',
       '  font-size: 13px !important; line-height: 1.5 !important;',
       '  display: flex !important; flex-direction: column !important;',
       '  transform: translateX(100%) !important;',
-      '  transition: transform 0.25s cubic-bezier(.2,.9,.3,1) !important;',
+      '  transition: transform 0.28s cubic-bezier(.2,.9,.3,1) !important;',
       '}',
       '#us-cc-panel.us-open { transform: translateX(0) !important; }',
 
@@ -1648,11 +1651,6 @@ var Tab = {
     if (this.el) return;
     Styles.inject();
 
-    // Single droplet icon (color swatch / paint); avoids Figma-style 4-grid
-    var svg = makeSvg('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' },
-      makeSvg('path', { d: 'M12 3.2c-.9 1.3-3 4.2-3 7 0 2.2 1.8 4 4 4s4-1.8 4-4c0-2.8-2.1-5.7-3-7z', fill: 'currentColor' })
-    );
-
     var toggleWrap = h('div', { className: 'us-cc-tab-toggle-wrap', 'data-us-cc': 'tab-toggle' });
     var switchLabel = document.createElement('label');
     switchLabel.className = 'us-switch';
@@ -1662,7 +1660,7 @@ var Tab = {
     toggleWrap.appendChild(switchLabel);
 
     var iconWrap = h('div', { className: 'us-cc-tab-icon', title: 'Color Customizer 設定' });
-    iconWrap.appendChild(svg);
+    iconWrap.appendChild(document.createTextNode('あAa'));
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
     tab.appendChild(toggleWrap);
