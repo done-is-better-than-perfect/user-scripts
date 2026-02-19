@@ -1,10 +1,22 @@
-# UserScripts – Module-based Architecture (v2.0) RPC 仕様（確定版）
+# UserScripts – Module-based Architecture (v2.0.1)
 
 **リポジトリ**: `userScripts`  
 **CDN（jsDelivr）**: `https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@<tag-or-branch>/script.js`  
-例: 最新 main … `@main/script.js`、固定バージョン … `@v2.0.0/script.js`
+例: 最新 main … `@main/script.js`、安定版 … `@v2.0.1/script.js`
 
-## 🆕 Version 2.0 の主な変更点
+## 🆕 Version 2.0.1 の修正内容
+
+### 🐛 Critical Bug Fixes
+- **RPC通信エラー修正**: `params`/`token` パラメータ形式をload.jsに合わせて修正
+- **ModuleLoader改善**: jsDelivr CDNでのbaseURL検出精度を向上
+- **エラーログ強化**: デバッグ情報とエラーハンドリングを改善
+
+### 修正されたエラー
+```
+[ColorCustomizer] Init failed: Error: RPC timeout: storage.get
+```
+
+## Version 2.0 の主な変更点
 
 ### モジュールベースアーキテクチャ
 - colorEditor機能をES Moduleとして独立したファイル（`modules/colorEditor.js`）に分離
