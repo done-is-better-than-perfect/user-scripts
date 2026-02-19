@@ -1,449 +1,9 @@
 /**
- * UserScript Color Editor Module
+ * UserScript Color Editor Module (Full Implementation)
  * 
- * Element-based Color Customizer functionality as an ES module
+ * Complete Element-based Color Customizer functionality restored from v1.6.53
+ * with original UI, features, and behavior - only tab name changed to "ツール"
  */
-
-// =========================
-// Styles
-// =========================
-var CSS_STYLES = `
-/* === UserScript Color Customizer Styles === */
-
-/* Tab */
-#us-cc-tab {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 999999;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  padding: 8px 12px;
-  opacity: 0.7;
-  transition: all 0.2s ease;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-}
-
-#us-cc-tab:hover {
-  opacity: 1;
-  transform: scale(1.02);
-}
-
-.us-toggle-wrap {
-  display: flex;
-  align-items: center;
-}
-
-.us-switch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 20px;
-  background-color: #ccc;
-  border-radius: 20px;
-  transition: background-color 0.2s;
-  cursor: pointer;
-}
-
-.us-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.us-slider {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  transition: transform 0.2s;
-}
-
-.us-switch input:checked + .us-slider {
-  transform: translateX(20px);
-}
-
-.us-switch input:checked ~ * {
-  background-color: #4CAF50;
-}
-
-.us-cc-tab-icon {
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: background-color 0.2s;
-}
-
-.us-cc-tab-icon:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-}
-
-.us-cc-tab-icon-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.us-cc-tab-text {
-  font-weight: 500;
-  color: #333;
-}
-
-.us-cc-tab-swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-/* Tab Dark Mode */
-.us-theme-dark #us-cc-tab {
-  background: rgba(40, 40, 40, 0.95);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.us-theme-dark .us-cc-tab-text {
-  color: #e0e0e0;
-}
-
-/* Panel */
-.us-cc-panel {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 400px;
-  max-width: 90vw;
-  max-height: 80vh;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  z-index: 1000000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  overflow: hidden;
-}
-
-.us-cc-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  font-weight: 600;
-  font-size: 16px;
-  color: #333;
-}
-
-.us-cc-close-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #999;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.us-cc-close-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  color: #666;
-}
-
-.us-cc-panel-content {
-  padding: 20px;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.us-cc-panel-content ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.us-cc-panel-content li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.us-cc-panel-content li:last-child {
-  border-bottom: none;
-}
-
-.us-cc-remove-rule {
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.us-cc-remove-rule:hover {
-  background: #ff5252;
-}
-
-/* Panel Dark Mode */
-.us-theme-dark .us-cc-panel {
-  background: rgba(40, 40, 40, 0.98);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.us-theme-dark .us-cc-panel-header {
-  color: #e0e0e0;
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.us-theme-dark .us-cc-panel-content li {
-  border-color: rgba(255, 255, 255, 0.05);
-}
-
-/* Popover */
-.us-cc-popover {
-  position: fixed;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  z-index: 1000001;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  min-width: 200px;
-}
-
-.us-cc-popover-header {
-  font-weight: 600;
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.us-cc-color-row {
-  display: flex;
-  gap: 8px;
-}
-
-.us-cc-color-button {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  background: white;
-  color: #333;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.us-cc-color-button:hover {
-  background: #f5f5f5;
-  transform: translateY(-1px);
-}
-
-/* Popover Dark Mode */
-.us-theme-dark .us-cc-popover {
-  background: rgba(40, 40, 40, 0.98);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.us-theme-dark .us-cc-popover-header {
-  color: #e0e0e0;
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.us-theme-dark .us-cc-color-button {
-  background: rgba(60, 60, 60, 0.8);
-  color: #e0e0e0;
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.us-theme-dark .us-cc-color-button:hover {
-  background: rgba(80, 80, 80, 0.9);
-}
-
-/* Edit Mode */
-body.us-edit-mode * {
-  cursor: crosshair !important;
-}
-
-body.us-edit-mode *:hover {
-  outline: 2px solid #4CAF50 !important;
-  outline-offset: 2px !important;
-}
-
-/* Hide scrollbars in webkit browsers for panels */
-.us-cc-panel-content::-webkit-scrollbar {
-  width: 4px;
-}
-
-.us-cc-panel-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.us-cc-panel-content::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.us-cc-panel-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-`;
-
-// =========================
-// Style Manager
-// =========================
-var StyleManager = {
-  _injected: false,
-  
-  inject() {
-    if (this._injected) return;
-    
-    var style = document.createElement('style');
-    style.setAttribute('data-us-coloreditor', 'styles');
-    style.textContent = CSS_STYLES;
-    document.head.appendChild(style);
-    
-    this._injected = true;
-    console.log('[StyleManager] CSS styles injected');
-  },
-  
-  remove() {
-    var existing = document.querySelector('style[data-us-coloreditor="styles"]');
-    if (existing) {
-      existing.remove();
-      this._injected = false;
-    }
-  }
-};
-
-// =========================
-// Theme System
-// =========================
-var Theme = {
-  _theme: 'auto',
-
-  get() { return this._theme; },
-
-  set(theme) {
-    this._theme = theme;
-    this.apply();
-  },
-
-  apply() {
-    var isDark = this.isDark();
-    document.documentElement.classList.toggle('us-theme-dark', isDark);
-    document.documentElement.classList.toggle('us-theme-light', !isDark);
-  },
-
-  isDark() {
-    if (this._theme === 'dark') return true;
-    if (this._theme === 'light') return false;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  },
-
-  init() {
-    this.apply();
-    if (window.matchMedia) {
-      var mq = window.matchMedia('(prefers-color-scheme: dark)');
-      if (mq.addEventListener) {
-        mq.addEventListener('change', () => this.apply());
-      } else if (mq.addListener) {
-        mq.addListener(() => this.apply());
-      }
-    }
-  }
-};
-
-// =========================
-// Color Utilities
-// =========================
-var colorUtil = {
-  parseRgba(str) {
-    if (!str) return null;
-    var rgbaMatch = str.match(/rgba?\(([^)]+)\)/);
-    if (!rgbaMatch) return null;
-    var parts = rgbaMatch[1].split(',').map(s => parseFloat(s.trim()));
-    if (parts.length < 3) return null;
-    return {
-      r: Math.round(parts[0]),
-      g: Math.round(parts[1]),
-      b: Math.round(parts[2]),
-      a: parts[3] !== undefined ? parts[3] : 1
-    };
-  },
-
-  toRgba({ r, g, b, a }) {
-    if (a === undefined || a === 1) return `rgb(${r}, ${g}, ${b})`;
-    return `rgba(${r}, ${g}, ${b}, ${a})`;
-  },
-
-  toHex({ r, g, b }) {
-    var hex = (n) => n.toString(16).padStart(2, '0');
-    return '#' + hex(r) + hex(g) + hex(b);
-  },
-
-  fromHex(hex) {
-    hex = hex.replace(/^#/, '');
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
-    }
-    var r = parseInt(hex.substr(0, 2), 16);
-    var g = parseInt(hex.substr(2, 2), 16);
-    var b = parseInt(hex.substr(4, 2), 16);
-    return { r, g, b, a: 1 };
-  },
-
-  contrastRatio(col1, col2) {
-    function luminance(c) {
-      var srgb = [c.r, c.g, c.b].map(x => {
-        x /= 255;
-        return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
-      });
-      return 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
-    }
-    var l1 = luminance(col1) + 0.05;
-    var l2 = luminance(col2) + 0.05;
-    return Math.max(l1, l2) / Math.min(l1, l2);
-  },
-
-  getElementTextColor(el) {
-    var style = window.getComputedStyle(el);
-    return this.parseRgba(style.color);
-  },
-
-  getElementBackgroundColor(el) {
-    var style = window.getComputedStyle(el);
-    return this.parseRgba(style.backgroundColor);
-  }
-};
 
 // =========================
 // Global helpers from RPC (will be injected)
@@ -451,136 +11,547 @@ var colorUtil = {
 let RPC; // Will be passed in during initialization
 
 // =========================
-// Edit Mode
+// Utilities
 // =========================
-var EditMode = {
-  _enabled: false,
+function h(tag, attrs) {
+  var parts = tag.split(/([.#][^.#]+)/);
+  var tagName = parts[0] || 'div';
+  var el = document.createElement(tagName);
+  parts.slice(1).forEach(function(part) {
+    if (part.startsWith('.')) el.classList.add(part.slice(1));
+    else if (part.startsWith('#')) el.id = part.slice(1);
+  });
+  if (attrs) Object.keys(attrs).forEach(function (key) { el.setAttribute(key, attrs[key]); });
+  for (var i = 2; i < arguments.length; i++) {
+    if (arguments[i]) el.appendChild(arguments[i]);
+  }
+  return el;
+}
 
-  isEnabled() { return this._enabled; },
+function makeSvg(tag, attrs) {
+  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  if (attrs) Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+  for (var i = 2; i < arguments.length; i++) el.appendChild(arguments[i]);
+  return el;
+}
 
-  async enable() {
-    this._enabled = true;
-    document.body.classList.add('us-edit-mode');
-    console.log('[EditMode] Enabled - body has class:', document.body.classList.contains('us-edit-mode'));
-    await this._saveState();
+// =========================
+// CSS Injection (Original UI Styles)
+// =========================
+var Styles = {
+  injected: false,
+
+  inject: function () {
+    if (this.injected) return;
+    var style = document.createElement('style');
+    style.setAttribute('data-us-cc-styles', '1');
+    style.textContent = this._css();
+    (document.head || document.documentElement).appendChild(style);
+    this.injected = true;
   },
 
-  async disable() {
-    this._enabled = false;
-    document.body.classList.remove('us-edit-mode');
-    console.log('[EditMode] Disabled - body has class:', document.body.classList.contains('us-edit-mode'));
-    await this._saveState();
-  },
+  _css: function () {
+    return [
+      '/* === UserScripts Color Customizer === */',
 
-  async _saveState() {
-    if (!RPC) return;
-    await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode', this._enabled]);
-  },
+      /* ── Reset for our UI ── */
+      '[data-us-cc] *, [data-us-cc] *::before, [data-us-cc] *::after {',
+      '  box-sizing: border-box !important; margin: 0 !important; padding: 0 !important;',
+      '}',
 
-  init() {
-    this._bindGlobalHandler();
-  },
+      /* ── Tab (Liquid Glass) ── */
+      '#us-cc-tab {',
+      '  all: initial !important;',
+      '  position: fixed !important; right: 0 !important; top: 50% !important;',
+      '  transform: translateY(-50%) !important;',
+      '  z-index: 2147483646 !important;',
+      '  width: 58px !important; min-height: 88px !important; overflow: visible !important;',
+      '  background: rgba(255,255,255,0.12) !important;',
+      '  backdrop-filter: blur(24px) saturate(180%) !important; -webkit-backdrop-filter: blur(24px) saturate(180%) !important;',
+      '  border-radius: 12px 0 0 12px !important;',
+      '  border: 1px solid rgba(255,255,255,0.22) !important; border-right: none !important;',
+      '  box-shadow: -4px 0 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15) !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 1px !important;',
+      '  transition: width 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;',
+      '}',
+      '#us-cc-tab:hover { width: 62px !important; background: rgba(255,255,255,0.16) !important; }',
+      '#us-cc-tab .us-cc-tab-icon {',
+      '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
+      '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
+      '  flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important;',
+      '  min-height: 0 !important; cursor: pointer !important; padding: 1px 0 1px !important; overflow: visible !important;',
+      '}',
+      '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(0,0,0,0.75) !important; }',
+      '#us-cc-tab .us-cc-tab-icon-row {',
+      '  display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 1px !important; transform: translateY(-29px) !important;',
+      '  width: fit-content !important; font-size: 11px !important; line-height: 1.2 !important;',
+      '}',
+      '#us-cc-tab .us-cc-tab-text { writing-mode: horizontal-tb !important; text-orientation: mixed !important; }',
+      '#us-cc-tab .us-cc-tab-swatch {',
+      '  display: block !important; visibility: visible !important; width: 100% !important; height: 0.5em !important; min-height: 4px !important;',
+      '  border-radius: 4px !important; flex-shrink: 0 !important;',
+      '  background: linear-gradient(to right, #f44336 0%, #e91e63 12.5%, #9c27b0 25%, #2196f3 37.5%, #00bcd4 50%, #4caf50 62.5%, #ffeb3b 75%, #ff9800 87.5%, #f44336 100%) !important;',
+      '  border: none !important; box-sizing: border-box !important;',
+      '}',
+      '#us-cc-tab.us-tab-active .us-cc-tab-swatch { opacity: 1 !important; }',
+      '#us-cc-tab.us-tab-active {',
+      '  border-color: rgba(59,130,246,0.4) !important;',
+      '  background: rgba(255,255,255,0.18) !important;',
+      '  box-shadow: -4px 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.2) !important;',
+      '}',
+      '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(0,0,0,0.55) !important; }',
+      '.us-cc-tab-toggle-wrap {',
+      '  flex-shrink: 0 !important; padding: 1px 0 1px !important; min-height: 0 !important; overflow: visible !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  transform: translateY(47px) scale(0.7) !important; transform-origin: center center !important; }',
 
-  _bindGlobalHandler() {
-    var self = this;
-    console.log('[EditMode] Binding global click handler');
-    document.addEventListener('click', function (e) {
-      console.log('[EditMode] Click detected, enabled:', self._enabled, 'target:', e.target);
-      if (!self._enabled) return;
-      if (e.target.closest('.us-cc-panel, #us-cc-tab, .us-cc-popover')) {
-        console.log('[EditMode] Click on UI element, ignoring');
-        return;
-      }
-      console.log('[EditMode] Showing color popover for:', e.target);
-      e.preventDefault();
-      e.stopPropagation();
-      ColorPopover.showFor(e.target);
-    }, true);
+      /* ── Edit-mode highlight ── */
+      '.us-cc-highlight {',
+      '  outline: 2px solid rgba(59,130,246,0.8) !important;',
+      '  outline-offset: 1px !important;',
+      '  cursor: crosshair !important;',
+      '}',
+
+      /* ── Backdrop (Liquid Glass: 軽いオーバーレイ＋ブラー) ── */
+      '#us-cc-backdrop {',
+      '  all: initial !important; position: fixed !important; inset: 0 !important;',
+      '  z-index: 2147483645 !important;',
+      '  background: rgba(0,0,0,0.12) !important;',
+      '  backdrop-filter: blur(16px) saturate(120%) !important; -webkit-backdrop-filter: blur(16px) saturate(120%) !important;',
+      '  display: none !important; opacity: 0 !important;',
+      '  transition: opacity 0.25s ease !important;',
+      '}',
+      '#us-cc-backdrop.us-visible { display: block !important; opacity: 1 !important; }',
+
+      /* ── Panel (Liquid Glass, slides from right) ── */
+      '#us-cc-panel {',
+      '  all: initial !important; position: fixed !important;',
+      '  top: 0 !important; right: 0 !important; bottom: 0 !important;',
+      '  width: 320px !important; max-width: 85vw !important;',
+      '  z-index: 2147483647 !important;',
+      '  background: rgba(255,255,255,0.14) !important;',
+      '  backdrop-filter: blur(40px) saturate(160%) !important; -webkit-backdrop-filter: blur(40px) saturate(160%) !important;',
+      '  border-left: 1px solid rgba(255,255,255,0.28) !important;',
+      '  box-shadow: -8px 0 32px rgba(0,0,0,0.06), inset 1px 0 0 rgba(255,255,255,0.2) !important;',
+      '  color: rgba(0,0,0,0.82) !important;',
+      '  font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 13px !important; line-height: 1.5 !important;',
+      '  display: flex !important; flex-direction: column !important;',
+      '  transform: translateX(100%) !important;',
+      '  transition: transform 0.28s cubic-bezier(.2,.9,.3,1) !important;',
+      '}',
+      '#us-cc-panel.us-open { transform: translateX(0) !important; }',
+
+      /* panel header */
+      '#us-cc-panel .us-p-header {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '  padding: 16px 16px 12px !important;',
+      '  border-bottom: 1px solid rgba(0,0,0,0.06) !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-title {',
+      '  all: initial !important; font-family: inherit !important;',
+      '  font-size: 15px !important; font-weight: normal !important; color: rgba(0,0,0,0.88) !important;',
+      '}',
+      '#us-cc-panel .us-p-title .us-title-editor {',
+      '  font-weight: 900 !important;',
+      '}',
+      '#us-cc-panel .us-p-version {',
+      '  all: initial !important; font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 10px !important; color: rgba(0,0,0,0.4) !important;',
+      '}',
+      '#us-cc-panel .us-p-header-toggle {',
+      '  margin-left: auto !important; flex-shrink: 0 !important;',
+      '}',
+
+      /* iOS-style toggle switch */
+      '.us-switch {',
+      '  all: initial !important; position: relative !important; display: inline-block !important;',
+      '  width: 44px !important; height: 24px !important; cursor: pointer !important;',
+      '}',
+      '.us-switch input { opacity: 0 !important; width: 0 !important; height: 0 !important; position: absolute !important; }',
+      '.us-switch .us-slider {',
+      '  position: absolute !important; inset: 0 !important;',
+      '  background: rgba(0,0,0,0.12) !important; border-radius: 12px !important;',
+      '  transition: background 0.2s !important;',
+      '}',
+      '.us-switch .us-slider::after {',
+      '  content: "" !important; position: absolute !important;',
+      '  left: 2px !important; top: 2px !important; width: 20px !important; height: 20px !important;',
+      '  background: #fff !important; border-radius: 50% !important;',
+      '  box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;',
+      '  transition: transform 0.2s !important;',
+      '}',
+      '.us-switch input:checked + .us-slider { background: #30d158 !important; }',
+      '.us-switch input:checked + .us-slider::after { transform: translateX(20px) !important; }',
+
+      /* Rules list */
+      '#us-cc-panel .us-p-rules {',
+      '  flex: 1 !important; overflow-y: auto !important; padding: 8px 16px !important;',
+      '}',
+      '#us-cc-panel .us-p-rules::-webkit-scrollbar { width: 3px !important; }',
+      '#us-cc-panel .us-p-rules::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12) !important; border-radius: 3px !important; }',
+      '#us-cc-panel .us-p-empty {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  text-align: center !important; color: rgba(0,0,0,0.45) !important;',
+      '  font-size: 12px !important; padding: 32px 16px !important;',
+      '}',
+      '#us-cc-panel .us-rule-item {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '  padding: 8px 10px !important; margin-bottom: 4px !important;',
+      '  background: rgba(255,255,255,0.5) !important; border: 1px solid rgba(255,255,255,0.4) !important;',
+      '  border-radius: 8px !important; transition: background 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-rule-item:hover { background: rgba(255,255,255,0.65) !important; }',
+      '#us-cc-panel .us-rule-swatch {',
+      '  all: initial !important; width: 18px !important; height: 18px !important;',
+      '  border-radius: 4px !important; border: 1px solid rgba(0,0,0,0.1) !important;',
+      '  flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-rule-info {',
+      '  flex: 1 !important; overflow: hidden !important; min-width: 0 !important;',
+      '}',
+      '#us-cc-panel .us-rule-selector {',
+      '  all: initial !important; display: block !important; font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 10px !important; color: rgba(0,0,0,0.5) !important;',
+      '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
+      '}',
+      '#us-cc-panel .us-rule-prop {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 11px !important; color: rgba(0,0,0,0.7) !important;',
+      '}',
+      '#us-cc-panel .us-rule-del {',
+      '  all: initial !important; cursor: pointer !important; color: rgba(0,0,0,0.35) !important;',
+      '  font-size: 14px !important; width: 22px !important; height: 22px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  border-radius: 4px !important; flex-shrink: 0 !important;',
+      '  transition: background 0.15s, color 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-rule-del:hover { background: rgba(255,69,58,0.15) !important; color: #ff453a !important; }',
+
+      /* Panel footer */
+      '#us-cc-panel .us-p-footer {',
+      '  padding: 12px 16px !important; border-top: 1px solid rgba(0,0,0,0.06) !important;',
+      '  flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; gap: 8px !important;',
+      '}',
+      '#us-cc-panel .us-p-footer-row {',
+      '  display: flex !important; gap: 6px !important;',
+      '}',
+      '#us-cc-panel .us-btn {',
+      '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  padding: 7px 14px !important; font-family: inherit !important; font-size: 12px !important; font-weight: 500 !important;',
+      '  border-radius: 8px !important; cursor: pointer !important;',
+      '  transition: filter 0.15s, transform 0.1s !important; white-space: nowrap !important;',
+      '}',
+      '#us-cc-panel .us-btn:active { transform: scale(0.96) !important; }',
+      '#us-cc-panel .us-btn-danger {',
+      '  background: rgba(255,69,58,0.12) !important; color: #ff453a !important;',
+      '  border: 1px solid rgba(255,69,58,0.18) !important;',
+      '}',
+      '#us-cc-panel .us-btn-danger:hover { background: rgba(255,69,58,0.22) !important; }',
+      '#us-cc-panel .us-btn-secondary {',
+      '  background: rgba(255,255,255,0.6) !important; color: rgba(0,0,0,0.65) !important;',
+      '  border: 1px solid rgba(255,255,255,0.5) !important; flex: 1 !important;',
+      '}',
+      '#us-cc-panel .us-btn-secondary:hover { background: rgba(255,255,255,0.8) !important; color: rgba(0,0,0,0.85) !important; }',
+
+      /* ── Color Popover (Liquid Glass) ── */
+      '#us-cc-popover {',
+      '  all: initial !important; position: fixed !important;',
+      '  z-index: 2147483647 !important;',
+      '  background: rgba(255,255,255,0.2) !important;',
+      '  backdrop-filter: blur(24px) saturate(160%) !important; -webkit-backdrop-filter: blur(24px) saturate(160%) !important;',
+      '  border: 1px solid rgba(255,255,255,0.35) !important;',
+      '  border-radius: 12px !important; padding: 14px !important;',
+      '  width: 280px !important;',
+      '  overflow: visible !important;',
+      '  color: rgba(0,0,0,0.82) !important;',
+      '  font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 12px !important;',
+      '  box-shadow: 0 12px 40px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3) !important;',
+      '  display: none !important;',
+      '}',
+      '#us-cc-popover.us-visible { display: block !important; }',
+      '#us-cc-popover .us-pop-label {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 10px !important; font-weight: 600 !important; text-transform: uppercase !important;',
+      '  letter-spacing: 0.5px !important; color: rgba(0,0,0,0.45) !important;',
+      '  margin-bottom: 6px !important;',
+      '}',
+      '#us-cc-popover .us-pop-selector-text {',
+      '  all: initial !important; display: block !important; font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 10px !important; color: rgba(0,0,0,0.55) !important; background: rgba(255,255,255,0.4) !important;',
+      '  padding: 3px 6px !important; border-radius: 4px !important; margin-bottom: 8px !important;',
+      '  max-width: 100% !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important;',
+      '}',
+      '#us-cc-popover .us-pop-colors {',
+      '  display: flex !important; flex-direction: column !important; gap: 8px !important;',
+      '}',
+      '#us-cc-popover .us-pop-color-row {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '}',
+      '#us-cc-popover .us-pop-color-btn {',
+      '  all: initial !important; display: flex !important; align-items: center !important; gap: 6px !important;',
+      '  padding: 8px 10px !important; min-width: 0 !important; flex: 1 !important;',
+      '  border-radius: 8px !important; font-family: inherit !important; font-size: 11px !important; font-weight: 500 !important;',
+      '  cursor: pointer !important; transition: all 0.15s !important;',
+      '  background: rgba(255,255,255,0.4) !important; border: 1px solid rgba(255,255,255,0.3) !important; color: rgba(0,0,0,0.7) !important;',
+      '}',
+      '#us-cc-popover .us-pop-color-btn:hover { background: rgba(255,255,255,0.6) !important; color: rgba(0,0,0,0.9) !important; transform: scale(1.02) !important; }',
+      '#us-cc-popover .us-pop-color-btn:active { transform: scale(0.98) !important; }',
+      '#us-cc-popover .us-color-swatch {',
+      '  width: 14px !important; height: 14px !important; border-radius: 3px !important;',
+      '  border: 1px solid rgba(0,0,0,0.1) !important; flex-shrink: 0 !important;',
+      '}',
+
+      /* ── Themes (dark) ── */
+      '@media (prefers-color-scheme: dark) {',
+      '  #us-cc-tab { background: rgba(0,0,0,0.3) !important; border-color: rgba(255,255,255,0.15) !important; }',
+      '  #us-cc-tab:hover { background: rgba(0,0,0,0.4) !important; }',
+      '  #us-cc-tab .us-cc-tab-icon { color: rgba(255,255,255,0.65) !important; }',
+      '  #us-cc-tab .us-cc-tab-icon:hover { color: rgba(255,255,255,0.9) !important; }',
+      '  #us-cc-panel { background: rgba(18,18,18,0.85) !important; border-color: rgba(255,255,255,0.12) !important; color: rgba(255,255,255,0.85) !important; }',
+      '  #us-cc-panel .us-p-title { color: rgba(255,255,255,0.9) !important; }',
+      '  #us-cc-panel .us-p-version { color: rgba(255,255,255,0.4) !important; }',
+      '  #us-cc-panel .us-p-header { border-color: rgba(255,255,255,0.08) !important; }',
+      '  #us-cc-panel .us-rule-item { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.06) !important; }',
+      '  #us-cc-panel .us-rule-item:hover { background: rgba(255,255,255,0.12) !important; }',
+      '  #us-cc-panel .us-rule-selector { color: rgba(255,255,255,0.5) !important; }',
+      '  #us-cc-panel .us-rule-prop { color: rgba(255,255,255,0.75) !important; }',
+      '  #us-cc-panel .us-rule-del { color: rgba(255,255,255,0.35) !important; }',
+      '  #us-cc-panel .us-p-empty { color: rgba(255,255,255,0.4) !important; }',
+      '  #us-cc-panel .us-btn-secondary { background: rgba(255,255,255,0.12) !important; color: rgba(255,255,255,0.7) !important; border-color: rgba(255,255,255,0.1) !important; }',
+      '  #us-cc-panel .us-btn-secondary:hover { background: rgba(255,255,255,0.18) !important; color: rgba(255,255,255,0.9) !important; }',
+      '  #us-cc-popover { background: rgba(28,28,28,0.9) !important; border-color: rgba(255,255,255,0.2) !important; color: rgba(255,255,255,0.85) !important; }',
+      '  #us-cc-popover .us-pop-label { color: rgba(255,255,255,0.5) !important; }',
+      '  #us-cc-popover .us-pop-selector-text { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.6) !important; }',
+      '  #us-cc-popover .us-pop-color-btn { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.7) !important; }',
+      '  #us-cc-popover .us-pop-color-btn:hover { background: rgba(255,255,255,0.15) !important; color: rgba(255,255,255,0.9) !important; }',
+      '}',
+
+    ].join('\n');
   }
 };
 
 // =========================
-// Rules Manager
+// Selector Engine
+// =========================
+var SelectorEngine = {
+  generate: function (el) {
+    if (!(el instanceof HTMLElement)) return '';
+    var parts = [];
+    var current = el;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (current.id) {
+        parts.unshift('#' + CSS.escape(current.id));
+        break;
+      }
+      var tag = current.tagName.toLowerCase();
+      var parent = current.parentElement;
+      if (parent) {
+        var siblings = Array.from(parent.children).filter(function (c) { return c.tagName === current.tagName; });
+        if (siblings.length > 1) {
+          var idx = siblings.indexOf(current) + 1;
+          tag += ':nth-of-type(' + idx + ')';
+        }
+      }
+      parts.unshift(tag);
+      current = parent;
+    }
+    if (parts.length === 0) return el.tagName.toLowerCase();
+    return parts.join(' > ');
+  },
+
+  find: function (selector) {
+    try { return document.querySelector(selector); } catch (e) { return null; }
+  },
+
+  findAll: function (selector) {
+    try {
+      var list = document.querySelectorAll(selector);
+      return Array.prototype.slice.call(list);
+    } catch (e) {
+      return [];
+    }
+  }
+};
+
+// =========================
+// Rules Manager  
 // =========================
 var RulesManager = {
+  _storagePrefix: 'userscripts:features:colorCustomizer:page:',
+  _pageKey: window.location.hostname + window.location.pathname,
   _rules: [],
 
+  _key: function () {
+    return this._storagePrefix + encodeURIComponent(this._pageKey);
+  },
+
   async load() {
-    if (!RPC) return;
-    var stored = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:rules', '[]']);
     try {
-      var allRules = JSON.parse(stored);
-      this._rules = allRules.filter(rule => 
-        this._isRuleForCurrentSite(rule.hostname, rule.pathname)
-      );
+      console.log('[ColorCustomizer] Loading rules for:', this._pageKey);
+      var data = await RPC.call('storage.get', [this._key(), null]);
+      if (data && Array.isArray(data.rules)) {
+        this._rules = data.rules;
+        console.log('[ColorCustomizer] Loaded', this._rules.length, 'rules');
+      } else {
+        this._rules = [];
+      }
     } catch (e) {
-      console.error('[RulesManager] Failed to parse stored rules:', e);
+      console.warn('[ColorCustomizer] Failed to load rules:', e);
       this._rules = [];
     }
+    return this._rules;
+  },
+
+  async importRules(rules) {
+    if (!Array.isArray(rules)) return;
+    var self = this;
+    var count = 0;
+    rules.forEach(function (r) {
+      if (!r.selector || !r.property || !r.value) return;
+      var idx = self._rules.findIndex(function (x) { return x.selector === r.selector && x.property === r.property; });
+      if (idx >= 0) {
+        self._rules[idx] = r;
+      } else {
+        self._rules.push(r);
+      }
+      count++;
+    });
+    if (count > 0) {
+      try {
+        await self.save();
+        console.log('[ColorCustomizer] Imported ' + count + ' rules and saved');
+      } catch (e) {
+        console.warn('[ColorCustomizer] Failed to import rules:', e);
+      }
+    }
+    return count;
   },
 
   async save() {
-    if (!RPC) return;
-    var stored = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:rules', '[]']);
-    try {
-      var allRules = JSON.parse(stored);
-      allRules = allRules.filter(rule => 
-        !this._isRuleForCurrentSite(rule.hostname, rule.pathname)
-      );
-      allRules.push(...this._rules);
-      await RPC.call('storage.set', ['userscripts:features:colorCustomizer:rules', JSON.stringify(allRules)]);
-    } catch (e) {
-      console.error('[RulesManager] Failed to save rules:', e);
-    }
+    var obj = { rules: this._rules };
+    return RPC.call('storage.set', [this._key(), obj]);
   },
 
-  _isRuleForCurrentSite(hostname, pathname) {
-    return hostname === window.location.hostname && 
-           pathname === window.location.pathname;
+  getRules: function () {
+    return this._rules.slice();
   },
 
-  getRules() {
-    return [...this._rules];
-  },
-
-  addRule(selector, property, value) {
-    var hostname = window.location.hostname;
-    var pathname = window.location.pathname;
-    var existingIndex = this._rules.findIndex(r => 
-      r.selector === selector && r.property === property
-    );
-    var rule = { hostname, pathname, selector, property, value };
-    if (existingIndex >= 0) {
-      this._rules[existingIndex] = rule;
+  addRule: function (selector, property, value) {
+    var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
+    var rule = { selector: selector, property: property, value: value };
+    if (idx >= 0) {
+      this._rules[idx] = rule;
     } else {
       this._rules.push(rule);
     }
     this.save();
-    StyleApplier.applyAll(this._rules);
+    StyleApplier.applyAll();
   },
 
-  removeRule(selector, property) {
-    this._rules = this._rules.filter(r => 
-      !(r.selector === selector && r.property === property)
-    );
+  removeRule: function (selector, property) {
+    var oldLen = this._rules.length;
+    this._rules = this._rules.filter(function (r) { return !(r.selector === selector && r.property === property); });
+    if (this._rules.length !== oldLen) {
+      this.save();
+      StyleApplier.applyAll();
+    }
+  },
+
+  clearAll: function () {
+    this._rules = [];
     this.save();
-    StyleApplier.applyAll(this._rules);
+    StyleApplier.applyAll();  
+  },
+
+  exportData: function () {
+    return { rules: this.getRules() };
+  },
+
+  countRules: function () {
+    return this._rules.length;
   }
 };
 
 // =========================
-// Profile Manager (Simplified)
+// Profile Manager
 // =========================
 var ProfileManager = {
   _profiles: [],
 
   async load() {
-    if (!RPC) return;
-    this._profiles = [];
+    try {
+      var defaultProfiles = this._getDefaultProfiles();
+
+      var key = 'userscripts:features:colorCustomizer:profiles';
+      var data = await RPC.call('storage.get', [key, '[]']);
+      var stored = JSON.parse(data || '[]');
+
+      // Merge default + stored
+      var merged = [].concat(defaultProfiles);
+      stored.forEach(function (p) {
+        if (!merged.find(function (x) { return x.id === p.id; })) {
+          merged.push(p);
+        }
+      });
+      this._profiles = merged;
+    } catch (e) {
+      console.warn('[ProfileManager] Failed to load profiles:', e);
+      this._profiles = this._getDefaultProfiles();
+    }
   },
 
-  getProfiles() {
-    return [...this._profiles];
+  getProfiles: function () {
+    return this._profiles.slice();
+  },
+
+  async applyProfile(profileId) {
+    var profile = this._profiles.find(function (p) { return p.id === profileId; });
+    if (!profile || !profile.rules) {
+      console.warn('[ProfileManager] Profile not found:', profileId);
+      return 0;
+    }
+
+    console.log('[ProfileManager] Applying profile:', profile.name);
+    return RulesManager.importRules(profile.rules);
+  },
+
+  _getDefaultProfiles: function () {
+    return [
+      {
+        id: 'high-contrast',
+        name: 'ハイコントラスト',
+        desc: '背景を黒、テキストを白にして視認性を向上',
+        rules: [
+          { selector: 'body', property: 'background-color', value: '#000000' },
+          { selector: 'body', property: 'color', value: '#ffffff' },
+          { selector: '*', property: 'background-color', value: 'transparent' },
+          { selector: 'a', property: 'color', value: '#00ddff' }
+        ]
+      },
+      {
+        id: 'dark-mode',
+        name: 'ダークモード',
+        desc: '落ち着いた暗いトーンでページを表示',
+        rules: [
+          { selector: 'body', property: 'background-color', value: '#1a1a1a' },
+          { selector: 'body', property: 'color', value: '#e0e0e0' },
+          { selector: 'div, section, article, main', property: 'background-color', value: '#2d2d2d' },
+          { selector: 'a', property: 'color', value: '#4a9eff' }
+        ]
+      },
+      {
+        id: 'sepia',
+        name: 'セピアトーン',
+        desc: '目に優しいセピア調の色合いに変換',
+        rules: [
+          { selector: 'body', property: 'background-color', value: '#f7f3e9' },
+          { selector: 'body', property: 'color', value: '#5c4b37' },
+          { selector: 'a', property: 'color', value: '#8b4513' }
+        ]
+      }
+    ];
   }
 };
 
@@ -590,118 +561,306 @@ var ProfileManager = {
 var StyleApplier = {
   _style: null,
 
-  applyAll(rules) {
+  applyAll: function () {
     this._removeExisting();
+    var rules = RulesManager.getRules();
     if (!rules || rules.length === 0) return;
-    
-    var css = rules.map(rule => 
-      `${rule.selector} { ${rule.property}: ${rule.value} !important; }`
-    ).join('\n');
-    
+
+    var css = rules.map(function (rule) {
+      return rule.selector + ' { ' + rule.property + ': ' + rule.value + ' !important; }';
+    }).join('\n');
+
     this._style = document.createElement('style');
-    this._style.setAttribute('data-us-cc', 'rules');
+    this._style.setAttribute('data-us-cc-rules', '1');
     this._style.textContent = css;
-    document.head.appendChild(this._style);
+    (document.head || document.documentElement).appendChild(this._style);
   },
 
-  _removeExisting() {
-    if (this._style) {
-      this._style.remove();
+  _removeExisting: function () {
+    if (this._style && this._style.parentNode) {
+      this._style.parentNode.removeChild(this._style);
       this._style = null;
+    }
+    // Also remove any orphaned styles
+    var existingStyles = document.querySelectorAll('style[data-us-cc-rules="1"]');
+    for (var i = 0; i < existingStyles.length; i++) {
+      existingStyles[i].parentNode.removeChild(existingStyles[i]);
     }
   }
 };
 
 // =========================
-// Color Popover
-// =========================
-var ColorPopover = {
-  _popover: null,
-  _currentTarget: null,
+// Tab (Original Implementation)
+// ========================= 
+var Tab = {
+  _el: null,
+  _toggle: null,
 
-  showFor(target) {
-    console.log('[ColorPopover] Showing for target:', target);
-    this.hide();
-    this._currentTarget = target;
-    this._create(target);
+  create: function () {
+    if (this._el) return;
+
+    // Tab toggle
+    var toggleWrap = h('div.us-cc-tab-toggle-wrap', { 'data-us-cc': 'tab-toggle' });
+    var toggle = h('label.us-switch');
+    var checkbox = h('input', { type: 'checkbox' });
+    var slider = h('span.us-slider');
+    toggle.appendChild(checkbox);
+    toggle.appendChild(slider);
+    toggleWrap.appendChild(toggle);
+
+    // Tab icon with color swatch
+    var iconWrap = h('div.us-cc-tab-icon', { 'data-us-cc': 'tab-icon' });
+    var iconRow = h('div.us-cc-tab-icon-row');
+    
+    var textSpan = h('span.us-cc-tab-text');
+    textSpan.appendChild(document.createTextNode('ツール'));
+    
+    var swatchDiv = h('div.us-cc-tab-swatch', { 'aria-hidden': 'true' });
+    
+    iconRow.appendChild(textSpan);
+    iconRow.appendChild(swatchDiv);
+    iconWrap.appendChild(iconRow);
+
+    // Combine both into tab
+    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
+    tab.appendChild(toggleWrap);
+    tab.appendChild(iconWrap);
+
+    // Event handlers
+    checkbox.addEventListener('change', function () {
+      if (this.checked) {
+        HighlightMode.enable();
+        Tab.setActive(true);
+      } else {
+        HighlightMode.disable();
+        Tab.setActive(false);
+      }
+    });
+
+    iconWrap.addEventListener('click', function () {
+      DomPopover.hide();
+      Panel.open();
+    });
+
+    document.body.appendChild(tab);
+    this._el = tab;
+    this._toggle = checkbox;
   },
 
-  hide() {
-    if (this._popover) {
-      this._popover.remove();
-      this._popover = null;
+  setActive: function (active) {
+    if (this._el) {
+      if (active) {
+        this._el.classList.add('us-tab-active');
+      } else {
+        this._el.classList.remove('us-tab-active');
+      }
     }
-    this._currentTarget = null;
+    if (this._toggle) {
+      this._toggle.checked = !!active;
+    }
+  }
+};
+
+// =========================
+// Highlight Mode
+// =========================
+var HighlightMode = {
+  _enabled: false,
+  _currentHighlight: null,
+
+  isEnabled: function () {
+    return this._enabled;
   },
 
-  _create(target) {
-    var popover = document.createElement('div');
-    popover.className = 'us-cc-popover';
+  async enable() {
+    this._enabled = true;
+    document.body.classList.add('us-highlight-mode');
+    await this._saveState();
+    this._bindEvents();
+    console.log('[HighlightMode] Enabled');
+  },
+
+  async disable() {
+    this._enabled = false;
+    document.body.classList.remove('us-highlight-mode');
+    this._clearHighlight();
+    await this._saveState();
+    this._unbindEvents();
+    console.log('[HighlightMode] Disabled');
+  },
+
+  async _saveState() {
+    if (!RPC) return;
+    await RPC.call('storage.set', ['userscripts:features:colorCustomizer:highlightMode', this._enabled]);
+  },
+
+  _bindEvents: function () {
+    document.addEventListener('mouseover', this._onMouseOver, true);
+    document.addEventListener('mouseout', this._onMouseOut, true);
+    document.addEventListener('click', this._onClick, true);
+  },
+
+  _unbindEvents: function () {
+    document.removeEventListener('mouseover', this._onMouseOver, true);
+    document.removeEventListener('mouseout', this._onMouseOut, true);
+    document.removeEventListener('click', this._onClick, true);
+  },
+
+  _onMouseOver: function (e) {
+    if (!HighlightMode._enabled) return;
+    if (HighlightMode._isTabUI(e.target)) return;
+    HighlightMode._setHighlight(e.target);
+  },
+
+  _onMouseOut: function (e) {
+    if (!HighlightMode._enabled) return;
+    if (HighlightMode._isTabUI(e.target)) return;
+    HighlightMode._clearHighlight();
+  },
+
+  _onClick: function (e) {
+    if (!HighlightMode._enabled) return;
+    if (HighlightMode._isTabUI(e.target)) return;
     
-    var header = document.createElement('div');
-    header.className = 'us-cc-popover-header';
-    header.textContent = this._getTargetDescription(target);
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
     
-    var colorRow = document.createElement('div');
-    colorRow.className = 'us-cc-color-row';
+    HighlightMode._clearHighlight();
+    DomPopover.showFor(e.target);
+  },
+
+  _isTabUI: function (el) {
+    if (!el) return true;
+    return !!el.closest('[data-us-cc], #us-cc-panel, #us-cc-popover, #us-cc-backdrop');
+  },
+
+  _setHighlight: function (el) {
+    this._clearHighlight();
+    if (el && el.classList) {
+      el.classList.add('us-cc-highlight');
+      this._currentHighlight = el;
+    }
+  },
+
+  _clearHighlight: function () {
+    if (this._currentHighlight && this._currentHighlight.classList) {
+      this._currentHighlight.classList.remove('us-cc-highlight');
+      this._currentHighlight = null;
+    }
+  }
+};
+
+// =========================
+// DOM Popover
+// =========================
+var DomPopover = {
+  _el: null,
+  _target: null,
+
+  showFor: function (target) {
+    this.hide();
+    this._target = target;
+    this._create();
+  },
+
+  hide: function () {
+    if (this._el) {
+      this._el.parentNode.removeChild(this._el);
+      this._el = null;
+    }
+    this._target = null;
+  },
+
+  _create: function () {
+    var target = this._target;
+    var selector = SelectorEngine.generate(target);
     
-    var bgButton = this._createColorButton('背景色', 'backgroundColor');
-    var textButton = this._createColorButton('文字色', 'color');
+    var popover = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' });
     
-    colorRow.appendChild(bgButton);
-    colorRow.appendChild(textButton);
+    var label = h('div.us-pop-label');
+    label.appendChild(document.createTextNode('要素セレクタ'));
     
-    popover.appendChild(header);
-    popover.appendChild(colorRow);
+    var selectorText = h('div.us-pop-selector-text');
+    selectorText.appendChild(document.createTextNode(selector));
     
-    this._positionPopover(popover, target);
+    var colors = h('div.us-pop-colors');
+    
+    // Background color row
+    var bgRow = h('div.us-pop-color-row');
+    var bgBtn = this._createColorButton('背景色', 'background-color');
+    var textBtn = this._createColorButton('文字色', 'color');
+    bgRow.appendChild(bgBtn);
+    bgRow.appendChild(textBtn);
+    
+    colors.appendChild(bgRow);
+    
+    popover.appendChild(label);
+    popover.appendChild(selectorText);
+    popover.appendChild(colors);
+    
+    this._positionPopover(popover);
+    popover.classList.add('us-visible');
+    
     document.body.appendChild(popover);
-    this._popover = popover;
+    this._el = popover;
   },
 
-  _getTargetDescription(target) {
-    if (target.id) return `#${target.id}`;
-    if (target.className) return `.${target.className.split(' ')[0]}`;
-    return target.tagName.toLowerCase();
-  },
-
-  _createColorButton(label, property) {
-    var button = document.createElement('button');
-    button.className = 'us-cc-color-button';
-    button.textContent = label;
+  _createColorButton: function (label, property) {
+    var btn = h('div.us-pop-color-btn');
+    
+    var swatch = h('div.us-color-swatch', { style: 'background: currentColor;' });
+    var text = document.createTextNode(label);
+    
+    btn.appendChild(swatch);
+    btn.appendChild(text);
     
     var self = this;
-    button.addEventListener('click', function() {
-      var input = document.createElement('input');
-      input.type = 'color';
-      input.addEventListener('change', function() {
-        var selector = self._getSelector(self._currentTarget);
-        RulesManager.addRule(selector, property, this.value);
-        self.hide();
-      });
-      input.click();
+    btn.addEventListener('click', function () {
+      self._openColorPicker(property);
     });
     
-    return button;
+    return btn;
   },
 
-  _getSelector(target) {
-    if (target.id) return `#${target.id}`;
-    if (target.className) {
-      var className = target.className.split(' ').filter(c => 
-        !c.startsWith('us-') && c.trim()
-      )[0];
-      if (className) return `.${className}`;
-    }
-    return target.tagName.toLowerCase();
+  _openColorPicker: function (property) {
+    var self = this;
+    var input = document.createElement('input');
+    input.type = 'color';
+    input.style.position = 'absolute';
+    input.style.left = '-9999px';
+    
+    input.addEventListener('change', function () {
+      var selector = SelectorEngine.generate(self._target);
+      RulesManager.addRule(selector, property, this.value);
+      self.hide();
+      document.body.removeChild(input);
+    });
+
+    input.addEventListener('cancel', function () {
+      self.hide();
+      document.body.removeChild(input);
+    });
+    
+    document.body.appendChild(input);
+    input.click();
   },
 
-  _positionPopover(popover, target) {
-    var rect = target.getBoundingClientRect();
-    popover.style.position = 'fixed';
-    popover.style.left = rect.left + 'px';
-    popover.style.top = (rect.bottom + 5) + 'px';
-    popover.style.zIndex = '999999';
+  _positionPopover: function (popover) {
+    var rect = this._target.getBoundingClientRect();
+    var vpWidth = window.innerWidth;
+    var vpHeight = window.innerHeight;
+    
+    var left = rect.left + (rect.width / 2) - 140; // Center on target
+    var top = rect.bottom + 12;
+    
+    // Keep in viewport
+    if (left < 12) left = 12;
+    if (left + 280 > vpWidth - 12) left = vpWidth - 292;
+    if (top + 120 > vpHeight - 12) top = rect.top - 120 - 12;
+    
+    popover.style.left = left + 'px';
+    popover.style.top = top + 'px';
   }
 };
 
@@ -709,156 +868,167 @@ var ColorPopover = {
 // Panel
 // =========================
 var Panel = {
-  _panel: null,
+  _el: null,
+  _backdrop: null,
 
-  open() {
-    if (this._panel) return;
-    this._create();
+  open: function () {
+    if (this._el) return;
+    this._createBackdrop();
+    this._createElement();
   },
 
-  close() {
-    if (this._panel) {
-      this._panel.remove();
-      this._panel = null;
+  close: function () {
+    if (this._el) {
+      this._el.classList.remove('us-open');
+      setTimeout(() => {
+        if (this._el && this._el.parentNode) {
+          this._el.parentNode.removeChild(this._el);
+        }
+        if (this._backdrop && this._backdrop.parentNode) {
+          this._backdrop.parentNode.removeChild(this._backdrop);
+        }
+        this._el = null;
+        this._backdrop = null;
+      }, 300);
     }
   },
 
-  _create() {
-    var panel = document.createElement('div');
-    panel.className = 'us-cc-panel';
+  _createBackdrop: function () {
+    this._backdrop = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop' });
+    this._backdrop.addEventListener('click', () => this.close());
+    document.body.appendChild(this._backdrop);
     
-    var header = document.createElement('div');
-    header.className = 'us-cc-panel-header';
-    header.innerHTML = `
-      <span>カラーカスタマイザー</span>
-      <button class="us-cc-close-btn">×</button>
-    `;
-    
-    var content = document.createElement('div');
-    content.className = 'us-cc-panel-content';
-    
+    // Force reflow, then add visible class
+    this._backdrop.offsetHeight;
+    this._backdrop.classList.add('us-visible');
+  },
+
+  _createElement: function () {
     var rules = RulesManager.getRules();
-    if (rules.length === 0) {
-      content.innerHTML = '<p>ルールがありません。要素をクリックして色を設定してください。</p>';
-    } else {
-      var list = document.createElement('ul');
-      rules.forEach(rule => {
-        var item = document.createElement('li');
-        item.innerHTML = `
-          <span>${rule.selector} { ${rule.property}: ${rule.value} }</span>
-          <button class="us-cc-remove-rule" data-selector="${rule.selector}" data-property="${rule.property}">削除</button>
-        `;
-        list.appendChild(item);
-      });
-      content.appendChild(list);
-    }
+    var profiles = ProfileManager.getProfiles();
     
-    panel.appendChild(header);
-    panel.appendChild(content);
+    // Panel container
+    var panel = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' });
     
-    this._bindEvents(panel);
-    document.body.appendChild(panel);
-    this._panel = panel;
-  },
-
-  _bindEvents(panel) {
-    var self = this;
+    // Header
+    var header = h('div.us-p-header');
+    var title = h('div.us-p-title');
+    title.innerHTML = '<span class="us-title-editor">ツール</span> v2.0.5';
     
-    panel.querySelector('.us-cc-close-btn').addEventListener('click', () => {
-      self.close();
-    });
+    var headerToggle = h('div.us-p-header-toggle');
+    var toggle = h('label.us-switch');
+    var toggleInput = h('input', { type: 'checkbox' });
+    var toggleSlider = h('span.us-slider');
     
-    panel.addEventListener('click', function(e) {
-      if (e.target.classList.contains('us-cc-remove-rule')) {
-        var selector = e.target.getAttribute('data-selector');
-        var property = e.target.getAttribute('data-property');
-        RulesManager.removeRule(selector, property);
-        self.close();
-        setTimeout(() => self.open(), 100);
+    toggleInput.checked = HighlightMode.isEnabled();
+    toggleInput.addEventListener('change', function () {
+      if (this.checked) {
+        HighlightMode.enable();
+        Tab.setActive(true);
+      } else {
+        HighlightMode.disable();
+        Tab.setActive(false);
       }
     });
-  }
-};
-
-// =========================
-// Tab
-// =========================
-var Tab = {
-  el: null,
-  _tabEditCheck: null,
-
-  create: function () {
-    if (this.el) return;
-
-    function h(tag, attrs, content) {
-      var parts = tag.split(/([.#][^.#]+)/);
-      var tagName = parts[0] || 'div';
-      var el = document.createElement(tagName);
-      parts.slice(1).forEach(function(part) {
-        if (part.startsWith('.')) el.classList.add(part.slice(1));
-        else if (part.startsWith('#')) el.id = part.slice(1);
+    
+    toggle.appendChild(toggleInput);
+    toggle.appendChild(toggleSlider);
+    headerToggle.appendChild(toggle);
+    
+    header.appendChild(title);
+    header.appendChild(headerToggle);
+    
+    // Rules list
+    var rulesContainer = h('div.us-p-rules');
+    if (rules.length === 0) {
+      var empty = h('div.us-p-empty');
+      empty.appendChild(document.createTextNode('ルールがありません。要素をクリックして色を設定してください。'));
+      rulesContainer.appendChild(empty);
+    } else {
+      rules.forEach(rule => {
+        var item = this._createRuleItem(rule);
+        rulesContainer.appendChild(item);
       });
-      if (attrs) Object.keys(attrs).forEach(key => el.setAttribute(key, attrs[key]));
-      if (content) el.textContent = content;
-      return el;
     }
-
-    var toggleWrap = h('div.us-toggle-wrap', { title: 'Edit Mode切替' });
-    var tabEditCheck = h('input', { type: 'checkbox', id: 'us-tab-edit-check' });
-    var switchLabel = h('label.us-switch', { 'for': 'us-tab-edit-check' });
-    switchLabel.appendChild(h('span.us-slider'));
-    toggleWrap.appendChild(tabEditCheck);  // Add the input element
-    toggleWrap.appendChild(switchLabel);
-
-    var iconWrap = h('div.us-cc-tab-icon', { title: 'ツール 設定' });
-    var row = h('div.us-cc-tab-icon-row', {});
-    var textSpan = h('span.us-cc-tab-text', {});
-    textSpan.appendChild(document.createTextNode('あAa'));
-    row.appendChild(textSpan);
-    row.appendChild(h('div.us-cc-tab-swatch', { 'aria-hidden': 'true' }));
-    iconWrap.appendChild(row);
-
-    var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
-    tab.appendChild(toggleWrap);
-    tab.appendChild(iconWrap);
-
-    toggleWrap.addEventListener('click', function (e) { 
-      console.log('[Tab] Toggle wrap clicked');
-      e.stopPropagation(); 
-    });
-    switchLabel.addEventListener('click', function (e) { 
-      console.log('[Tab] Switch label clicked');
-      e.stopPropagation(); 
-    });
-    tabEditCheck.addEventListener('change', function () {
-      console.log('[Tab] Checkbox changed to:', this.checked);
-      if (this.checked) EditMode.enable(); else EditMode.disable();
-    });
-
-    iconWrap.addEventListener('click', function () {
-        console.log('[Tab] Icon clicked, opening panel');
-        ColorPopover.hide();
-        Panel.open();
+    
+    // Footer with profiles and buttons
+    var footer = h('div.us-p-footer');
+    
+    if (profiles.length > 0) {
+      var profileRow = h('div.us-p-footer-row');
+      profiles.forEach(profile => {
+        var btn = h('div.us-btn.us-btn-secondary');
+        btn.appendChild(document.createTextNode(profile.name));
+        btn.addEventListener('click', async () => {
+          await ProfileManager.applyProfile(profile.id);
+          this.close();
+          setTimeout(() => this.open(), 100);
+        });
+        profileRow.appendChild(btn);
       });
-
-    document.body.appendChild(tab);
-    this.el = tab;
-    this._tabEditCheck = tabEditCheck;
+      footer.appendChild(profileRow);
+    }
+    
+    var actionRow = h('div.us-p-footer-row');
+    
+    var clearBtn = h('div.us-btn.us-btn-danger');
+    clearBtn.appendChild(document.createTextNode('すべて削除'));
+    clearBtn.addEventListener('click', () => {
+      if (confirm('すべてのルールを削除しますか？')) {
+        RulesManager.clearAll();
+        this.close();
+      }
+    });
+    
+    actionRow.appendChild(clearBtn);
+    footer.appendChild(actionRow);
+    
+    panel.appendChild(header);
+    panel.appendChild(rulesContainer);
+    panel.appendChild(footer);
+    
+    document.body.appendChild(panel);
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      panel.classList.add('us-open');
+    });
+    
+    this._el = panel;
   },
 
-  setActive: function (active) {
-    if (!this.el) return;
-    if (active) {
-      this.el.classList.add('us-tab-active');
-    } else {
-      this.el.classList.remove('us-tab-active');
-    }
-    if (this._tabEditCheck) this._tabEditCheck.checked = !!active;
+  _createRuleItem: function (rule) {
+    var item = h('div.us-rule-item');
+    
+    var swatch = h('div.us-rule-swatch');
+    swatch.style.backgroundColor = rule.value;
+    
+    var info = h('div.us-rule-info');
+    var selector = h('div.us-rule-selector');
+    selector.appendChild(document.createTextNode(rule.selector));
+    var prop = h('div.us-rule-prop');
+    prop.appendChild(document.createTextNode(rule.property + ': ' + rule.value));
+    info.appendChild(selector);
+    info.appendChild(prop);
+    
+    var deleteBtn = h('div.us-rule-del');
+    deleteBtn.appendChild(document.createTextNode('✕'));
+    deleteBtn.addEventListener('click', () => {
+      RulesManager.removeRule(rule.selector, rule.property);
+      this.close();
+      setTimeout(() => this.open(), 100);
+    });
+    
+    item.appendChild(swatch);
+    item.appendChild(info);
+    item.appendChild(deleteBtn);
+    
+    return item;
   }
 };
 
 // =========================
-// Feature Interface
+// Feature Interface + Global API
 // =========================
 var ColorCustomizerFeature = {
   _initialized: false,
@@ -870,28 +1040,25 @@ var ColorCustomizerFeature = {
     RPC = rpcInstance;
     
     try {
-      // Inject CSS styles first
-      StyleManager.inject();
+      // Inject original CSS styles
+      Styles.inject();
       
       await RulesManager.load();
       await ProfileManager.load();
-      StyleApplier.applyAll(RulesManager.getRules());
+      StyleApplier.applyAll();
       Tab.create();
-      EditMode.init();
-      Theme.init();
       
-      // Restore Edit Mode state (with error handling)
+      // Restore highlight mode state
       try {
-        console.log('[ColorCustomizer] Checking edit mode state...');
-        var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
-        console.log('[ColorCustomizer] Edit state result:', editState);
-        if (editState) {
-          EditMode.enable();
+        var highlightState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:highlightMode', false]);
+        if (highlightState) {
+          HighlightMode.enable();
+          Tab.setActive(true);
         }
-      } catch (editStateError) {
-        console.warn('[ColorCustomizer] Failed to load edit state, continuing without it:', editStateError.message);
-        // Don't fail the entire initialization for this non-critical feature
+      } catch (e) {
+        console.warn('[ColorCustomizer] Failed to restore highlight state:', e.message);
       }
+      
       this._initialized = true;
       console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
       return true;
@@ -902,11 +1069,13 @@ var ColorCustomizerFeature = {
   },
 
   enable: function () {
-    EditMode.enable();
+    HighlightMode.enable();
+    Tab.setActive(true);
   },
 
   disable: function () {
-    EditMode.disable();
+    HighlightMode.disable();
+    Tab.setActive(false);  
   }
 };
 
