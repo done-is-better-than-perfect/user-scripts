@@ -1,11 +1,39 @@
-# UserScripts RPC 仕様（確定版）
+# UserScripts – Module-based Architecture (v2.0) RPC 仕様（確定版）
 
 **リポジトリ**: `userScripts`  
 **CDN（jsDelivr）**: `https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@<tag-or-branch>/script.js`  
-例: 最新 main … `@main/script.js`、固定バージョン … `@v1.6.38/script.js`
+例: 最新 main … `@main/script.js`、固定バージョン … `@v2.0.0/script.js`
+
+## 🆕 Version 2.0 の主な変更点
+
+### モジュールベースアーキテクチャ
+- colorEditor機能をES Moduleとして独立したファイル（`modules/colorEditor.js`）に分離
+- 右端タブ名を「colorEditor」から「ツール」に変更し、階層を抽象化
+- `FeatureManager`による機能の動的読み込みシステムを導入
+- コードの保守性と拡張性を向上
+
+### アーキテクチャ概要
+```
+script.js (Core)
+├── RPC Client
+├── SelectorEngine  
+├── ModuleLoader
+└── FeatureManager
+    └── modules/colorEditor.js (ES Module)
+        ├── Theme System
+        ├── Color Utilities
+        ├── Edit Mode
+        ├── Rules Manager
+        ├── Style Applier
+        └── UI Components
+```
+
+---
+---
+
+## RPC 仕様
 
 本仕様は、**page world（外部 `script.js`）** から **content world（UserScript本体）** へ `window.postMessage` で呼び出す RPC を定義する。
-目的は、iPad Safari（Userscripts/Tampermonkey 等）における **GM_* / 特権API（Storage/XHR/CSS/Clipboard）** を page 側から安全かつ拡張可能に利用すること。
 
 ### Loader ファイル
 
