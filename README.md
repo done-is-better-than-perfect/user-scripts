@@ -1,10 +1,23 @@
-# UserScripts – Module-based Architecture (v2.0.3)
+# UserScripts – Module-based Architecture (v2.0.4)
 
 **リポジトリ**: `userScripts`  
 **CDN（jsDelivr）**: `https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@<tag-or-branch>/script.js`  
-例: 最新 main … `@main/script.js`、安定版 … `@v2.0.3/script.js`
+例: 最新 main … `@main/script.js`、安定版 … `@v2.0.4/script.js`
 
-## 🆕 Version 2.0.3 の修正内容
+## 🆕 Version 2.0.4 の修正内容
+
+### 🐛 デバッグ強化 + jQuery競合修正
+- **包括的ログ追加**: Tab・EditMode・ColorPopoverの動作トレース  
+- **URL Hash クリーンアップ**: version=x.x.xを削除してjQuery競合エラーを回避
+- **UI動作検証**: 各コンポーネントのイベント処理確認機能
+- **input要素修正**: Tab toggleでcheckbox要素を適切にDOM追加
+
+### 修正されたエラー  
+```
+Uncaught Error: Syntax error, unrecognized expression: #version=v2.0.3
+```
+
+## Version 2.0.3 の修正内容
 
 ### 🐛 構文エラー修正（緊急修正）
 - **SyntaxError解決**: 余分な閉じ括弧`}`を削除
