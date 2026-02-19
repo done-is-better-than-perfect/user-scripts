@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.47';
+var US_VERSION = '1.6.48';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -947,7 +947,7 @@ var Styles = {
       '}',
       '#us-cc-prof-color-popover.us-visible { display: block !important; }',
       '#us-cc-prof-color-popover .us-prof-popover-row1 {',
-      '  display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 8px !important;',
+      '  display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 10px !important;',
       '}',
       '#us-cc-prof-color-popover [data-role="preview-swatch"] {',
       '  display: inline-block !important; width: 32px !important; height: 32px !important; flex-shrink: 0 !important;',
@@ -956,17 +956,22 @@ var Styles = {
       '#us-cc-prof-color-popover .us-prof-popover-row1 input { flex: 1 !important; min-width: 0 !important; }',
       '#us-cc-prof-color-popover input[type="text"] {',
       '  all: initial !important; display: block !important; width: 100% !important; box-sizing: border-box !important;',
-      '  padding: 6px 8px !important; margin-bottom: 8px !important;',
+      '  padding: 6px 8px !important; margin-bottom: 0 !important; text-align: center !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
       '  color: rgba(255,255,255,0.9) !important; background: rgba(0,0,0,0.2) !important;',
       '  border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 4px !important; outline: none !important;',
       '}',
       '#us-cc-prof-color-popover .us-prof-popover-rgbhex {',
-      '  display: flex !important; align-items: center !important; gap: 6px !important; flex-wrap: wrap !important;',
+      '  display: flex !important; justify-content: center !important; align-items: flex-end !important; gap: 8px !important; flex-wrap: wrap !important;',
       '}',
-      '#us-cc-prof-color-popover .us-prof-popover-label { font-size: 10px !important; color: rgba(255,255,255,0.45) !important; margin-right: 4px !important; }',
-      '#us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="r"], #us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="g"], #us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="b"] { width: 40px !important; }',
-      '#us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="hex"] { width: 72px !important; }',
+      '#us-cc-prof-color-popover .us-prof-popover-cell {',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important;',
+      '}',
+      '#us-cc-prof-color-popover .us-prof-popover-cell-label {',
+      '  font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
+      '}',
+      '#us-cc-prof-color-popover .us-prof-popover-cell input { width: 44px !important; }',
+      '#us-cc-prof-color-popover .us-prof-popover-cell [data-role="hex"] { width: 80px !important; }',
     ].join('\n');
   }
 };
@@ -1382,7 +1387,11 @@ var ProfileColorPopover = {
     var bIn = h('input', { type: 'text', 'data-role': 'b', placeholder: 'B' });
     var hexIn = h('input', { type: 'text', 'data-role': 'hex', placeholder: 'HEX' });
     var row1 = h('div.us-prof-popover-row1', swatch, flexible);
-    var row2 = h('div.us-prof-popover-rgbhex', h('span.us-prof-popover-label', 'RGB / HEX'), rIn, gIn, bIn, hexIn);
+    var rCell = h('div.us-prof-popover-cell', h('span.us-prof-popover-cell-label', 'R'), rIn);
+    var gCell = h('div.us-prof-popover-cell', h('span.us-prof-popover-cell-label', 'G'), gIn);
+    var bCell = h('div.us-prof-popover-cell', h('span.us-prof-popover-cell-label', 'B'), bIn);
+    var hexCell = h('div.us-prof-popover-cell', h('span.us-prof-popover-cell-label', '16進'), hexIn);
+    var row2 = h('div.us-prof-popover-rgbhex', rCell, gCell, bCell, hexCell);
     this.el = h('div', { id: 'us-cc-prof-color-popover', 'data-us-cc': 'prof-color-popover' },
       row1,
       row2
@@ -1597,9 +1606,12 @@ var Panel = {
     var self = this;
     var closeTimer = null;
 
-    // 設定パネルから mouseOut 後 0.5秒で閉じる
+    // 設定パネルから mouseOut 後 0.5秒で閉じる（プロファイル色ポップオーバー表示中は閉じない）
     this.el.addEventListener('mouseleave', function () {
-      closeTimer = setTimeout(function () { Panel.close(); }, 500);
+      closeTimer = setTimeout(function () {
+        if (ProfileColorPopover.backdrop && ProfileColorPopover.backdrop.classList.contains('us-visible')) return;
+        Panel.close();
+      }, 500);
     });
     this.el.addEventListener('mouseenter', function () {
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
