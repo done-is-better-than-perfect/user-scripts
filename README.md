@@ -1,10 +1,22 @@
-# UserScripts – Module-based Architecture (v2.0.2)
+# UserScripts – Module-based Architecture (v2.0.3)
 
 **リポジトリ**: `userScripts`  
 **CDN（jsDelivr）**: `https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@<tag-or-branch>/script.js`  
-例: 最新 main … `@main/script.js`、安定版 … `@v2.0.2/script.js`
+例: 最新 main … `@main/script.js`、安定版 … `@v2.0.3/script.js`
 
-## 🆕 Version 2.0.2 の修正内容
+## 🆕 Version 2.0.3 の修正内容
+
+### 🐛 構文エラー修正（緊急修正）
+- **SyntaxError解決**: 余分な閉じ括弧`}`を削除
+- **スクリプト読み込み修復**: JavaScriptパーサーエラーを解決
+- **appendChild実行エラー**: 構文問題によるDOM操作失敗を修正
+
+### 修正されたエラー
+```
+script.js:127 Uncaught SyntaxError: Failed to execute 'appendChild' on 'Node': Unexpected token ';'
+```
+
+## Version 2.0.2 の修正内容
 
 ### 🔐 RPC認証システム修正  
 - **Handshake認証**: 適切なToken取得プロセスを実装
