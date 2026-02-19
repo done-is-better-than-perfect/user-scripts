@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.49';
+var US_VERSION = '1.6.50';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -679,7 +679,7 @@ var Styles = {
       '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
       '}',
 
-      /* ── Property rows: プレビュースウォッチ＋柔軟テキスト（天地中央）、RGB/HEX は R・G・B・16進ラベル付き中央揃え ── */
+      /* ── Property rows: カラーチップ＋テキストのみ（RGB/HEX・パレットはチップクリックで別ポップ） ── */
       '#us-cc-popover .us-pop-prop-row {',
       '  display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; gap: 0 !important;',
       '  margin-bottom: 10px !important; padding: 4px 0 !important;',
@@ -694,8 +694,12 @@ var Styles = {
       '  display: flex !important; align-items: center !important; gap: 8px !important; flex: 1 !important; min-width: 0 !important;',
       '}',
       '#us-cc-popover .us-pop-prop-row [data-role="preview-swatch"] {',
-      '  display: inline-block !important; width: 28px !important; height: 28px !important; flex-shrink: 0 !important;',
+      '  display: inline-block !important; width: 28px !important; height: 28px !important; flex-shrink: 0 !important; cursor: pointer !important;',
       '  border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 6px !important;',
+      '  transition: transform 0.1s, box-shadow 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row [data-role="preview-swatch"]:hover {',
+      '  transform: scale(1.08) !important; box-shadow: 0 0 6px rgba(255,255,255,0.2) !important;',
       '}',
       '#us-cc-popover .us-pop-prop-row [data-role="flexible"] {',
       '  all: initial !important; flex: 1 !important; min-width: 80px !important; text-align: center !important;',
@@ -705,61 +709,7 @@ var Styles = {
       '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
       '  border-radius: 4px !important; outline: none !important;',
       '}',
-      '#us-cc-popover .us-pop-detail-toggle {',
-      '  all: initial !important; cursor: pointer !important; font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
-      '  padding: 2px 4px !important; flex-shrink: 0 !important;',
-      '}',
-      '#us-cc-popover .us-pop-detail-toggle:hover { color: rgba(255,255,255,0.8) !important; }',
-      '#us-cc-popover .us-pop-prop-detail {',
-      '  display: none !important; width: 100% !important; justify-content: center !important; align-items: flex-end !important; gap: 8px !important;',
-      '  padding-left: 56px !important; margin-top: 6px !important; flex-wrap: wrap !important;',
-      '}',
-      '#us-cc-popover .us-pop-prop-detail.us-open { display: flex !important; }',
-      '#us-cc-popover .us-pop-prop-detail input[type="color"] {',
-      '  all: initial !important; width: 28px !important; height: 28px !important;',
-      '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important;',
-      '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important; align-self: flex-end !important; margin-bottom: 2px !important;',
-      '}',
-      '#us-cc-popover .us-pop-prop-cell {',
-      '  display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important;',
-      '}',
-      '#us-cc-popover .us-pop-prop-cell-label {',
-      '  font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
-      '}',
-      '#us-cc-popover .us-pop-prop-detail input[type="text"] {',
-      '  all: initial !important; width: 44px !important; padding: 4px 4px !important; text-align: center !important;',
-      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
-      '  color: rgba(255,255,255,0.8) !important;',
-      '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
-      '  border-radius: 4px !important; outline: none !important; box-sizing: border-box !important;',
-      '}',
-      '#us-cc-popover .us-pop-prop-detail [data-role="hex"] { width: 80px !important; }',
       '#us-cc-popover .us-pop-prop-row input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
-
-      /* ── Palette swatches ── */
-      '#us-cc-popover .us-pop-palette-section {',
-      '  margin-top: 8px !important; margin-bottom: 10px !important;',
-      '  border-top: 1px solid rgba(255,255,255,0.06) !important; padding-top: 8px !important;',
-      '}',
-      '#us-cc-popover .us-pop-palette-name {',
-      '  all: initial !important; display: block !important; font-family: inherit !important;',
-      '  font-size: 10px !important; color: rgba(255,255,255,0.35) !important;',
-      '  margin-bottom: 4px !important;',
-      '}',
-      '#us-cc-popover .us-pop-palette-row {',
-      '  display: flex !important; flex-wrap: wrap !important; gap: 4px !important;',
-      '  margin-bottom: 6px !important;',
-      '}',
-      '#us-cc-popover .us-pop-swatch {',
-      '  all: initial !important; display: inline-block !important;',
-      '  width: 22px !important; height: 22px !important;',
-      '  border-radius: 4px !important; cursor: pointer !important;',
-      '  border: 1px solid rgba(255,255,255,0.12) !important;',
-      '  transition: transform 0.1s, box-shadow 0.15s !important;',
-      '}',
-      '#us-cc-popover .us-pop-swatch:hover {',
-      '  transform: scale(1.15) !important; box-shadow: 0 0 6px rgba(255,255,255,0.2) !important;',
-      '}',
 
       /* ── Popover actions ── */
       '#us-cc-popover .us-pop-actions {',
@@ -780,6 +730,51 @@ var Styles = {
       '  border: 1px solid rgba(59,130,246,0.25) !important;',
       '}',
       '#us-cc-popover .us-pop-btn-apply:hover { background: rgba(59,130,246,0.3) !important; }',
+
+      /* ── カラーチップクリックで開くカラースウォッチ（ピッカー＋プロファイル） ── */
+      '#us-cc-chip-popover-backdrop {',
+      '  all: initial !important; position: fixed !important; inset: 0 !important;',
+      '  z-index: 2147483650 !important; pointer-events: none !important; display: none !important;',
+      '}',
+      '#us-cc-chip-popover-backdrop.us-visible { display: block !important; pointer-events: auto !important; }',
+      '#us-cc-chip-popover {',
+      '  all: initial !important; position: fixed !important;',
+      '  z-index: 2147483651 !important;',
+      '  background: rgba(38,38,40,0.96) !important;',
+      '  backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
+      '  border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 10px !important;',
+      '  padding: 10px !important; min-width: 180px !important; max-height: 200px !important; overflow: auto !important;',
+      '  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;',
+      '  display: none !important;',
+      '}',
+      '#us-cc-chip-popover.us-visible { display: block !important; }',
+      '#us-cc-chip-popover [data-role="picker"] {',
+      '  all: initial !important; display: block !important; width: 100% !important; height: 36px !important;',
+      '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important;',
+      '  cursor: pointer !important; background: transparent !important; margin-bottom: 8px !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-palette-section {',
+      '  margin-top: 6px !important; margin-bottom: 6px !important;',
+      '  border-top: 1px solid rgba(255,255,255,0.06) !important; padding-top: 6px !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-palette-section:first-of-type { border-top: none !important; margin-top: 0 !important; padding-top: 0 !important; }',
+      '#us-cc-chip-popover .us-chip-palette-name {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 10px !important; color: rgba(255,255,255,0.35) !important; margin-bottom: 4px !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-palette-row {',
+      '  display: flex !important; flex-wrap: wrap !important; gap: 4px !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-swatch {',
+      '  all: initial !important; display: inline-block !important;',
+      '  width: 22px !important; height: 22px !important;',
+      '  border-radius: 4px !important; cursor: pointer !important;',
+      '  border: 1px solid rgba(255,255,255,0.12) !important;',
+      '  transition: transform 0.1s, box-shadow 0.15s !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-swatch:hover {',
+      '  transform: scale(1.15) !important; box-shadow: 0 0 6px rgba(255,255,255,0.2) !important;',
+      '}',
 
       /* ── Import result toast ── */
       '#us-cc-import-toast-backdrop {',
@@ -1089,43 +1084,25 @@ var ColorPopover = {
     if (this.el) return;
     console.log('[ColorCustomizer] Creating popover DOM');
 
-    // Build property rows: プレビュースウォッチ＋柔軟テキスト（天地中央）、RGB/HEX は R・G・B・16進ラベル付きで中央揃え
+    // Build property rows: カラーチップ＋テキストのみ（RGB/HEX・パレットはチップクリックで別ポップに表示）
     var propsContainer = h('div', { id: 'us-pop-props' });
     PROP_LIST.forEach(function (p) {
-      var swatch = h('span', { 'data-role': 'preview-swatch' });
+      var swatch = h('span', { 'data-role': 'preview-swatch', title: 'クリックで色を選択' });
       swatch.style.setProperty('background', '#000000', 'important');
-      var rIn = h('input', { type: 'text', 'data-role': 'r', placeholder: 'R' });
-      var gIn = h('input', { type: 'text', 'data-role': 'g', placeholder: 'G' });
-      var bIn = h('input', { type: 'text', 'data-role': 'b', placeholder: 'B' });
-      var hexIn = h('input', { type: 'text', 'data-role': 'hex', placeholder: '#000000' });
-      var rCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', 'R'), rIn);
-      var gCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', 'G'), gIn);
-      var bCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', 'B'), bIn);
-      var hexCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', '16進'), hexIn);
-      var detail = h('div.us-pop-prop-detail',
-        h('input', { type: 'color', 'data-role': 'picker', value: '#000000' }),
-        rCell, gCell, bCell, hexCell
-      );
-      var toggleBtn = h('button.us-pop-detail-toggle', { type: 'button', title: 'RGB/HEX を表示' }, 'RGB/HEX ▼');
-      var rowMain = h('div.us-pop-prop-row-main', swatch, h('input', { type: 'text', 'data-role': 'flexible', placeholder: 'rgb(255,0,0) / #f00 / fff ...' }), toggleBtn);
+      var rowMain = h('div.us-pop-prop-row-main', swatch, h('input', { type: 'text', 'data-role': 'flexible', placeholder: '#000000' }));
       propsContainer.appendChild(
         h('div.us-pop-prop-row', { 'data-prop-key': p.key },
           h('span.us-pop-prop-label', p.label),
-          rowMain,
-          detail
+          rowMain
         )
       );
     });
-
-    // Palette container
-    var paletteContainer = h('div', { id: 'us-pop-palette' });
 
     var pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
       h('span.us-pop-label', '要素'),
       h('span.us-pop-selector-text', { id: 'us-pop-sel' }),
       h('span.us-pop-label', 'プロパティ'),
       propsContainer,
-      paletteContainer,
       h('div.us-pop-actions',
         h('button.us-pop-btn.us-pop-btn-cancel', { id: 'us-pop-cancel' }, '取消')
       )
@@ -1142,15 +1119,8 @@ var ColorPopover = {
     var rows = this.el.querySelectorAll('.us-pop-prop-row');
     for (var i = 0; i < rows.length; i++) {
       (function (row) {
-        var picker = row.querySelector('[data-role="picker"]');
-        var hex = row.querySelector('[data-role="hex"]');
         var flexible = row.querySelector('[data-role="flexible"]');
-        var rIn = row.querySelector('[data-role="r"]');
-        var gIn = row.querySelector('[data-role="g"]');
-        var bIn = row.querySelector('[data-role="b"]');
         var previewSwatch = row.querySelector('[data-role="preview-swatch"]');
-        var detail = row.querySelector('.us-pop-prop-detail');
-        var toggleBtn = row.querySelector('.us-pop-detail-toggle');
         var propKey = row.getAttribute('data-prop-key');
 
         var updatePreview = function (hexVal) {
@@ -1159,11 +1129,6 @@ var ColorPopover = {
         var applyFromFlexible = function () {
           var parsed = parseFlexibleColor(flexible.value);
           if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) {
-            picker.value = parsed.hex;
-            hex.value = parsed.hex;
-            if (rIn) rIn.value = String(parsed.r);
-            if (gIn) gIn.value = String(parsed.g);
-            if (bIn) bIn.value = String(parsed.b);
             updatePreview(parsed.hex);
             self._lastActiveProp = propKey;
             self._previewOne(row);
@@ -1172,95 +1137,27 @@ var ColorPopover = {
         flexible.addEventListener('input', applyFromFlexible);
         flexible.addEventListener('blur', function () {
           applyFromFlexible();
-          if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) self._saveRule(propKey, hex.value);
+          var parsed = parseFlexibleColor(flexible.value);
+          if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) self._saveRule(propKey, parsed.hex);
         });
         flexible.addEventListener('focus', function () { self._lastActiveProp = propKey; });
 
-        toggleBtn.addEventListener('click', function () {
-          detail.classList.toggle('us-open');
-          toggleBtn.textContent = detail.classList.contains('us-open') ? 'RGB/HEX ▲' : 'RGB/HEX ▼';
-          toggleBtn.title = detail.classList.contains('us-open') ? 'RGB/HEX を閉じる' : 'RGB/HEX を表示';
-        });
-
-        var syncFromRgbHex = function () {
-          var r = parseInt(rIn.value, 10), g = parseInt(gIn.value, 10), b = parseInt(bIn.value, 10);
-          if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-            r = Math.max(0, Math.min(255, r));
-            g = Math.max(0, Math.min(255, g));
-            b = Math.max(0, Math.min(255, b));
-            var h = '#' + [r, g, b].map(function (x) { var t = x.toString(16); return t.length === 1 ? '0' + t : t; }).join('');
-            picker.value = h;
-            flexible.value = h;
-            hex.value = h;
-            updatePreview(h);
-            self._lastActiveProp = propKey;
-            self._previewOne(row);
-          } else {
-            var he = hex.value.trim().replace(/^#/, '');
-            if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
-              if (he.length === 3) he = he[0] + he[0] + he[1] + he[1] + he[2] + he[2];
-              var h2 = '#' + he.toLowerCase();
-              picker.value = h2;
-              flexible.value = h2;
-              if (rIn) rIn.value = String(parseInt(h2.slice(1, 3), 16));
-              if (gIn) gIn.value = String(parseInt(h2.slice(3, 5), 16));
-              if (bIn) bIn.value = String(parseInt(h2.slice(5, 7), 16));
-              updatePreview(h2);
-              self._lastActiveProp = propKey;
-              self._previewOne(row);
-            }
-          }
-        };
-        if (rIn) { rIn.addEventListener('input', syncFromRgbHex); }
-        if (gIn) { gIn.addEventListener('input', syncFromRgbHex); }
-        if (bIn) { bIn.addEventListener('input', syncFromRgbHex); }
-        hex.addEventListener('input', syncFromRgbHex);
-        hex.addEventListener('blur', syncFromRgbHex);
-
-        picker.addEventListener('input', function () {
-          var v = this.value;
-          hex.value = v;
-          flexible.value = v;
-          if (rIn) rIn.value = String(parseInt(v.slice(1, 3), 16));
-          if (gIn) gIn.value = String(parseInt(v.slice(3, 5), 16));
-          if (bIn) bIn.value = String(parseInt(v.slice(5, 7), 16));
-          updatePreview(v);
+        // カラーチップクリック → カラースウォッチ（ピッカー＋プロファイル）を表示
+        previewSwatch.addEventListener('click', function (e) {
+          e.stopPropagation();
           self._lastActiveProp = propKey;
-          self._previewOne(row);
-        });
-        hex.addEventListener('focus', function () { self._lastActiveProp = propKey; });
-
-        picker.addEventListener('change', function () { self._saveRule(propKey, this.value); });
-        hex.addEventListener('change', function () {
-          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) self._saveRule(propKey, this.value);
+          var currentHex = flexible.value.trim();
+          var parsed = parseFlexibleColor(currentHex);
+          currentHex = (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) ? parsed.hex : self._rgbToHex(getComputedStyle(self._currentTarget).getPropertyValue(propKey));
+          ChipColorPopover.show(previewSwatch, currentHex, propKey, function (hex) {
+            flexible.value = hex;
+            updatePreview(hex);
+            self._previewOne(row);
+            self._saveRule(propKey, hex);
+          });
         });
       })(rows[i]);
     }
-
-    // Palette swatch click
-    this.el.querySelector('#us-pop-palette').addEventListener('click', function (e) {
-      var sw = e.target.closest('.us-pop-swatch');
-      if (!sw) return;
-      var color = sw.getAttribute('data-color');
-      if (!color) return;
-
-      var targetRow = self.el.querySelector('[data-prop-key="' + self._lastActiveProp + '"]');
-      if (targetRow) {
-        targetRow.querySelector('[data-role="picker"]').value = color;
-        targetRow.querySelector('[data-role="hex"]').value = color;
-        targetRow.querySelector('[data-role="flexible"]').value = color;
-        var r = targetRow.querySelector('[data-role="r"]');
-        if (r) r.value = String(parseInt(color.slice(1, 3), 16));
-        var g = targetRow.querySelector('[data-role="g"]');
-        if (g) g.value = String(parseInt(color.slice(3, 5), 16));
-        var b = targetRow.querySelector('[data-role="b"]');
-        if (b) b.value = String(parseInt(color.slice(5, 7), 16));
-        var ps = targetRow.querySelector('[data-role="preview-swatch"]');
-        if (ps) ps.style.setProperty('background', color, 'important');
-        self._previewOne(targetRow);
-        self._saveRule(self._lastActiveProp, color);
-      }
-    });
 
     this.el.querySelector('#us-pop-cancel').addEventListener('click', function () { self._cancel(); });
   },
@@ -1276,21 +1173,13 @@ var ColorPopover = {
     var currRules = RulesManager.getRules();
     this._originalRules = {};
 
-    // Fill each property row
+    // Fill each property row（チップ＋テキストのみ）
     var rows = this.el.querySelectorAll('.us-pop-prop-row');
     for (var i = 0; i < rows.length; i++) {
       var propKey = rows[i].getAttribute('data-prop-key');
       var computed = getComputedStyle(el).getPropertyValue(propKey);
       var hexVal = this._rgbToHex(computed);
-      rows[i].querySelector('[data-role="picker"]').value = hexVal;
-      rows[i].querySelector('[data-role="hex"]').value = hexVal;
       rows[i].querySelector('[data-role="flexible"]').value = hexVal;
-      var rEl = rows[i].querySelector('[data-role="r"]');
-      if (rEl) rEl.value = String(parseInt(hexVal.slice(1, 3), 16));
-      var gEl = rows[i].querySelector('[data-role="g"]');
-      if (gEl) gEl.value = String(parseInt(hexVal.slice(3, 5), 16));
-      var bEl = rows[i].querySelector('[data-role="b"]');
-      if (bEl) bEl.value = String(parseInt(hexVal.slice(5, 7), 16));
       var ps = rows[i].querySelector('[data-role="preview-swatch"]');
       if (ps) ps.style.setProperty('background', hexVal, 'important');
 
@@ -1302,9 +1191,6 @@ var ColorPopover = {
         mode: existing ? existing.mode : 'inline'
       };
     }
-
-    // Build palette swatches from profiles
-    this._buildPalette();
 
     // Position near element
     var rect = el.getBoundingClientRect();
@@ -1323,30 +1209,6 @@ var ColorPopover = {
     console.log('[ColorCustomizer] Popover shown at', left, top);
   },
 
-  _buildPalette: function () {
-    var container = this.el.querySelector('#us-pop-palette');
-    while (container.firstChild) container.removeChild(container.firstChild);
-    var profiles = ProfileManager.getProfiles();
-    if (profiles.length === 0) return;
-
-    profiles.forEach(function (prof) {
-      var section = h('div.us-pop-palette-section',
-        h('span.us-pop-palette-name', prof.name)
-      );
-      var row = h('div.us-pop-palette-row');
-      prof.colors.forEach(function (c) {
-        var sw = h('span.us-pop-swatch', {
-          'data-color': c.value,
-          title: c.name || c.value
-        });
-        sw.style.setProperty('background', c.value, 'important');
-        row.appendChild(sw);
-      });
-      section.appendChild(row);
-      container.appendChild(section);
-    });
-  },
-
   hide: function () {
     if (this.el) this.el.classList.remove('us-visible');
     this._currentTarget = null;
@@ -1355,7 +1217,9 @@ var ColorPopover = {
   _previewOne: function (row) {
     if (!this._currentTarget) return;
     var key = row.getAttribute('data-prop-key');
-    var val = row.querySelector('[data-role="hex"]').value || row.querySelector('[data-role="picker"]').value;
+    var flexible = row.querySelector('[data-role="flexible"]');
+    var parsed = flexible && parseFlexibleColor(flexible.value);
+    var val = (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) ? parsed.hex : '';
     StyleApplier.previewOne(this._currentTarget, key, val);
   },
 
@@ -1401,6 +1265,102 @@ var ColorPopover = {
     return '#' + [m[1], m[2], m[3]].map(function (x) {
       return parseInt(x, 10).toString(16).padStart(2, '0');
     }).join('');
+  }
+};
+
+// DOM要素ポップのカラーチップクリックで開く「カラースウォッチ」（ピッカー＋プロファイル一覧）
+var ChipColorPopover = {
+  el: null,
+  backdrop: null,
+  _onChoose: null,
+
+  _create: function () {
+    if (this.el) return;
+    this.backdrop = h('div', { id: 'us-cc-chip-popover-backdrop', 'data-us-cc': 'chip-color-popover' });
+    var picker = h('input', { type: 'color', 'data-role': 'picker', value: '#000000' });
+    var paletteContainer = h('div', { id: 'us-chip-pop-palette' });
+    this.el = h('div', { id: 'us-cc-chip-popover', 'data-us-cc': 'chip-color-popover' },
+      picker,
+      paletteContainer
+    );
+    this.backdrop.appendChild(this.el);
+    document.body.appendChild(this.backdrop);
+
+    var self = this;
+    picker.addEventListener('input', function () {
+      var hex = this.value;
+      if (self._onChoose) {
+        self._onChoose(hex);
+        self.hide();
+      }
+    });
+    picker.addEventListener('change', function () {
+      var hex = this.value;
+      if (self._onChoose) {
+        self._onChoose(hex);
+        self.hide();
+      }
+    });
+    paletteContainer.addEventListener('click', function (e) {
+      var sw = e.target.closest('.us-chip-swatch');
+      if (!sw) return;
+      var color = sw.getAttribute('data-color');
+      if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) return;
+      if (self._onChoose) {
+        self._onChoose(color);
+        self.hide();
+      }
+    });
+    this.backdrop.addEventListener('click', function (e) {
+      if (e.target === self.backdrop) self.hide();
+    });
+  },
+
+  _buildPalette: function () {
+    var container = this.el.querySelector('#us-chip-pop-palette');
+    while (container.firstChild) container.removeChild(container.firstChild);
+    var profiles = ProfileManager.getProfiles();
+    if (profiles.length === 0) return;
+    profiles.forEach(function (prof) {
+      var section = h('div.us-chip-palette-section', h('span.us-chip-palette-name', prof.name));
+      var row = h('div.us-chip-palette-row');
+      prof.colors.forEach(function (c) {
+        var sw = h('span.us-chip-swatch', { 'data-color': c.value, title: c.name || c.value });
+        sw.style.setProperty('background', c.value, 'important');
+        row.appendChild(sw);
+      });
+      section.appendChild(row);
+      container.appendChild(section);
+    });
+  },
+
+  show: function (anchor, currentHex, propKey, onChoose) {
+    this._create();
+    this._onChoose = onChoose;
+    currentHex = (currentHex && currentHex.indexOf('#') === 0) ? currentHex : ('#' + (currentHex || '000000').replace(/^#/, ''));
+    if (currentHex.length === 4) currentHex = '#' + currentHex[1] + currentHex[1] + currentHex[2] + currentHex[2] + currentHex[3] + currentHex[3];
+    this.el.querySelector('[data-role="picker"]').value = currentHex;
+    this._buildPalette();
+
+    var rect = anchor.getBoundingClientRect();
+    var popW = 200;
+    var popH = 180;
+    var left = rect.right + 8;
+    if (left + popW > window.innerWidth - 8) left = rect.left - popW - 8;
+    if (left < 8) left = 8;
+    var top = rect.top;
+    if (top + popH > window.innerHeight - 8) top = Math.max(8, window.innerHeight - popH - 8);
+    if (top < 8) top = 8;
+    this.el.style.setProperty('left', left + 'px', 'important');
+    this.el.style.setProperty('top', top + 'px', 'important');
+    this.backdrop.classList.add('us-visible');
+    this.el.classList.add('us-visible');
+  },
+
+  hide: function () {
+    if (this.backdrop) this.backdrop.classList.remove('us-visible');
+    if (this.el) this.el.classList.remove('us-visible');
+    this._onChoose = null;
   }
 };
 
@@ -1688,10 +1648,11 @@ var Panel = {
     var self = this;
     var closeTimer = null;
 
-    // 設定パネルから mouseOut 後 0.5秒で閉じる（プロファイル色ポップオーバー表示中は閉じない）
+    // 設定パネルから mouseOut 後 0.5秒で閉じる（プロファイル色・カラーチップポップ表示中は閉じない）
     this.el.addEventListener('mouseleave', function () {
       closeTimer = setTimeout(function () {
         if (ProfileColorPopover.backdrop && ProfileColorPopover.backdrop.classList.contains('us-visible')) return;
+        if (ChipColorPopover.backdrop && ChipColorPopover.backdrop.classList.contains('us-visible')) return;
         Panel.close();
       }, 500);
     });
