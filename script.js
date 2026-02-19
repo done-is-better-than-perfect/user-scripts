@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 
-var US_VERSION = '1.6.38';
+var US_VERSION = '1.6.39';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -552,25 +552,9 @@ var Styles = {
       '#us-cc-panel .us-p-version {',
       '  all: initial !important; font-family: "SF Mono","Menlo",monospace !important;',
       '  font-size: 10px !important; color: rgba(255,255,255,0.3) !important;',
-      '  flex: 1 !important;',
       '}',
-      '#us-cc-panel .us-p-close {',
-      '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.4) !important;',
-      '  font-size: 18px !important; width: 28px !important; height: 28px !important;',
-      '  display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  border-radius: 6px !important; transition: background 0.15s, color 0.15s !important;',
-      '}',
-      '#us-cc-panel .us-p-close:hover { background: rgba(255,255,255,0.08) !important; color: rgba(255,255,255,0.7) !important; }',
-
-      /* Edit Mode toggle row */
-      '#us-cc-panel .us-p-toggle-row {',
-      '  display: flex !important; align-items: center !important; justify-content: space-between !important;',
-      '  padding: 12px 16px !important;',
-      '  border-bottom: 1px solid rgba(255,255,255,0.06) !important; flex-shrink: 0 !important;',
-      '}',
-      '#us-cc-panel .us-p-toggle-label {',
-      '  all: initial !important; font-family: inherit !important;',
-      '  font-size: 13px !important; color: rgba(255,255,255,0.8) !important;',
+      '#us-cc-panel .us-p-header-toggle {',
+      '  margin-left: auto !important; flex-shrink: 0 !important;',
       '}',
 
       /* iOS-style toggle switch */
@@ -1273,16 +1257,12 @@ var Panel = {
     switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-edit-toggle' }));
     switchLabel.appendChild(h('span.us-slider'));
 
-    // Panel
+    // Panel（トグルは「colorEditor v1.x.x」の右端、xボタン・Edit Modeラベルなし）
     var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' },
       h('div.us-p-header',
         h('span.us-p-title', 'color', h('span.us-title-editor', 'Editor')),
         h('span.us-p-version', 'v' + US_VERSION),
-        h('button.us-p-close', { id: 'us-p-close' }, '\u00D7')
-      ),
-      h('div.us-p-toggle-row',
-        h('span.us-p-toggle-label', 'Edit Mode'),
-        switchLabel
+        h('span.us-p-header-toggle', switchLabel)
       ),
       h('div.us-p-rules', { id: 'us-p-rules' }),
       h('div.us-p-section-title', { 'data-us-cc': 'section' },
@@ -1361,9 +1341,14 @@ var Panel = {
 
   _bindEvents: function () {
     var self = this;
+    var closeTimer = null;
 
-    this.el.querySelector('#us-p-close').addEventListener('click', function () {
-      self.close();
+    // 設定パネルから mouseOut 後 0.5秒で閉じる
+    this.el.addEventListener('mouseleave', function () {
+      closeTimer = setTimeout(function () { Panel.close(); }, 500);
+    });
+    this.el.addEventListener('mouseenter', function () {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
     });
 
     this.el.querySelector('#us-p-edit-toggle').addEventListener('change', function () {
