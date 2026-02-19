@@ -461,15 +461,15 @@ var EditMode = {
   async enable() {
     this._enabled = true;
     document.body.classList.add('us-edit-mode');
+    console.log('[EditMode] Enabled - body has class:', document.body.classList.contains('us-edit-mode'));
     await this._saveState();
-    console.log('[EditMode] Enabled');
   },
 
   async disable() {
     this._enabled = false;
     document.body.classList.remove('us-edit-mode');
+    console.log('[EditMode] Disabled - body has class:', document.body.classList.contains('us-edit-mode'));
     await this._saveState();
-    console.log('[EditMode] Disabled');
   },
 
   async _saveState() {
@@ -483,9 +483,15 @@ var EditMode = {
 
   _bindGlobalHandler() {
     var self = this;
+    console.log('[EditMode] Binding global click handler');
     document.addEventListener('click', function (e) {
+      console.log('[EditMode] Click detected, enabled:', self._enabled, 'target:', e.target);
       if (!self._enabled) return;
-      if (e.target.closest('.us-cc-panel, #us-cc-tab, .us-cc-popover')) return;
+      if (e.target.closest('.us-cc-panel, #us-cc-tab, .us-cc-popover')) {
+        console.log('[EditMode] Click on UI element, ignoring');
+        return;
+      }
+      console.log('[EditMode] Showing color popover for:', e.target);
       e.preventDefault();
       e.stopPropagation();
       ColorPopover.showFor(e.target);
@@ -614,6 +620,7 @@ var ColorPopover = {
   _currentTarget: null,
 
   showFor(target) {
+    console.log('[ColorPopover] Showing for target:', target);
     this.hide();
     this._currentTarget = target;
     this._create(target);
@@ -800,6 +807,7 @@ var Tab = {
     var tabEditCheck = h('input', { type: 'checkbox', id: 'us-tab-edit-check' });
     var switchLabel = h('label.us-switch', { 'for': 'us-tab-edit-check' });
     switchLabel.appendChild(h('span.us-slider'));
+    toggleWrap.appendChild(tabEditCheck);  // Add the input element
     toggleWrap.appendChild(switchLabel);
 
     var iconWrap = h('div.us-cc-tab-icon', { title: 'ツール 設定' });
@@ -814,13 +822,21 @@ var Tab = {
     tab.appendChild(toggleWrap);
     tab.appendChild(iconWrap);
 
-    toggleWrap.addEventListener('click', function (e) { e.stopPropagation(); });
-    switchLabel.addEventListener('click', function (e) { e.stopPropagation(); });
+    toggleWrap.addEventListener('click', function (e) { 
+      console.log('[Tab] Toggle wrap clicked');
+      e.stopPropagation(); 
+    });
+    switchLabel.addEventListener('click', function (e) { 
+      console.log('[Tab] Switch label clicked');
+      e.stopPropagation(); 
+    });
     tabEditCheck.addEventListener('change', function () {
+      console.log('[Tab] Checkbox changed to:', this.checked);
       if (this.checked) EditMode.enable(); else EditMode.disable();
     });
 
     iconWrap.addEventListener('click', function () {
+        console.log('[Tab] Icon clicked, opening panel');
         ColorPopover.hide();
         Panel.open();
       });

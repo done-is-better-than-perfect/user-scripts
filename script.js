@@ -6,7 +6,17 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '2.0.3';
+// Clear version hash to avoid jQuery selector errors on target pages
+if (window.location.hash && window.location.hash.includes('version=')) {
+  var newHash = window.location.hash.replace(/[?&]?version=[^&]+/g, '').replace(/^#&/, '#');
+  if (newHash === '#' || newHash === '') {
+    history.replaceState(null, null, window.location.pathname + window.location.search);
+  } else {
+    history.replaceState(null, null, window.location.pathname + window.location.search + newHash);
+  }
+}
+
+var US_VERSION = '2.0.4';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
