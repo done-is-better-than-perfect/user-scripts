@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.48';
+var US_VERSION = '1.6.49';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -679,19 +679,26 @@ var Styles = {
       '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
       '}',
 
-      /* ── Property rows: 柔軟テキスト＋ RGB/HEX エリア（デフォルト閉じ） ── */
+      /* ── Property rows: プレビュースウォッチ＋柔軟テキスト（天地中央）、RGB/HEX は R・G・B・16進ラベル付き中央揃え ── */
       '#us-cc-popover .us-pop-prop-row {',
-      '  display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px !important;',
-      '  margin-bottom: 8px !important; padding: 4px 0 !important;',
+      '  display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; gap: 0 !important;',
+      '  margin-bottom: 10px !important; padding: 4px 0 !important;',
       '}',
       '#us-cc-popover .us-pop-prop-label {',
       '  all: initial !important; display: inline-block !important;',
-      '  width: 56px !important; flex-shrink: 0 !important;',
+      '  width: 56px !important; flex-shrink: 0 !important; padding-top: 6px !important;',
       '  font-family: inherit !important; font-size: 11px !important;',
       '  color: rgba(255,255,255,0.6) !important;',
       '}',
+      '#us-cc-popover .us-pop-prop-row-main {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important; flex: 1 !important; min-width: 0 !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row [data-role="preview-swatch"] {',
+      '  display: inline-block !important; width: 28px !important; height: 28px !important; flex-shrink: 0 !important;',
+      '  border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 6px !important;',
+      '}',
       '#us-cc-popover .us-pop-prop-row [data-role="flexible"] {',
-      '  all: initial !important; flex: 1 !important; min-width: 80px !important;',
+      '  all: initial !important; flex: 1 !important; min-width: 80px !important; text-align: center !important;',
       '  padding: 4px 6px !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
       '  color: rgba(255,255,255,0.8) !important;',
@@ -704,23 +711,29 @@ var Styles = {
       '}',
       '#us-cc-popover .us-pop-detail-toggle:hover { color: rgba(255,255,255,0.8) !important; }',
       '#us-cc-popover .us-pop-prop-detail {',
-      '  display: none !important; width: 100% !important; align-items: center !important; gap: 6px !important;',
-      '  padding-left: 56px !important; margin-top: 4px !important;',
+      '  display: none !important; width: 100% !important; justify-content: center !important; align-items: flex-end !important; gap: 8px !important;',
+      '  padding-left: 56px !important; margin-top: 6px !important; flex-wrap: wrap !important;',
       '}',
       '#us-cc-popover .us-pop-prop-detail.us-open { display: flex !important; }',
       '#us-cc-popover .us-pop-prop-detail input[type="color"] {',
       '  all: initial !important; width: 28px !important; height: 28px !important;',
       '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important;',
-      '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
+      '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important; align-self: flex-end !important; margin-bottom: 2px !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-cell {',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-cell-label {',
+      '  font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
       '}',
       '#us-cc-popover .us-pop-prop-detail input[type="text"] {',
-      '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
-      '  padding: 4px 6px !important;',
+      '  all: initial !important; width: 44px !important; padding: 4px 4px !important; text-align: center !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
       '  color: rgba(255,255,255,0.8) !important;',
       '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
-      '  border-radius: 4px !important; outline: none !important;',
+      '  border-radius: 4px !important; outline: none !important; box-sizing: border-box !important;',
       '}',
+      '#us-cc-popover .us-pop-prop-detail [data-role="hex"] { width: 80px !important; }',
       '#us-cc-popover .us-pop-prop-row input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
 
       /* ── Palette swatches ── */
@@ -1076,19 +1089,29 @@ var ColorPopover = {
     if (this.el) return;
     console.log('[ColorCustomizer] Creating popover DOM');
 
-    // Build property rows: 柔軟テキスト（常時表示）＋ RGB/HEX エリア（デフォルト閉じ）
+    // Build property rows: プレビュースウォッチ＋柔軟テキスト（天地中央）、RGB/HEX は R・G・B・16進ラベル付きで中央揃え
     var propsContainer = h('div', { id: 'us-pop-props' });
     PROP_LIST.forEach(function (p) {
+      var swatch = h('span', { 'data-role': 'preview-swatch' });
+      swatch.style.setProperty('background', '#000000', 'important');
+      var rIn = h('input', { type: 'text', 'data-role': 'r', placeholder: 'R' });
+      var gIn = h('input', { type: 'text', 'data-role': 'g', placeholder: 'G' });
+      var bIn = h('input', { type: 'text', 'data-role': 'b', placeholder: 'B' });
+      var hexIn = h('input', { type: 'text', 'data-role': 'hex', placeholder: '#000000' });
+      var rCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', 'R'), rIn);
+      var gCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', 'G'), gIn);
+      var bCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', 'B'), bIn);
+      var hexCell = h('div.us-pop-prop-cell', h('span.us-pop-prop-cell-label', '16進'), hexIn);
       var detail = h('div.us-pop-prop-detail',
         h('input', { type: 'color', 'data-role': 'picker', value: '#000000' }),
-        h('input', { type: 'text', 'data-role': 'hex', placeholder: '#000000' })
+        rCell, gCell, bCell, hexCell
       );
       var toggleBtn = h('button.us-pop-detail-toggle', { type: 'button', title: 'RGB/HEX を表示' }, 'RGB/HEX ▼');
+      var rowMain = h('div.us-pop-prop-row-main', swatch, h('input', { type: 'text', 'data-role': 'flexible', placeholder: 'rgb(255,0,0) / #f00 / fff ...' }), toggleBtn);
       propsContainer.appendChild(
         h('div.us-pop-prop-row', { 'data-prop-key': p.key },
           h('span.us-pop-prop-label', p.label),
-          h('input', { type: 'text', 'data-role': 'flexible', placeholder: 'rgb(255,0,0) / #f00 / fff ...' }),
-          toggleBtn,
+          rowMain,
           detail
         )
       );
@@ -1122,15 +1145,26 @@ var ColorPopover = {
         var picker = row.querySelector('[data-role="picker"]');
         var hex = row.querySelector('[data-role="hex"]');
         var flexible = row.querySelector('[data-role="flexible"]');
+        var rIn = row.querySelector('[data-role="r"]');
+        var gIn = row.querySelector('[data-role="g"]');
+        var bIn = row.querySelector('[data-role="b"]');
+        var previewSwatch = row.querySelector('[data-role="preview-swatch"]');
         var detail = row.querySelector('.us-pop-prop-detail');
         var toggleBtn = row.querySelector('.us-pop-detail-toggle');
         var propKey = row.getAttribute('data-prop-key');
 
+        var updatePreview = function (hexVal) {
+          if (previewSwatch && /^#[0-9a-fA-F]{6}$/.test(hexVal)) previewSwatch.style.setProperty('background', hexVal, 'important');
+        };
         var applyFromFlexible = function () {
           var parsed = parseFlexibleColor(flexible.value);
           if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) {
             picker.value = parsed.hex;
             hex.value = parsed.hex;
+            if (rIn) rIn.value = String(parsed.r);
+            if (gIn) gIn.value = String(parsed.g);
+            if (bIn) bIn.value = String(parsed.b);
+            updatePreview(parsed.hex);
             self._lastActiveProp = propKey;
             self._previewOne(row);
           }
@@ -1148,17 +1182,49 @@ var ColorPopover = {
           toggleBtn.title = detail.classList.contains('us-open') ? 'RGB/HEX を閉じる' : 'RGB/HEX を表示';
         });
 
-        picker.addEventListener('input', function () {
-          hex.value = this.value;
-          flexible.value = this.value;
-          self._lastActiveProp = propKey;
-          self._previewOne(row);
-        });
-        hex.addEventListener('input', function () {
-          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
-            picker.value = this.value;
-            flexible.value = this.value;
+        var syncFromRgbHex = function () {
+          var r = parseInt(rIn.value, 10), g = parseInt(gIn.value, 10), b = parseInt(bIn.value, 10);
+          if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+            r = Math.max(0, Math.min(255, r));
+            g = Math.max(0, Math.min(255, g));
+            b = Math.max(0, Math.min(255, b));
+            var h = '#' + [r, g, b].map(function (x) { var t = x.toString(16); return t.length === 1 ? '0' + t : t; }).join('');
+            picker.value = h;
+            flexible.value = h;
+            hex.value = h;
+            updatePreview(h);
+            self._lastActiveProp = propKey;
+            self._previewOne(row);
+          } else {
+            var he = hex.value.trim().replace(/^#/, '');
+            if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
+              if (he.length === 3) he = he[0] + he[0] + he[1] + he[1] + he[2] + he[2];
+              var h2 = '#' + he.toLowerCase();
+              picker.value = h2;
+              flexible.value = h2;
+              if (rIn) rIn.value = String(parseInt(h2.slice(1, 3), 16));
+              if (gIn) gIn.value = String(parseInt(h2.slice(3, 5), 16));
+              if (bIn) bIn.value = String(parseInt(h2.slice(5, 7), 16));
+              updatePreview(h2);
+              self._lastActiveProp = propKey;
+              self._previewOne(row);
+            }
           }
+        };
+        if (rIn) { rIn.addEventListener('input', syncFromRgbHex); }
+        if (gIn) { gIn.addEventListener('input', syncFromRgbHex); }
+        if (bIn) { bIn.addEventListener('input', syncFromRgbHex); }
+        hex.addEventListener('input', syncFromRgbHex);
+        hex.addEventListener('blur', syncFromRgbHex);
+
+        picker.addEventListener('input', function () {
+          var v = this.value;
+          hex.value = v;
+          flexible.value = v;
+          if (rIn) rIn.value = String(parseInt(v.slice(1, 3), 16));
+          if (gIn) gIn.value = String(parseInt(v.slice(3, 5), 16));
+          if (bIn) bIn.value = String(parseInt(v.slice(5, 7), 16));
+          updatePreview(v);
           self._lastActiveProp = propKey;
           self._previewOne(row);
         });
@@ -1183,6 +1249,14 @@ var ColorPopover = {
         targetRow.querySelector('[data-role="picker"]').value = color;
         targetRow.querySelector('[data-role="hex"]').value = color;
         targetRow.querySelector('[data-role="flexible"]').value = color;
+        var r = targetRow.querySelector('[data-role="r"]');
+        if (r) r.value = String(parseInt(color.slice(1, 3), 16));
+        var g = targetRow.querySelector('[data-role="g"]');
+        if (g) g.value = String(parseInt(color.slice(3, 5), 16));
+        var b = targetRow.querySelector('[data-role="b"]');
+        if (b) b.value = String(parseInt(color.slice(5, 7), 16));
+        var ps = targetRow.querySelector('[data-role="preview-swatch"]');
+        if (ps) ps.style.setProperty('background', color, 'important');
         self._previewOne(targetRow);
         self._saveRule(self._lastActiveProp, color);
       }
@@ -1211,6 +1285,14 @@ var ColorPopover = {
       rows[i].querySelector('[data-role="picker"]').value = hexVal;
       rows[i].querySelector('[data-role="hex"]').value = hexVal;
       rows[i].querySelector('[data-role="flexible"]').value = hexVal;
+      var rEl = rows[i].querySelector('[data-role="r"]');
+      if (rEl) rEl.value = String(parseInt(hexVal.slice(1, 3), 16));
+      var gEl = rows[i].querySelector('[data-role="g"]');
+      if (gEl) gEl.value = String(parseInt(hexVal.slice(3, 5), 16));
+      var bEl = rows[i].querySelector('[data-role="b"]');
+      if (bEl) bEl.value = String(parseInt(hexVal.slice(5, 7), 16));
+      var ps = rows[i].querySelector('[data-role="preview-swatch"]');
+      if (ps) ps.style.setProperty('background', hexVal, 'important');
 
       // Store initial rule state for revert
       var existing = currRules.find(function (r) { return r.selector === selector && r.property === propKey; });
