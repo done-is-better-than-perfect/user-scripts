@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.42';
+var US_VERSION = '1.6.43';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -679,10 +679,10 @@ var Styles = {
       '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
       '}',
 
-      /* ── Property rows (one per CSS property) ── */
+      /* ── Property rows: 柔軟テキスト＋ RGB/HEX エリア（デフォルト閉じ） ── */
       '#us-cc-popover .us-pop-prop-row {',
-      '  display: flex !important; align-items: center !important; gap: 6px !important;',
-      '  margin-bottom: 6px !important; padding: 4px 0 !important;',
+      '  display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 6px !important;',
+      '  margin-bottom: 8px !important; padding: 4px 0 !important;',
       '}',
       '#us-cc-popover .us-pop-prop-label {',
       '  all: initial !important; display: inline-block !important;',
@@ -690,12 +690,30 @@ var Styles = {
       '  font-family: inherit !important; font-size: 11px !important;',
       '  color: rgba(255,255,255,0.6) !important;',
       '}',
-      '#us-cc-popover .us-pop-prop-row input[type="color"] {',
+      '#us-cc-popover .us-pop-prop-row [data-role="flexible"] {',
+      '  all: initial !important; flex: 1 !important; min-width: 80px !important;',
+      '  padding: 4px 6px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
+      '  color: rgba(255,255,255,0.8) !important;',
+      '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
+      '  border-radius: 4px !important; outline: none !important;',
+      '}',
+      '#us-cc-popover .us-pop-detail-toggle {',
+      '  all: initial !important; cursor: pointer !important; font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
+      '  padding: 2px 4px !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-popover .us-pop-detail-toggle:hover { color: rgba(255,255,255,0.8) !important; }',
+      '#us-cc-popover .us-pop-prop-detail {',
+      '  display: none !important; width: 100% !important; align-items: center !important; gap: 6px !important;',
+      '  padding-left: 56px !important; margin-top: 4px !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-detail.us-open { display: flex !important; }',
+      '#us-cc-popover .us-pop-prop-detail input[type="color"] {',
       '  all: initial !important; width: 28px !important; height: 28px !important;',
       '  border: 2px solid rgba(255,255,255,0.12) !important; border-radius: 6px !important;',
       '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
       '}',
-      '#us-cc-popover .us-pop-prop-row input[type="text"] {',
+      '#us-cc-popover .us-pop-prop-detail input[type="text"] {',
       '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
       '  padding: 4px 6px !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
@@ -860,10 +878,8 @@ var Styles = {
       '}',
       '#us-cc-panel .us-prof-editor input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
       '#us-cc-panel .us-prof-color-item {',
-      '  display: flex !important; flex-direction: column !important; gap: 4px !important; margin-bottom: 8px !important;',
-      '}',
-      '#us-cc-panel .us-prof-color-main {',
       '  display: flex !important; align-items: center !important; gap: 4px !important;',
+      '  margin-bottom: 4px !important;',
       '}',
       '#us-cc-panel .us-prof-color-item input[type="color"] {',
       '  all: initial !important; width: 24px !important; height: 24px !important;',
@@ -871,35 +887,20 @@ var Styles = {
       '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
       '}',
       '#us-cc-panel .us-prof-color-item input[type="text"] {',
-      '  all: initial !important; min-width: 0 !important;',
+      '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
       '  padding: 3px 6px !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
       '  color: rgba(255,255,255,0.8) !important;',
       '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
       '  border-radius: 3px !important; outline: none !important;',
       '}',
-      '#us-cc-panel .us-prof-color-main [data-role="prof-flexible"] { flex: 1 !important; }',
-      '#us-cc-panel .us-prof-color-main [data-role="prof-name"] { width: 80px !important; flex-shrink: 0 !important; }',
-      '#us-cc-panel .us-prof-detail-toggle {',
-      '  all: initial !important; cursor: pointer !important; font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
-      '  padding: 2px 4px !important; flex-shrink: 0 !important;',
-      '}',
-      '#us-cc-panel .us-prof-detail-toggle:hover { color: rgba(255,255,255,0.8) !important; }',
-      '#us-cc-panel .us-prof-color-detail {',
-      '  display: none !important; padding: 6px 0 0 28px !important; gap: 4px 8px !important;',
-      '  align-items: center !important; flex-wrap: wrap !important;',
-      '}',
-      '#us-cc-panel .us-prof-color-detail.us-open { display: flex !important; }',
-      '#us-cc-panel .us-prof-detail-label { font-size: 10px !important; color: rgba(255,255,255,0.4) !important; margin-right: 4px !important; }',
-      '#us-cc-panel .us-prof-color-detail [data-role="prof-r"], #us-cc-panel .us-prof-color-detail [data-role="prof-g"], #us-cc-panel .us-prof-color-detail [data-role="prof-b"] { width: 36px !important; }',
-      '#us-cc-panel .us-prof-color-detail [data-role="prof-hex"] { width: 64px !important; }',
-      '#us-cc-panel .us-prof-color-main > button:last-child {',
+      '#us-cc-panel .us-prof-color-item button {',
       '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.3) !important;',
       '  font-size: 12px !important; width: 18px !important; height: 18px !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '  border-radius: 3px !important; flex-shrink: 0 !important;',
       '}',
-      '#us-cc-panel .us-prof-color-main > button:last-child:hover { color: #ff453a !important; }',
+      '#us-cc-panel .us-prof-color-item button:hover { color: #ff453a !important; }',
       '#us-cc-panel .us-prof-editor-actions {',
       '  display: flex !important; gap: 6px !important; margin-top: 8px !important;',
       '  justify-content: flex-end !important;',
@@ -1037,14 +1038,20 @@ var ColorPopover = {
     if (this.el) return;
     console.log('[ColorCustomizer] Creating popover DOM');
 
-    // Build property rows
+    // Build property rows: 柔軟テキスト（常時表示）＋ RGB/HEX エリア（デフォルト閉じ）
     var propsContainer = h('div', { id: 'us-pop-props' });
     PROP_LIST.forEach(function (p) {
+      var detail = h('div.us-pop-prop-detail',
+        h('input', { type: 'color', 'data-role': 'picker', value: '#000000' }),
+        h('input', { type: 'text', 'data-role': 'hex', placeholder: '#000000' })
+      );
+      var toggleBtn = h('button.us-pop-detail-toggle', { type: 'button', title: 'RGB/HEX を表示' }, 'RGB/HEX ▼');
       propsContainer.appendChild(
         h('div.us-pop-prop-row', { 'data-prop-key': p.key },
           h('span.us-pop-prop-label', p.label),
-          h('input', { type: 'color', 'data-role': 'picker', value: '#000000' }),
-          h('input', { type: 'text', 'data-role': 'hex', placeholder: '#000000' })
+          h('input', { type: 'text', 'data-role': 'flexible', placeholder: 'rgb(255,0,0) / #f00 / fff ...' }),
+          toggleBtn,
+          detail
         )
       );
     });
@@ -1076,31 +1083,52 @@ var ColorPopover = {
       (function (row) {
         var picker = row.querySelector('[data-role="picker"]');
         var hex = row.querySelector('[data-role="hex"]');
+        var flexible = row.querySelector('[data-role="flexible"]');
+        var detail = row.querySelector('.us-pop-prop-detail');
+        var toggleBtn = row.querySelector('.us-pop-detail-toggle');
         var propKey = row.getAttribute('data-prop-key');
 
-        // Preview on input
+        var applyFromFlexible = function () {
+          var parsed = parseFlexibleColor(flexible.value);
+          if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) {
+            picker.value = parsed.hex;
+            hex.value = parsed.hex;
+            self._lastActiveProp = propKey;
+            self._previewOne(row);
+          }
+        };
+        flexible.addEventListener('input', applyFromFlexible);
+        flexible.addEventListener('blur', function () {
+          applyFromFlexible();
+          if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) self._saveRule(propKey, hex.value);
+        });
+        flexible.addEventListener('focus', function () { self._lastActiveProp = propKey; });
+
+        toggleBtn.addEventListener('click', function () {
+          detail.classList.toggle('us-open');
+          toggleBtn.textContent = detail.classList.contains('us-open') ? 'RGB/HEX ▲' : 'RGB/HEX ▼';
+          toggleBtn.title = detail.classList.contains('us-open') ? 'RGB/HEX を閉じる' : 'RGB/HEX を表示';
+        });
+
         picker.addEventListener('input', function () {
           hex.value = this.value;
+          flexible.value = this.value;
           self._lastActiveProp = propKey;
           self._previewOne(row);
         });
         hex.addEventListener('input', function () {
-          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) picker.value = this.value;
+          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+            picker.value = this.value;
+            flexible.value = this.value;
+          }
           self._lastActiveProp = propKey;
           self._previewOne(row);
         });
-        hex.addEventListener('focus', function () {
-          self._lastActiveProp = propKey;
-        });
+        hex.addEventListener('focus', function () { self._lastActiveProp = propKey; });
 
-        // Save on change (commit)
-        picker.addEventListener('change', function () {
-          self._saveRule(propKey, this.value);
-        });
+        picker.addEventListener('change', function () { self._saveRule(propKey, this.value); });
         hex.addEventListener('change', function () {
-          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
-            self._saveRule(propKey, this.value);
-          }
+          if (/^#[0-9a-fA-F]{6}$/.test(this.value)) self._saveRule(propKey, this.value);
         });
       })(rows[i]);
     }
@@ -1116,6 +1144,7 @@ var ColorPopover = {
       if (targetRow) {
         targetRow.querySelector('[data-role="picker"]').value = color;
         targetRow.querySelector('[data-role="hex"]').value = color;
+        targetRow.querySelector('[data-role="flexible"]').value = color;
         self._previewOne(targetRow);
         self._saveRule(self._lastActiveProp, color);
       }
@@ -1140,9 +1169,10 @@ var ColorPopover = {
     for (var i = 0; i < rows.length; i++) {
       var propKey = rows[i].getAttribute('data-prop-key');
       var computed = getComputedStyle(el).getPropertyValue(propKey);
-      var hex = this._rgbToHex(computed);
-      rows[i].querySelector('[data-role="picker"]').value = hex;
-      rows[i].querySelector('[data-role="hex"]').value = hex;
+      var hexVal = this._rgbToHex(computed);
+      rows[i].querySelector('[data-role="picker"]').value = hexVal;
+      rows[i].querySelector('[data-role="hex"]').value = hexVal;
+      rows[i].querySelector('[data-role="flexible"]').value = hexVal;
 
       // Store initial rule state for revert
       var existing = currRules.find(function (r) { return r.selector === selector && r.property === propKey; });
@@ -1609,107 +1639,14 @@ var Panel = {
   },
 
   _makeColorRow: function (value, name) {
-    var hex = (value && value.indexOf('#') === 0) ? value : ('#' + (value || '000000').replace(/^#/, ''));
-    if (hex.length === 4) hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
-    var r = 0, g = 0, b = 0;
-    if (hex.length === 7) {
-      r = parseInt(hex.slice(1, 3), 16);
-      g = parseInt(hex.slice(3, 5), 16);
-      b = parseInt(hex.slice(5, 7), 16);
-    }
-    var colorPicker = h('input', { type: 'color', 'data-role': 'prof-color', value: hex });
-    var flexibleInput = h('input', {
-      type: 'text',
-      'data-role': 'prof-flexible',
-      value: hex,
-      placeholder: 'rgb(255,0,0) / #f00 / fff ...'
-    });
-    var nameInput = h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' });
-    var rInput = h('input', { type: 'text', 'data-role': 'prof-r', value: String(r), placeholder: 'R' });
-    var gInput = h('input', { type: 'text', 'data-role': 'prof-g', value: String(g), placeholder: 'G' });
-    var bInput = h('input', { type: 'text', 'data-role': 'prof-b', value: String(b), placeholder: 'B' });
-    var hexInput = h('input', { type: 'text', 'data-role': 'prof-hex', value: hex, placeholder: 'HEX' });
-    var detailRow = h('div.us-prof-color-detail',
-      h('span.us-prof-detail-label', 'RGB / HEX'),
-      rInput, gInput, bInput, hexInput
-    );
-    var toggleBtn = h('button.us-prof-detail-toggle', { type: 'button', title: 'RGB/HEX を表示' }, 'RGB/HEX ▼');
-    var mainRow = h('div.us-prof-color-main',
-      colorPicker,
-      flexibleInput,
-      nameInput,
-      toggleBtn,
+    var row = h('div.us-prof-color-item',
+      h('input', { type: 'color', 'data-role': 'prof-color', value: value }),
+      h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' }),
       h('button', { title: '削除' }, '✕')
     );
-    var row = h('div.us-prof-color-item', mainRow, detailRow);
-
-    var applyToPickerAndDetail = function (hexVal) {
-      if (!/^#[0-9a-fA-F]{6}$/.test(hexVal)) return;
-      colorPicker.value = hexVal;
-      var rr = parseInt(hexVal.slice(1, 3), 16);
-      var gg = parseInt(hexVal.slice(3, 5), 16);
-      var bb = parseInt(hexVal.slice(5, 7), 16);
-      rInput.value = String(rr);
-      gInput.value = String(gg);
-      bInput.value = String(bb);
-      hexInput.value = hexVal;
-    };
-    var applyFromFlexible = function () {
-      var parsed = parseFlexibleColor(flexibleInput.value);
-      if (parsed) {
-        applyToPickerAndDetail(parsed.hex);
-      }
-    };
-    flexibleInput.addEventListener('input', applyFromFlexible);
-    flexibleInput.addEventListener('blur', applyFromFlexible);
-    colorPicker.addEventListener('input', function () {
-      var v = colorPicker.value;
-      flexibleInput.value = v;
-      rInput.value = String(parseInt(v.slice(1, 3), 16));
-      gInput.value = String(parseInt(v.slice(3, 5), 16));
-      bInput.value = String(parseInt(v.slice(5, 7), 16));
-      hexInput.value = v;
-    });
-    var syncFromRgbHex = function () {
-      var rr = parseInt(rInput.value, 10);
-      var gg = parseInt(gInput.value, 10);
-      var bb = parseInt(bInput.value, 10);
-      if (!isNaN(rr) && !isNaN(gg) && !isNaN(bb)) {
-        rr = Math.max(0, Math.min(255, rr));
-        gg = Math.max(0, Math.min(255, gg));
-        bb = Math.max(0, Math.min(255, bb));
-        var h = '#' + [rr, gg, bb].map(function (x) {
-          var t = x.toString(16);
-          return t.length === 1 ? '0' + t : t;
-        }).join('');
-        colorPicker.value = h;
-        flexibleInput.value = h;
-        hexInput.value = h;
-      } else {
-        var he = hexInput.value.trim().replace(/^#/, '');
-        if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
-          if (he.length === 3) he = he[0] + he[0] + he[1] + he[1] + he[2] + he[2];
-          var h2 = '#' + he.toLowerCase();
-          applyToPickerAndDetail(h2);
-        }
-      }
-    };
-    rInput.addEventListener('input', syncFromRgbHex);
-    gInput.addEventListener('input', syncFromRgbHex);
-    bInput.addEventListener('input', syncFromRgbHex);
-    hexInput.addEventListener('input', syncFromRgbHex);
-    hexInput.addEventListener('blur', syncFromRgbHex);
-
-    toggleBtn.addEventListener('click', function () {
-      detailRow.classList.toggle('us-open');
-      toggleBtn.textContent = detailRow.classList.contains('us-open') ? 'RGB/HEX ▲' : 'RGB/HEX ▼';
-      toggleBtn.title = detailRow.classList.contains('us-open') ? 'RGB/HEX を閉じる' : 'RGB/HEX を表示';
-    });
-
-    row.querySelector('.us-prof-color-main button:last-child').addEventListener('click', function () {
+    row.querySelector('button').addEventListener('click', function () {
       row.parentNode.removeChild(row);
     });
-
     return row;
   },
 
