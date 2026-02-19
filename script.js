@@ -6,7 +6,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '2.0.2';
+var US_VERSION = '2.0.3';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -122,7 +122,6 @@ var RPC = {
       console.error('[RPC] Failed:', method, 'error:', e.message);
       throw e;
     }
-  }
   }
 };
 
