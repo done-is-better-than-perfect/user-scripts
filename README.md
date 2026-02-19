@@ -1,10 +1,29 @@
-# UserScripts – Module-based Architecture (v2.0.1)
+# UserScripts – Module-based Architecture (v2.0.2)
 
 **リポジトリ**: `userScripts`  
 **CDN（jsDelivr）**: `https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@<tag-or-branch>/script.js`  
-例: 最新 main … `@main/script.js`、安定版 … `@v2.0.1/script.js`
+例: 最新 main … `@main/script.js`、安定版 … `@v2.0.2/script.js`
 
-## 🆕 Version 2.0.1 の修正内容
+## 🆕 Version 2.0.2 の修正内容
+
+### 🔐 RPC認証システム修正  
+- **Handshake認証**: 適切なToken取得プロセスを実装
+- **認証エラー解決**: `Unauthorized`エラーとRPCタイムアウトを修正
+- **デバッグログ強化**: RPC通信の詳細トレースを追加
+- **エラーハンドリング**: Edit Mode状態取得の耐障害性を向上
+
+### 修正されたエラー
+```
+[ColorCustomizer] Init failed: Error: RPC timeout: storage.get
+Unauthorized
+```
+
+### 技術的改善
+- RPC.init()でcore.handshakeを実行しているTokenを取得  
+- 固定文字列`'auto'`トークンから動的トークン認証に変更
+- 非クリティカル機能のエラーで全体初期化を停止させない設計
+
+## Version 2.0.1 の修正内容
 
 ### 🐛 Critical Bug Fixes
 - **RPC通信エラー修正**: `params`/`token` パラメータ形式をload.jsに合わせて修正
