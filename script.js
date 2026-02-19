@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.44';
+var US_VERSION = '1.6.45';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -878,50 +878,28 @@ var Styles = {
       '}',
       '#us-cc-panel .us-prof-editor input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
       '#us-cc-panel .us-prof-color-item {',
-      '  display: flex !important; flex-direction: column !important; gap: 6px !important; margin-bottom: 8px !important;',
-      '}',
-      '#us-cc-panel .us-prof-color-main {',
-      '  display: flex !important; align-items: center !important; gap: 4px !important;',
+      '  display: flex !important; align-items: center !important; gap: 4px !important; margin-bottom: 4px !important;',
       '}',
       '#us-cc-panel .us-prof-color-swatch {',
-      '  display: inline-block !important; width: 24px !important; height: 24px !important;',
+      '  display: inline-block !important; width: 24px !important; height: 24px !important; cursor: pointer !important;',
       '  border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 4px !important; flex-shrink: 0 !important;',
       '}',
-      '#us-cc-panel .us-prof-color-item input[type="color"] {',
-      '  all: initial !important; width: 24px !important; height: 24px !important;',
-      '  border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 4px !important;',
-      '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
-      '}',
+      '#us-cc-panel .us-prof-color-swatch:hover { opacity: 0.9 !important; }',
       '#us-cc-panel .us-prof-color-item input[type="text"] {',
-      '  all: initial !important; min-width: 0 !important;',
+      '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
       '  padding: 3px 6px !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
       '  color: rgba(255,255,255,0.8) !important;',
       '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
       '  border-radius: 3px !important; outline: none !important;',
       '}',
-      '#us-cc-panel .us-prof-color-main [data-role="prof-flexible"] { flex: 1 !important; }',
-      '#us-cc-panel .us-prof-color-main [data-role="prof-name"] { width: 80px !important; flex-shrink: 0 !important; }',
-      '#us-cc-panel .us-prof-detail-toggle {',
-      '  all: initial !important; cursor: pointer !important; font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
-      '  padding: 2px 4px !important; flex-shrink: 0 !important;',
-      '}',
-      '#us-cc-panel .us-prof-detail-toggle:hover { color: rgba(255,255,255,0.8) !important; }',
-      '#us-cc-panel .us-prof-color-detail {',
-      '  display: none !important; padding: 6px 0 0 28px !important; gap: 4px 8px !important;',
-      '  align-items: center !important; flex-wrap: wrap !important;',
-      '}',
-      '#us-cc-panel .us-prof-color-detail.us-open { display: flex !important; }',
-      '#us-cc-panel .us-prof-detail-label { font-size: 10px !important; color: rgba(255,255,255,0.4) !important; margin-right: 4px !important; }',
-      '#us-cc-panel .us-prof-color-detail [data-role="prof-r"], #us-cc-panel .us-prof-color-detail [data-role="prof-g"], #us-cc-panel .us-prof-color-detail [data-role="prof-b"] { width: 36px !important; }',
-      '#us-cc-panel .us-prof-color-detail [data-role="prof-hex"] { width: 64px !important; }',
-      '#us-cc-panel .us-prof-color-main > button:last-child {',
+      '#us-cc-panel .us-prof-color-item button {',
       '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.3) !important;',
       '  font-size: 12px !important; width: 18px !important; height: 18px !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '  border-radius: 3px !important; flex-shrink: 0 !important;',
       '}',
-      '#us-cc-panel .us-prof-color-main > button:last-child:hover { color: #ff453a !important; }',
+      '#us-cc-panel .us-prof-color-item button:hover { color: #ff453a !important; }',
       '#us-cc-panel .us-prof-editor-actions {',
       '  display: flex !important; gap: 6px !important; margin-top: 8px !important;',
       '  justify-content: flex-end !important;',
@@ -955,6 +933,32 @@ var Styles = {
       '#us-cc-popover input::placeholder, #us-cc-panel .us-prof-editor input::placeholder {',
       '  color: rgba(255,255,255,0.25) !important; opacity: 1 !important;',
       '}',
+
+      /* プロファイル色クリックで開くポップオーバー（柔軟テキスト + RGB/HEX） */
+      '#us-cc-prof-popover-backdrop {',
+      '  display: none !important; position: fixed !important; inset: 0 !important; z-index: 100002 !important;',
+      '}',
+      '#us-cc-prof-popover-backdrop.us-visible { display: block !important; }',
+      '#us-cc-prof-color-popover {',
+      '  display: none !important; position: fixed !important; z-index: 100003 !important;',
+      '  min-width: 220px !important; padding: 10px 12px !important;',
+      '  background: rgba(28,28,30,0.98) !important; border: 1px solid rgba(255,255,255,0.1) !important;',
+      '  border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;',
+      '}',
+      '#us-cc-prof-color-popover.us-visible { display: block !important; }',
+      '#us-cc-prof-color-popover input[type="text"] {',
+      '  all: initial !important; display: block !important; width: 100% !important; box-sizing: border-box !important;',
+      '  padding: 6px 8px !important; margin-bottom: 8px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
+      '  color: rgba(255,255,255,0.9) !important; background: rgba(0,0,0,0.2) !important;',
+      '  border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 4px !important; outline: none !important;',
+      '}',
+      '#us-cc-prof-color-popover .us-prof-popover-rgbhex {',
+      '  display: flex !important; align-items: center !important; gap: 6px !important; flex-wrap: wrap !important;',
+      '}',
+      '#us-cc-prof-color-popover .us-prof-popover-label { font-size: 10px !important; color: rgba(255,255,255,0.45) !important; margin-right: 4px !important; }',
+      '#us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="r"], #us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="g"], #us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="b"] { width: 40px !important; }',
+      '#us-cc-prof-color-popover .us-prof-popover-rgbhex [data-role="hex"] { width: 72px !important; }',
     ].join('\n');
   }
 };
@@ -1353,6 +1357,104 @@ function parseFlexibleColor(str) {
   return null;
 }
 
+// プロファイル編集でカラーチップをクリックしたときに開くポップオーバー（柔軟テキスト + RGB/HEX、HSL なし）
+var ProfileColorPopover = {
+  el: null,
+  backdrop: null,
+  _onApply: null,
+
+  _create: function () {
+    if (this.el) return;
+    this.backdrop = h('div', { id: 'us-cc-prof-popover-backdrop', 'data-us-cc': 'prof-color-popover' });
+    var flexible = h('input', { type: 'text', 'data-role': 'flexible', placeholder: 'rgb(255,0,0) / #f00 / fff ...' });
+    var rIn = h('input', { type: 'text', 'data-role': 'r', placeholder: 'R' });
+    var gIn = h('input', { type: 'text', 'data-role': 'g', placeholder: 'G' });
+    var bIn = h('input', { type: 'text', 'data-role': 'b', placeholder: 'B' });
+    var hexIn = h('input', { type: 'text', 'data-role': 'hex', placeholder: 'HEX' });
+    var row2 = h('div.us-prof-popover-rgbhex', h('span.us-prof-popover-label', 'RGB / HEX'), rIn, gIn, bIn, hexIn);
+    this.el = h('div', { id: 'us-cc-prof-color-popover', 'data-us-cc': 'prof-color-popover' },
+      flexible,
+      row2
+    );
+    this.backdrop.appendChild(this.el);
+    document.body.appendChild(this.backdrop);
+
+    var self = this;
+    var applyFromFlexible = function () {
+      var parsed = parseFlexibleColor(flexible.value);
+      if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) {
+        rIn.value = String(parsed.r);
+        gIn.value = String(parsed.g);
+        bIn.value = String(parsed.b);
+        hexIn.value = parsed.hex;
+      }
+    };
+    flexible.addEventListener('input', applyFromFlexible);
+    flexible.addEventListener('blur', applyFromFlexible);
+    var syncFromRgbHex = function () {
+      var r = parseInt(rIn.value, 10), g = parseInt(gIn.value, 10), b = parseInt(bIn.value, 10);
+      if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+        r = Math.max(0, Math.min(255, r));
+        g = Math.max(0, Math.min(255, g));
+        b = Math.max(0, Math.min(255, b));
+        var h = '#' + [r, g, b].map(function (x) { var t = x.toString(16); return t.length === 1 ? '0' + t : t; }).join('');
+        flexible.value = h;
+        hexIn.value = h;
+      } else {
+        var he = hexIn.value.trim().replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
+          if (he.length === 3) he = he[0] + he[0] + he[1] + he[1] + he[2] + he[2];
+          var h2 = '#' + he.toLowerCase();
+          flexible.value = h2;
+          rIn.value = String(parseInt(h2.slice(1, 3), 16));
+          gIn.value = String(parseInt(h2.slice(3, 5), 16));
+          bIn.value = String(parseInt(h2.slice(5, 7), 16));
+        }
+      }
+    };
+    rIn.addEventListener('input', syncFromRgbHex);
+    gIn.addEventListener('input', syncFromRgbHex);
+    bIn.addEventListener('input', syncFromRgbHex);
+    hexIn.addEventListener('input', syncFromRgbHex);
+    hexIn.addEventListener('blur', syncFromRgbHex);
+  },
+
+  show: function (anchor, hex, onApply) {
+    this._create();
+    this._onApply = onApply;
+    hex = (hex && hex.indexOf('#') === 0) ? hex : ('#' + (hex || '000000').replace(/^#/, ''));
+    if (hex.length === 4) hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+    this.el.querySelector('[data-role="flexible"]').value = hex;
+    this.el.querySelector('[data-role="r"]').value = String(parseInt(hex.slice(1, 3), 16));
+    this.el.querySelector('[data-role="g"]').value = String(parseInt(hex.slice(3, 5), 16));
+    this.el.querySelector('[data-role="b"]').value = String(parseInt(hex.slice(5, 7), 16));
+    this.el.querySelector('[data-role="hex"]').value = hex;
+    var rect = anchor.getBoundingClientRect();
+    this.el.style.left = Math.max(8, rect.left) + 'px';
+    this.el.style.top = (rect.bottom + 6) + 'px';
+    this.backdrop.classList.add('us-visible');
+    this.el.classList.add('us-visible');
+    var self = this;
+    var close = function () {
+      self.backdrop.classList.remove('us-visible');
+      self.el.classList.remove('us-visible');
+      self.backdrop.removeEventListener('click', onBackdropClick);
+      var h = self.el.querySelector('[data-role="hex"]').value;
+      if (/^#[0-9a-fA-F]{6}$/.test(h) && self._onApply) self._onApply(h);
+      self._onApply = null;
+    };
+    function onBackdropClick(e) {
+      if (e.target === self.backdrop) close();
+    }
+    this.backdrop.addEventListener('click', onBackdropClick);
+  },
+
+  hide: function () {
+    if (this.backdrop) this.backdrop.classList.remove('us-visible');
+    if (this.el) this.el.classList.remove('us-visible');
+  }
+};
+
 // =========================
 // 9. Panel
 // =========================
@@ -1662,106 +1764,21 @@ var Panel = {
   _makeColorRow: function (value, name) {
     var hex = (value && value.indexOf('#') === 0) ? value : ('#' + (value || '000000').replace(/^#/, ''));
     if (hex.length === 4) hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
-    var r = 0, g = 0, b = 0;
-    if (hex.length === 7) {
-      r = parseInt(hex.slice(1, 3), 16);
-      g = parseInt(hex.slice(3, 5), 16);
-      b = parseInt(hex.slice(5, 7), 16);
-    }
-    var colorPicker = h('input', { type: 'color', 'data-role': 'prof-color', value: hex });
-    var swatch = h('span.us-prof-color-swatch', { 'data-role': 'prof-swatch' });
+    var hiddenColor = h('input', { type: 'hidden', 'data-role': 'prof-color', value: hex });
+    var swatch = h('span.us-prof-color-swatch', { 'data-role': 'prof-swatch', title: 'クリックで色を変更' });
     swatch.style.setProperty('background', hex, 'important');
-    var flexibleInput = h('input', {
-      type: 'text',
-      'data-role': 'prof-flexible',
-      value: hex,
-      placeholder: 'rgb(255,0,0) / #f00 / fff ...'
-    });
     var nameInput = h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' });
-    var rInput = h('input', { type: 'text', 'data-role': 'prof-r', value: String(r), placeholder: 'R' });
-    var gInput = h('input', { type: 'text', 'data-role': 'prof-g', value: String(g), placeholder: 'G' });
-    var bInput = h('input', { type: 'text', 'data-role': 'prof-b', value: String(b), placeholder: 'B' });
-    var hexInput = h('input', { type: 'text', 'data-role': 'prof-hex', value: hex, placeholder: 'HEX' });
-    var detailRow = h('div.us-prof-color-detail',
-      h('span.us-prof-detail-label', 'RGB / HEX'),
-      colorPicker,
-      rInput, gInput, bInput, hexInput
-    );
-    var toggleBtn = h('button.us-prof-detail-toggle', { type: 'button', title: 'RGB/HEX を表示' }, 'RGB/HEX ▼');
-    var mainRow = h('div.us-prof-color-main',
-      swatch,
-      flexibleInput,
-      nameInput,
-      toggleBtn,
-      h('button', { title: '削除' }, '✕')
-    );
-    var row = h('div.us-prof-color-item', mainRow, detailRow);
+    var row = h('div.us-prof-color-item', hiddenColor, swatch, nameInput, h('button', { title: '削除' }, '✕'));
 
-    var applyToPickerAndDetail = function (hexVal) {
-      if (!/^#[0-9a-fA-F]{6}$/.test(hexVal)) return;
-      colorPicker.value = hexVal;
-      swatch.style.setProperty('background', hexVal, 'important');
-      var rr = parseInt(hexVal.slice(1, 3), 16);
-      var gg = parseInt(hexVal.slice(3, 5), 16);
-      var bb = parseInt(hexVal.slice(5, 7), 16);
-      rInput.value = String(rr);
-      gInput.value = String(gg);
-      bInput.value = String(bb);
-      hexInput.value = hexVal;
-    };
-    var applyFromFlexible = function () {
-      var parsed = parseFlexibleColor(flexibleInput.value);
-      if (parsed) applyToPickerAndDetail(parsed.hex);
-    };
-    flexibleInput.addEventListener('input', applyFromFlexible);
-    flexibleInput.addEventListener('blur', applyFromFlexible);
-    colorPicker.addEventListener('input', function () {
-      var v = colorPicker.value;
-      swatch.style.setProperty('background', v, 'important');
-      flexibleInput.value = v;
-      rInput.value = String(parseInt(v.slice(1, 3), 16));
-      gInput.value = String(parseInt(v.slice(3, 5), 16));
-      bInput.value = String(parseInt(v.slice(5, 7), 16));
-      hexInput.value = v;
+    swatch.addEventListener('click', function () {
+      var currentHex = row.querySelector('[data-role="prof-color"]').value;
+      ProfileColorPopover.show(swatch, currentHex, function (newHex) {
+        if (!/^#[0-9a-fA-F]{6}$/.test(newHex)) return;
+        row.querySelector('[data-role="prof-color"]').value = newHex;
+        swatch.style.setProperty('background', newHex, 'important');
+      });
     });
-    var syncFromRgbHex = function () {
-      var rr = parseInt(rInput.value, 10);
-      var gg = parseInt(gInput.value, 10);
-      var bb = parseInt(bInput.value, 10);
-      if (!isNaN(rr) && !isNaN(gg) && !isNaN(bb)) {
-        rr = Math.max(0, Math.min(255, rr));
-        gg = Math.max(0, Math.min(255, gg));
-        bb = Math.max(0, Math.min(255, bb));
-        var h = '#' + [rr, gg, bb].map(function (x) {
-          var t = x.toString(16);
-          return t.length === 1 ? '0' + t : t;
-        }).join('');
-        colorPicker.value = h;
-        swatch.style.setProperty('background', h, 'important');
-        flexibleInput.value = h;
-        hexInput.value = h;
-      } else {
-        var he = hexInput.value.trim().replace(/^#/, '');
-        if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
-          if (he.length === 3) he = he[0] + he[0] + he[1] + he[1] + he[2] + he[2];
-          var h2 = '#' + he.toLowerCase();
-          applyToPickerAndDetail(h2);
-        }
-      }
-    };
-    rInput.addEventListener('input', syncFromRgbHex);
-    gInput.addEventListener('input', syncFromRgbHex);
-    bInput.addEventListener('input', syncFromRgbHex);
-    hexInput.addEventListener('input', syncFromRgbHex);
-    hexInput.addEventListener('blur', syncFromRgbHex);
-
-    toggleBtn.addEventListener('click', function () {
-      detailRow.classList.toggle('us-open');
-      toggleBtn.textContent = detailRow.classList.contains('us-open') ? 'RGB/HEX ▲' : 'RGB/HEX ▼';
-      toggleBtn.title = detailRow.classList.contains('us-open') ? 'RGB/HEX を閉じる' : 'RGB/HEX を表示';
-    });
-
-    row.querySelector('.us-prof-color-main button:last-child').addEventListener('click', function () {
+    row.querySelector('button').addEventListener('click', function () {
       row.parentNode.removeChild(row);
     });
     return row;
