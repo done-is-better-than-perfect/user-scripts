@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.46';
+var US_VERSION = '1.6.47';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -936,11 +936,11 @@ var Styles = {
 
       /* プロファイル色クリックで開くポップオーバー（柔軟テキスト + RGB/HEX） */
       '#us-cc-prof-popover-backdrop {',
-      '  display: none !important; position: fixed !important; inset: 0 !important; z-index: 100002 !important;',
+      '  display: none !important; position: fixed !important; inset: 0 !important; z-index: 2147483650 !important;',
       '}',
       '#us-cc-prof-popover-backdrop.us-visible { display: block !important; }',
       '#us-cc-prof-color-popover {',
-      '  display: none !important; position: fixed !important; z-index: 100003 !important;',
+      '  display: none !important; position: fixed !important; z-index: 2147483651 !important;',
       '  min-width: 220px !important; padding: 10px 12px !important;',
       '  background: rgba(28,28,30,0.98) !important; border: 1px solid rgba(255,255,255,0.1) !important;',
       '  border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;',
