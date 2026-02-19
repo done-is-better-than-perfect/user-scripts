@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.41';
+var US_VERSION = '1.6.42';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -860,8 +860,10 @@ var Styles = {
       '}',
       '#us-cc-panel .us-prof-editor input[type="text"]:focus { border-color: rgba(100,160,255,0.4) !important; }',
       '#us-cc-panel .us-prof-color-item {',
+      '  display: flex !important; flex-direction: column !important; gap: 4px !important; margin-bottom: 8px !important;',
+      '}',
+      '#us-cc-panel .us-prof-color-main {',
       '  display: flex !important; align-items: center !important; gap: 4px !important;',
-      '  margin-bottom: 4px !important;',
       '}',
       '#us-cc-panel .us-prof-color-item input[type="color"] {',
       '  all: initial !important; width: 24px !important; height: 24px !important;',
@@ -869,20 +871,35 @@ var Styles = {
       '  cursor: pointer !important; background: transparent !important; flex-shrink: 0 !important;',
       '}',
       '#us-cc-panel .us-prof-color-item input[type="text"] {',
-      '  all: initial !important; flex: 1 !important; min-width: 0 !important;',
+      '  all: initial !important; min-width: 0 !important;',
       '  padding: 3px 6px !important;',
       '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
       '  color: rgba(255,255,255,0.8) !important;',
       '  background: rgba(0,0,0,0.2) !important; border: 1px solid rgba(255,255,255,0.08) !important;',
       '  border-radius: 3px !important; outline: none !important;',
       '}',
-      '#us-cc-panel .us-prof-color-item button {',
+      '#us-cc-panel .us-prof-color-main [data-role="prof-flexible"] { flex: 1 !important; }',
+      '#us-cc-panel .us-prof-color-main [data-role="prof-name"] { width: 80px !important; flex-shrink: 0 !important; }',
+      '#us-cc-panel .us-prof-detail-toggle {',
+      '  all: initial !important; cursor: pointer !important; font-size: 10px !important; color: rgba(255,255,255,0.5) !important;',
+      '  padding: 2px 4px !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-prof-detail-toggle:hover { color: rgba(255,255,255,0.8) !important; }',
+      '#us-cc-panel .us-prof-color-detail {',
+      '  display: none !important; padding: 6px 0 0 28px !important; gap: 4px 8px !important;',
+      '  align-items: center !important; flex-wrap: wrap !important;',
+      '}',
+      '#us-cc-panel .us-prof-color-detail.us-open { display: flex !important; }',
+      '#us-cc-panel .us-prof-detail-label { font-size: 10px !important; color: rgba(255,255,255,0.4) !important; margin-right: 4px !important; }',
+      '#us-cc-panel .us-prof-color-detail [data-role="prof-r"], #us-cc-panel .us-prof-color-detail [data-role="prof-g"], #us-cc-panel .us-prof-color-detail [data-role="prof-b"] { width: 36px !important; }',
+      '#us-cc-panel .us-prof-color-detail [data-role="prof-hex"] { width: 64px !important; }',
+      '#us-cc-panel .us-prof-color-main > button:last-child {',
       '  all: initial !important; cursor: pointer !important; color: rgba(255,255,255,0.3) !important;',
       '  font-size: 12px !important; width: 18px !important; height: 18px !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '  border-radius: 3px !important; flex-shrink: 0 !important;',
       '}',
-      '#us-cc-panel .us-prof-color-item button:hover { color: #ff453a !important; }',
+      '#us-cc-panel .us-prof-color-main > button:last-child:hover { color: #ff453a !important; }',
       '#us-cc-panel .us-prof-editor-actions {',
       '  display: flex !important; gap: 6px !important; margin-top: 8px !important;',
       '  justify-content: flex-end !important;',
@@ -1237,6 +1254,54 @@ var ColorPopover = {
   }
 };
 
+// 柔軟な色文字列を解釈（rgb/rgba/hex の揺れに対応）→ { hex, r, g, b } または null
+function parseFlexibleColor(str) {
+  if (!str || typeof str !== 'string') return null;
+  var s = str.trim().replace(/\s+/g, ' ');
+  // Hex: # の有無、3桁 or 6桁
+  var hexOnly = s.replace(/^#/, '').replace(/[^0-9a-fA-F]/g, '');
+  if (hexOnly.length === 6 || hexOnly.length === 3) {
+    var hex = hexOnly.length === 3
+      ? hexOnly[0] + hexOnly[0] + hexOnly[1] + hexOnly[1] + hexOnly[2] + hexOnly[2]
+      : hexOnly;
+    hex = hex.slice(0, 6);
+    var r = parseInt(hex.slice(0, 2), 16);
+    var g = parseInt(hex.slice(2, 4), 16);
+    var b = parseInt(hex.slice(4, 6), 16);
+    return { hex: '#' + hex.toLowerCase(), r: r, g: g, b: b };
+  }
+  // 数字列を抽出（rgb/rgba の有無・閉じ括弧の有無に依存しない。アルファは .5 / 0.5 とも parseFloat で解釈）
+  var inner = s.replace(/^.*?rgb(?:a)?\s*\(?\s*/i, '').replace(/\s*\)?\s*$/, '').replace(/[,/]/g, ' ');
+  var parts = inner.split(/\s+/).filter(Boolean);
+  var nums = [];
+  for (var i = 0; i < parts.length; i++) {
+    var n = parseFloat(parts[i]);
+    if (!isNaN(n)) nums.push(n);
+  }
+  if (nums.length < 3) {
+    var anyNum = s.replace(/[^\d.\s,]/g, ' ').replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    nums = [];
+    for (var j = 0; j < anyNum.length; j++) {
+      var v = parseFloat(anyNum[j]);
+      if (!isNaN(v)) nums.push(v);
+        if (nums.length >= 3) break;
+    }
+  }
+  if (nums.length >= 3) {
+    var r = nums[0], g = nums[1], b = nums[2];
+    if (r <= 1 && g <= 1 && b <= 1) { r *= 255; g *= 255; b *= 255; }
+    r = Math.max(0, Math.min(255, Math.round(r)));
+    g = Math.max(0, Math.min(255, Math.round(g)));
+    b = Math.max(0, Math.min(255, Math.round(b)));
+    var h = '#' + [r, g, b].map(function (x) {
+      var t = x.toString(16);
+      return t.length === 1 ? '0' + t : t;
+    }).join('');
+    return { hex: h, r: r, g: g, b: b };
+  }
+  return null;
+}
+
 // =========================
 // 9. Panel
 // =========================
@@ -1544,19 +1609,106 @@ var Panel = {
   },
 
   _makeColorRow: function (value, name) {
-    var row = h('div.us-prof-color-item',
-      h('input', { type: 'color', 'data-role': 'prof-color', value: value }),
-      h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' }),
+    var hex = (value && value.indexOf('#') === 0) ? value : ('#' + (value || '000000').replace(/^#/, ''));
+    if (hex.length === 4) hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+    var r = 0, g = 0, b = 0;
+    if (hex.length === 7) {
+      r = parseInt(hex.slice(1, 3), 16);
+      g = parseInt(hex.slice(3, 5), 16);
+      b = parseInt(hex.slice(5, 7), 16);
+    }
+    var colorPicker = h('input', { type: 'color', 'data-role': 'prof-color', value: hex });
+    var flexibleInput = h('input', {
+      type: 'text',
+      'data-role': 'prof-flexible',
+      value: hex,
+      placeholder: 'rgb(255,0,0) / #f00 / fff ...'
+    });
+    var nameInput = h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' });
+    var rInput = h('input', { type: 'text', 'data-role': 'prof-r', value: String(r), placeholder: 'R' });
+    var gInput = h('input', { type: 'text', 'data-role': 'prof-g', value: String(g), placeholder: 'G' });
+    var bInput = h('input', { type: 'text', 'data-role': 'prof-b', value: String(b), placeholder: 'B' });
+    var hexInput = h('input', { type: 'text', 'data-role': 'prof-hex', value: hex, placeholder: 'HEX' });
+    var detailRow = h('div.us-prof-color-detail',
+      h('span.us-prof-detail-label', 'RGB / HEX'),
+      rInput, gInput, bInput, hexInput
+    );
+    var toggleBtn = h('button.us-prof-detail-toggle', { type: 'button', title: 'RGB/HEX を表示' }, 'RGB/HEX ▼');
+    var mainRow = h('div.us-prof-color-main',
+      colorPicker,
+      flexibleInput,
+      nameInput,
+      toggleBtn,
       h('button', { title: '削除' }, '✕')
     );
-    row.querySelector('button').addEventListener('click', function () {
-      row.parentNode.removeChild(row);
+    var row = h('div.us-prof-color-item', mainRow, detailRow);
+
+    var applyToPickerAndDetail = function (hexVal) {
+      if (!/^#[0-9a-fA-F]{6}$/.test(hexVal)) return;
+      colorPicker.value = hexVal;
+      var rr = parseInt(hexVal.slice(1, 3), 16);
+      var gg = parseInt(hexVal.slice(3, 5), 16);
+      var bb = parseInt(hexVal.slice(5, 7), 16);
+      rInput.value = String(rr);
+      gInput.value = String(gg);
+      bInput.value = String(bb);
+      hexInput.value = hexVal;
+    };
+    var applyFromFlexible = function () {
+      var parsed = parseFlexibleColor(flexibleInput.value);
+      if (parsed) {
+        applyToPickerAndDetail(parsed.hex);
+      }
+    };
+    flexibleInput.addEventListener('input', applyFromFlexible);
+    flexibleInput.addEventListener('blur', applyFromFlexible);
+    colorPicker.addEventListener('input', function () {
+      var v = colorPicker.value;
+      flexibleInput.value = v;
+      rInput.value = String(parseInt(v.slice(1, 3), 16));
+      gInput.value = String(parseInt(v.slice(3, 5), 16));
+      bInput.value = String(parseInt(v.slice(5, 7), 16));
+      hexInput.value = v;
+    });
+    var syncFromRgbHex = function () {
+      var rr = parseInt(rInput.value, 10);
+      var gg = parseInt(gInput.value, 10);
+      var bb = parseInt(bInput.value, 10);
+      if (!isNaN(rr) && !isNaN(gg) && !isNaN(bb)) {
+        rr = Math.max(0, Math.min(255, rr));
+        gg = Math.max(0, Math.min(255, gg));
+        bb = Math.max(0, Math.min(255, bb));
+        var h = '#' + [rr, gg, bb].map(function (x) {
+          var t = x.toString(16);
+          return t.length === 1 ? '0' + t : t;
+        }).join('');
+        colorPicker.value = h;
+        flexibleInput.value = h;
+        hexInput.value = h;
+      } else {
+        var he = hexInput.value.trim().replace(/^#/, '');
+        if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
+          if (he.length === 3) he = he[0] + he[0] + he[1] + he[1] + he[2] + he[2];
+          var h2 = '#' + he.toLowerCase();
+          applyToPickerAndDetail(h2);
+        }
+      }
+    };
+    rInput.addEventListener('input', syncFromRgbHex);
+    gInput.addEventListener('input', syncFromRgbHex);
+    bInput.addEventListener('input', syncFromRgbHex);
+    hexInput.addEventListener('input', syncFromRgbHex);
+    hexInput.addEventListener('blur', syncFromRgbHex);
+
+    toggleBtn.addEventListener('click', function () {
+      detailRow.classList.toggle('us-open');
+      toggleBtn.textContent = detailRow.classList.contains('us-open') ? 'RGB/HEX ▲' : 'RGB/HEX ▼';
+      toggleBtn.title = detailRow.classList.contains('us-open') ? 'RGB/HEX を閉じる' : 'RGB/HEX を表示';
     });
 
-    // Sync color picker -> hex display
-    var colorPicker = row.querySelector('[data-role="prof-color"]');
-    var nameField = row.querySelector('[data-role="prof-name"]');
-    // We don't need hex sync here since it's just a picker + name
+    row.querySelector('.us-prof-color-main button:last-child').addEventListener('click', function () {
+      row.parentNode.removeChild(row);
+    });
 
     return row;
   },
