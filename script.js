@@ -4,8 +4,10 @@
  * Lets users click individual page elements and change their colors.
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
+(function () {
+  if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.39';
+var US_VERSION = '1.6.40';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1748,6 +1750,8 @@ window.US.rpc = RPC;
   } catch (e) {
     console.error('[UserScripts] Auto-init failed:', e);
   }
+})();
+
 })();
 
 // ESM export (keeps module semantics for jsDelivr)
