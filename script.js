@@ -6,7 +6,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '2.0.1';
+var US_VERSION = '2.0.2';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -67,28 +67,62 @@ function oneRpc(id, req, timeoutMs, methodLabel) {
 }
 
 var RPC = {
-  _debug: false,
+  _debug: true,  // Enable debug for troubleshooting
+  _token: null,
 
-  init: async function () {
-    this._debug && console.log('[RPC] Init complete');
-    return true;
+  async init() {
+    console.log('[RPC] Initializing with handshake...');
+    try {
+      // First, perform handshake to get the token
+      var handshakeResult = await this._handshake();
+      this._token = handshakeResult.token;
+      console.log('[RPC] Handshake successful, token received');
+      return true;
+    } catch (e) {
+      console.error('[RPC] Handshake failed:', e);
+      return false;
+    }
+  },
+
+  async _handshake() {
+    var id = makeId();
+    var req = {};
+    req[REQ_FLAG] = true;
+    req.id = id;
+    req.method = 'core.handshake';
+    req.params = [];
+    req.token = null; // No token needed for handshake
+
+    console.log('[RPC] Handshake request');
+    sendRequest(req);
+    return await oneRpc(id, req, 5000, 'core.handshake');
   },
 
   call: async function (method, args, timeoutMs) {
+    if (!this._token) {
+      throw new Error('RPC not initialized - call init() first');
+    }
+    
     timeoutMs = timeoutMs || 3000;
     var id = makeId();
     var req = {};
     req[REQ_FLAG] = true;
     req.id = id;
     req.method = method;
-    req.params = args || [];  // Changed from 'args' to 'params' to match load.js
-    req.token = 'auto';       // Added token for authorization
+    req.params = args || [];
+    req.token = this._token;  // Use the actual token from handshake
 
-    this._debug && console.log('[RPC] Call', method, req);
+    console.log('[RPC] Call:', method, 'with params:', req.params);
     sendRequest(req);
-    var result = await oneRpc(id, req, timeoutMs, method);
-    this._debug && console.log('[RPC] Result', method, result);
-    return result;
+    try {
+      var result = await oneRpc(id, req, timeoutMs, method);
+      console.log('[RPC] Success:', method, 'result:', result);
+      return result;
+    } catch (e) {
+      console.error('[RPC] Failed:', method, 'error:', e.message);
+      throw e;
+    }
+  }
   }
 };
 

@@ -864,10 +864,17 @@ var ColorCustomizerFeature = {
       EditMode.init();
       Theme.init();
       
-      // Restore Edit Mode state
-      var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
-      if (editState) {
-        EditMode.enable();
+      // Restore Edit Mode state (with error handling)
+      try {
+        console.log('[ColorCustomizer] Checking edit mode state...');
+        var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
+        console.log('[ColorCustomizer] Edit state result:', editState);
+        if (editState) {
+          EditMode.enable();
+        }
+      } catch (editStateError) {
+        console.warn('[ColorCustomizer] Failed to load edit state, continuing without it:', editStateError.message);
+        // Don't fail the entire initialization for this non-critical feature
       }
       this._initialized = true;
       console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
