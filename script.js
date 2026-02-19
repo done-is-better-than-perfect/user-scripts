@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.45';
+var US_VERSION = '1.6.46';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -946,6 +946,14 @@ var Styles = {
       '  border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;',
       '}',
       '#us-cc-prof-color-popover.us-visible { display: block !important; }',
+      '#us-cc-prof-color-popover .us-prof-popover-row1 {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important; margin-bottom: 8px !important;',
+      '}',
+      '#us-cc-prof-color-popover [data-role="preview-swatch"] {',
+      '  display: inline-block !important; width: 32px !important; height: 32px !important; flex-shrink: 0 !important;',
+      '  border: 1px solid rgba(255,255,255,0.2) !important; border-radius: 6px !important;',
+      '}',
+      '#us-cc-prof-color-popover .us-prof-popover-row1 input { flex: 1 !important; min-width: 0 !important; }',
       '#us-cc-prof-color-popover input[type="text"] {',
       '  all: initial !important; display: block !important; width: 100% !important; box-sizing: border-box !important;',
       '  padding: 6px 8px !important; margin-bottom: 8px !important;',
@@ -1366,20 +1374,26 @@ var ProfileColorPopover = {
   _create: function () {
     if (this.el) return;
     this.backdrop = h('div', { id: 'us-cc-prof-popover-backdrop', 'data-us-cc': 'prof-color-popover' });
+    var swatch = h('span', { 'data-role': 'preview-swatch' });
+    swatch.style.setProperty('background', '#000', 'important');
     var flexible = h('input', { type: 'text', 'data-role': 'flexible', placeholder: 'rgb(255,0,0) / #f00 / fff ...' });
     var rIn = h('input', { type: 'text', 'data-role': 'r', placeholder: 'R' });
     var gIn = h('input', { type: 'text', 'data-role': 'g', placeholder: 'G' });
     var bIn = h('input', { type: 'text', 'data-role': 'b', placeholder: 'B' });
     var hexIn = h('input', { type: 'text', 'data-role': 'hex', placeholder: 'HEX' });
+    var row1 = h('div.us-prof-popover-row1', swatch, flexible);
     var row2 = h('div.us-prof-popover-rgbhex', h('span.us-prof-popover-label', 'RGB / HEX'), rIn, gIn, bIn, hexIn);
     this.el = h('div', { id: 'us-cc-prof-color-popover', 'data-us-cc': 'prof-color-popover' },
-      flexible,
+      row1,
       row2
     );
     this.backdrop.appendChild(this.el);
     document.body.appendChild(this.backdrop);
 
     var self = this;
+    var updatePreview = function (hexVal) {
+      if (/^#[0-9a-fA-F]{6}$/.test(hexVal)) swatch.style.setProperty('background', hexVal, 'important');
+    };
     var applyFromFlexible = function () {
       var parsed = parseFlexibleColor(flexible.value);
       if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) {
@@ -1387,6 +1401,7 @@ var ProfileColorPopover = {
         gIn.value = String(parsed.g);
         bIn.value = String(parsed.b);
         hexIn.value = parsed.hex;
+        updatePreview(parsed.hex);
       }
     };
     flexible.addEventListener('input', applyFromFlexible);
@@ -1400,6 +1415,7 @@ var ProfileColorPopover = {
         var h = '#' + [r, g, b].map(function (x) { var t = x.toString(16); return t.length === 1 ? '0' + t : t; }).join('');
         flexible.value = h;
         hexIn.value = h;
+        updatePreview(h);
       } else {
         var he = hexIn.value.trim().replace(/^#/, '');
         if (/^[0-9a-fA-F]{6}$/.test(he) || /^[0-9a-fA-F]{3}$/.test(he)) {
@@ -1409,6 +1425,7 @@ var ProfileColorPopover = {
           rIn.value = String(parseInt(h2.slice(1, 3), 16));
           gIn.value = String(parseInt(h2.slice(3, 5), 16));
           bIn.value = String(parseInt(h2.slice(5, 7), 16));
+          updatePreview(h2);
         }
       }
     };
@@ -1429,9 +1446,23 @@ var ProfileColorPopover = {
     this.el.querySelector('[data-role="g"]').value = String(parseInt(hex.slice(3, 5), 16));
     this.el.querySelector('[data-role="b"]').value = String(parseInt(hex.slice(5, 7), 16));
     this.el.querySelector('[data-role="hex"]').value = hex;
+    this.el.querySelector('[data-role="preview-swatch"]').style.setProperty('background', hex, 'important');
     var rect = anchor.getBoundingClientRect();
-    this.el.style.left = Math.max(8, rect.left) + 'px';
-    this.el.style.top = (rect.bottom + 6) + 'px';
+    var popW = 220;
+    var popH = 120;
+    var left;
+    if (rect.right + popW + 12 <= window.innerWidth) {
+      left = rect.right + 6;
+    } else if (rect.left - popW - 12 >= 8) {
+      left = rect.left - popW - 6;
+    } else {
+      left = Math.max(8, Math.min(rect.left, window.innerWidth - popW - 8));
+    }
+    var top = rect.top;
+    if (top + popH > window.innerHeight - 8) top = Math.max(8, window.innerHeight - popH - 8);
+    if (top < 8) top = 8;
+    this.el.style.left = left + 'px';
+    this.el.style.top = top + 'px';
     this.backdrop.classList.add('us-visible');
     this.el.classList.add('us-visible');
     var self = this;
