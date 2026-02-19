@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.40';
+var US_VERSION = '1.6.41';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -813,14 +813,17 @@ var Styles = {
       '#us-cc-panel .us-p-section-title button:hover { background: rgba(59,130,246,0.15) !important; }',
       '#us-cc-panel .us-prof-list { padding: 0 12px 8px !important; }',
       '#us-cc-panel .us-prof-item {',
-      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 6px !important;',
       '  padding: 6px 8px !important; margin-bottom: 3px !important;',
       '  background: rgba(255,255,255,0.04) !important; border: 1px solid rgba(255,255,255,0.06) !important;',
       '  border-radius: 6px !important; cursor: default !important;',
       '}',
       '#us-cc-panel .us-prof-item:hover { background: rgba(255,255,255,0.07) !important; }',
+      '#us-cc-panel .us-prof-item-head {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important; min-width: 0 !important;',
+      '}',
       '#us-cc-panel .us-prof-swatches {',
-      '  display: flex !important; gap: 2px !important; flex: 1 !important; flex-wrap: wrap !important; min-width: 0 !important;',
+      '  display: flex !important; gap: 2px !important; flex-wrap: wrap !important; min-width: 0 !important;',
       '}',
       '#us-cc-panel .us-prof-sw {',
       '  all: initial !important; width: 14px !important; height: 14px !important;',
@@ -829,7 +832,7 @@ var Styles = {
       '#us-cc-panel .us-prof-name {',
       '  all: initial !important; font-family: inherit !important;',
       '  font-size: 11px !important; color: rgba(255,255,255,0.7) !important;',
-      '  white-space: nowrap !important; min-width: 0 !important; flex-shrink: 1 !important;',
+      '  white-space: nowrap !important; min-width: 0 !important; flex: 1 !important;',
       '  overflow: hidden !important; text-overflow: ellipsis !important;',
       '}',
       '#us-cc-panel .us-prof-actions { display: flex !important; gap: 2px !important; flex-shrink: 0 !important; }',
@@ -1626,12 +1629,14 @@ var Panel = {
 
       container.appendChild(
         h('div.us-prof-item',
-          swatches,
-          h('span.us-prof-name', prof.name),
-          h('span.us-prof-actions',
-            h('button', { 'data-prof-edit': prof.id, title: '編集' }, '✎'),
-            h('button', { 'data-prof-del': prof.id, title: '削除' }, '✕')
-          )
+          h('div.us-prof-item-head',
+            h('span.us-prof-name', prof.name),
+            h('span.us-prof-actions',
+              h('button', { 'data-prof-edit': prof.id, title: '編集' }, '✎'),
+              h('button', { 'data-prof-del': prof.id, title: '削除' }, '✕')
+            )
+          ),
+          swatches
         )
       );
     });
