@@ -6,7 +6,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '2.0.0';
+var US_VERSION = '2.0.1';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -81,7 +81,8 @@ var RPC = {
     req[REQ_FLAG] = true;
     req.id = id;
     req.method = method;
-    req.args = args || [];
+    req.params = args || [];  // Changed from 'args' to 'params' to match load.js
+    req.token = 'auto';       // Added token for authorization
 
     this._debug && console.log('[RPC] Call', method, req);
     sendRequest(req);
@@ -148,20 +149,54 @@ var SelectorEngine = {
 // 3. Module Loader
 // =========================
 var ModuleLoader = {
+  getBaseUrl() {
+    // Try to get baseUrl from current script or various patterns
+    var scriptSrc = null;
+    
+    // Method 1: Look for userScripts in src
+    var scripts = Array.from(document.querySelectorAll('script[src]'));
+    for (var i = 0; i < scripts.length; i++) {
+      var src = scripts[i].src;
+      if (src.includes('userScripts')) {
+        scriptSrc = src;
+        break;
+      }
+    }
+    
+    // Method 2: Check document.currentScript if available
+    if (!scriptSrc && document.currentScript && document.currentScript.src) {
+      scriptSrc = document.currentScript.src;
+    }
+    
+    if (scriptSrc) {
+      var baseUrl = scriptSrc.replace(/\/[^\/]*$/, '/');
+      console.log('[ModuleLoader] Detected baseUrl:', baseUrl);
+      return baseUrl;
+    }
+    
+    // Fallback: Use latest main branch
+    var fallbackUrl = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@main/';
+    console.warn('[ModuleLoader] Could not detect baseUrl, using fallback:', fallbackUrl);
+    return fallbackUrl;
+  },
+
   async loadColorEditor() {
     try {
-      // Create script element for ES module
-      var baseUrl = document.querySelector('script[src*="/userScripts/"]')?.src.replace(/\/[^\/]*$/, '/');
-      if (!baseUrl) {
-        // Fallback for development
-        baseUrl = 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@main/';
+      var baseUrl = this.getBaseUrl();
+      var moduleUrl = baseUrl + 'modules/colorEditor.js';
+      
+      console.log('[ModuleLoader] Loading colorEditor from:', moduleUrl);
+      var module = await import(moduleUrl);
+      
+      if (!module || !module.default) {
+        throw new Error('Module did not export default');
       }
       
-      var moduleUrl = baseUrl + 'modules/colorEditor.js';
-      var module = await import(moduleUrl);
+      console.log('[ModuleLoader] colorEditor module loaded successfully');
       return module.default;
     } catch (e) {
       console.error('[ModuleLoader] Failed to load colorEditor module:', e);
+      console.error('[ModuleLoader] Module URL was:', moduleUrl || 'undefined');
       return null;
     }
   }
@@ -175,17 +210,23 @@ var FeatureManager = {
   
   async init() {
     try {
+      console.log('[FeatureManager] Initializing features...');
+      
       // Load colorEditor feature
       var colorEditor = await ModuleLoader.loadColorEditor();
       if (colorEditor) {
         this.features.colorCustomizer = colorEditor;
+        
+        console.log('[FeatureManager] Initializing colorEditor with RPC...');
         await colorEditor.init(RPC);
-        console.log('[FeatureManager] Color editor loaded successfully');
+        
+        console.log('[FeatureManager] Color editor initialized successfully');
       } else {
         console.error('[FeatureManager] Failed to load color editor');
       }
     } catch (e) {
       console.error('[FeatureManager] Initialization failed:', e);
+      // Don't throw - let the app continue even if features fail to load
     }
   },
   
