@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.50';
+var US_VERSION = '1.6.51';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -136,6 +136,18 @@ var SelectorEngine = {
    */
   find: function (selector) {
     try { return document.querySelector(selector); } catch (e) { return null; }
+  },
+
+  /**
+   * Find all elements matching a selector. Returns array (empty on error).
+   */
+  findAll: function (selector) {
+    try {
+      var list = document.querySelectorAll(selector);
+      return Array.prototype.slice.call(list);
+    } catch (e) {
+      return [];
+    }
   }
 };
 
@@ -381,6 +393,18 @@ var StyleApplier = {
     } else {
       el.style.removeProperty(property);
     }
+  },
+
+  /**
+   * 指定セレクタに一致する全要素から、指定プロパティのインラインを解除する（ルール削除時用）。
+   */
+  removeRuleFromPage: function (selector, property) {
+    var elements = SelectorEngine.findAll(selector);
+    elements.forEach(function (el) {
+      try {
+        el.style.removeProperty(property);
+      } catch (e) { /* ignore */ }
+    });
   }
 };
 
@@ -1246,9 +1270,9 @@ var ColorPopover = {
         promises.push(RulesManager.addRule(selector, prop, orig.value, orig.mode));
         StyleApplier.previewOne(self._currentTarget, prop, orig.value);
       } else {
-        // Delete new rule if created
+        // Delete new rule if created（該当セレクタの全要素からスタイル解除）
         promises.push(RulesManager.deleteRule(selector, prop));
-        StyleApplier.previewOne(self._currentTarget, prop, ''); // Remove style
+        StyleApplier.removeRuleFromPage(selector, prop);
       }
     });
 
@@ -1740,12 +1764,15 @@ var Panel = {
       input.click();
     });
 
-    // Delegate: delete rule
+    // Delegate: delete rule（削除したルールの該当箇所からスタイルを解除）
     this.el.querySelector('#us-p-rules').addEventListener('click', function (e) {
       var btn = e.target.closest('[data-rule-idx]');
       if (!btn) return;
       var idx = parseInt(btn.getAttribute('data-rule-idx'), 10);
+      var rules = RulesManager.getRules();
+      var rule = idx >= 0 && idx < rules.length ? rules[idx] : null;
       RulesManager.removeRule(idx).then(function () {
+        if (rule) StyleApplier.removeRuleFromPage(rule.selector, rule.property);
         StyleApplier.clearAll();
         StyleApplier.applyAll(RulesManager.getRules());
         self.refreshRules();
