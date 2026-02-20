@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.12';
+var US_VERSION = '1.7.0-dev.13';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -711,8 +711,8 @@ var Styles = (function () {
       '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 14px !important;',
       '}',
       '#us-cc-panel .us-p-df-step-del:hover { background: rgba(0,0,0,0.06) !important; color: rgba(0,0,0,0.8) !important; }',
-      '#us-cc-panel .us-p-df-step-duplicate { border-left: 3px solid rgba(255,149,0,0.8) !important; }',
-      '#us-cc-panel .us-p-df-step-dup-badge { flex-shrink: 0 !important; padding: 2px 6px !important; border-radius: 4px !important; background: rgba(255,149,0,0.2) !important; font-size: 10px !important; color: rgba(200,100,0,0.95) !important; }',
+      '#us-cc-panel .us-p-df-step.us-p-df-step-duplicate { border-left: 4px solid rgba(255,149,0,0.95) !important; background: rgba(255,149,0,0.12) !important; }',
+      '#us-cc-panel .us-p-df-step-dup-badge { flex-shrink: 0 !important; padding: 2px 6px !important; border-radius: 4px !important; background: rgba(255,149,0,0.35) !important; font-size: 10px !important; font-weight: 600 !important; color: rgba(180,80,0,1) !important; }',
       '#us-cc-panel .us-p-df-other-head { padding: 8px 0 4px 0 !important; font-size: 11px !important; color: rgba(0,0,0,0.5) !important; border-bottom: 1px solid rgba(0,0,0,0.08) !important; margin-bottom: 4px !important; }',
       '#us-cc-panel .us-p-df-step-other .us-p-df-step-del { display: none !important; }',
       '#us-cc-panel #us-p-df-empty { padding: 24px 16px !important; text-align: center !important; color: rgba(0,0,0,0.45) !important; font-size: 13px !important; }',
@@ -1972,8 +1972,19 @@ var Panel = (function () {
     var hostname = window.location.hostname;
     var prefix = 'userscripts:features:dataFiller:page:';
 
+    function compareXPathByHierarchy(a, b) {
+      var segA = (a || '').split('/');
+      var segB = (b || '').split('/');
+      for (var i = 0; i < Math.max(segA.length, segB.length); i++) {
+        var sa = segA[i] || '';
+        var sb = segB[i] || '';
+        var c = sa.localeCompare(sb);
+        if (c !== 0) return c;
+      }
+      return 0;
+    }
     var thisPageSteps = (DataFiller.getSteps() || []).map(function (step, i) { return { step: step, originalIndex: i }; });
-    thisPageSteps.sort(function (a, b) { return (a.step.xpath || '').localeCompare(b.step.xpath || ''); });
+    thisPageSteps.sort(function (a, b) { return compareXPathByHierarchy(a.step.xpath, b.step.xpath); });
 
     var otherPages = [];
     try {
@@ -1988,7 +1999,7 @@ var Panel = (function () {
           if (!val || !Array.isArray(val.steps)) return;
           var pagePath = decoded === hostname ? '/' : decoded.slice(hostname.length) || '/';
           var list = val.steps.map(function (s) { return { step: s }; });
-          list.sort(function (a, b) { return (a.step.xpath || '').localeCompare(b.step.xpath || ''); });
+          list.sort(function (a, b) { return compareXPathByHierarchy(a.step.xpath, b.step.xpath); });
           otherPages.push({ pagePath: pagePath, steps: list });
         });
       }
@@ -2019,7 +2030,7 @@ var Panel = (function () {
         var step = w.step;
         var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
         var isDup = (counts[step.xpath] || 0) > 1;
-        var row = h('div.us-p-df-step' + (isDup ? ' us-p-df-step-duplicate' : ''),
+        var row = h('div', { class: 'us-p-df-step' + (isDup ? ' us-p-df-step-duplicate' : '') },
           h('span.us-p-df-step-type', step.type),
           isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
           h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
@@ -2054,7 +2065,7 @@ var Panel = (function () {
           var step = w.step;
           var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
           var isDup = (otherCounts[step.xpath] || 0) > 1;
-          var row = h('div.us-p-df-step.us-p-df-step-other' + (isDup ? ' us-p-df-step-duplicate' : ''),
+          var row = h('div', { class: 'us-p-df-step us-p-df-step-other' + (isDup ? ' us-p-df-step-duplicate' : '') },
             h('span.us-p-df-step-type', step.type),
             isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
             h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
