@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.55';
+var US_VERSION = '1.6.56';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -2143,7 +2143,18 @@ var ColorCustomizerFeature = (function () {
       await RPC.init();
       await RulesManager.load();
       await ProfileManager.load();
-      StyleApplier.applyAll(RulesManager.getRules());
+      function applyRules() {
+        StyleApplier.applyAll(RulesManager.getRules());
+      }
+      applyRules();
+      if (document.readyState !== 'complete') {
+        window.addEventListener('load', function onLoad() {
+          window.removeEventListener('load', onLoad);
+          applyRules();
+        });
+      }
+      setTimeout(applyRules, 600);
+      setTimeout(applyRules, 2000);
       Tab.create();
       // Restore Edit Mode state
       var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
