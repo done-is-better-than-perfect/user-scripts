@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.3';
+var US_VERSION = '1.7.0-dev.4';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2505,10 +2505,6 @@ var DataFiller = (function () {
         if (labelFor && labelFor.textContent) return trim(labelFor.textContent);
       } catch (e) {}
     }
-    var aria = el.getAttribute('aria-label');
-    if (aria) return trim(aria);
-    if (el.placeholder) return trim(el.placeholder);
-    if (el.title) return trim(el.title);
     var parent = el.parentNode;
     if (parent && parent.tagName && parent.tagName.toLowerCase() === 'label') {
       var clone = parent.cloneNode(true);
@@ -2517,16 +2513,18 @@ var DataFiller = (function () {
       if (clone.textContent) return trim(clone.textContent);
     }
     var prev = el.previousElementSibling;
-    if (prev) {
-      var prevTag = prev.tagName ? prev.tagName.toLowerCase() : '';
-      if (prevTag === 'label' && prev.textContent) return trim(prev.textContent);
-      if (prev.textContent && prev.textContent.length < maxLen) return trim(prev.textContent);
-    }
+    if (prev && prev.textContent) return trim(prev.textContent);
+    var next = el.nextElementSibling;
+    if (next && next.tagName && next.tagName.toLowerCase() === 'label' && next.textContent) return trim(next.textContent);
     if (parent) {
       var first = parent.firstChild;
       while (first && first.nodeType !== Node.TEXT_NODE) first = first.nextSibling;
       if (first && first.textContent) return trim(first.textContent);
     }
+    var aria = el.getAttribute('aria-label');
+    if (aria) return trim(aria);
+    if (el.title) return trim(el.title);
+    if (el.placeholder) return trim(el.placeholder);
     return '';
   }
 
