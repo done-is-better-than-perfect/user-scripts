@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.1';
+var US_VERSION = '1.7.0-dev.2';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -682,9 +682,17 @@ var Styles = (function () {
       '#us-cc-panel .us-p-rules::-webkit-scrollbar { width: 3px !important; }',
       '#us-cc-panel .us-p-rules::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12) !important; border-radius: 3px !important; }',
       /* DataFiller screen */
+      '#us-cc-panel .us-p-df-capture-row { padding-top: 10px !important; padding-bottom: 12px !important; border-top: 1px solid rgba(0,0,0,0.06) !important; }',
+      '#us-cc-panel .us-p-df-capture-row .us-p-df-capture-label { font-size: 13px !important; color: rgba(0,0,0,0.6) !important; flex: 1 !important; }',
+      '#us-cc-panel .us-p-df-capture-row .us-switch { flex-shrink: 0 !important; }',
       '#us-cc-panel .us-p-df-steps-wrap { flex: 1 !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }',
-      '#us-cc-panel .us-p-df-capture-wrap { display: flex !important; align-items: center !important; gap: 8px !important; }',
-      '#us-cc-panel .us-p-df-capture-label { font-size: 13px !important; color: rgba(0,0,0,0.6) !important; }',
+      '#us-cc-panel .us-p-df-template-btn {',
+      '  all: initial !important; font-family: inherit !important; width: 32px !important; height: 32px !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  border: none !important; border-radius: 8px !important; cursor: pointer !important;',
+      '  font-size: 18px !important; color: rgba(59,130,246,0.9) !important; background: transparent !important;',
+      '}',
+      '#us-cc-panel .us-p-df-template-btn:hover { background: rgba(59,130,246,0.1) !important; color: rgba(59,130,246,1) !important; }',
       '#us-cc-panel .us-p-df-steps { flex: 1 !important; overflow-y: auto !important; padding: 8px 16px !important; }',
       '#us-cc-panel .us-p-df-step {',
       '  display: flex !important; align-items: center !important; gap: 8px !important;',
@@ -1824,23 +1832,34 @@ var Panel = (function () {
       )
     );
 
+    var dfMainToggleLabel = document.createElement('label');
+    dfMainToggleLabel.className = 'us-switch';
+    dfMainToggleLabel.setAttribute('data-us-cc', 'switch');
+    dfMainToggleLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-main-toggle' }));
+    dfMainToggleLabel.appendChild(h('span.us-slider'));
     var dfCaptureLabel = document.createElement('label');
     dfCaptureLabel.className = 'us-switch';
     dfCaptureLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-capture-toggle' }));
     dfCaptureLabel.appendChild(h('span.us-slider'));
+    var dfDetailIcon = h('div.us-p-detail-icon', document.createTextNode('CSV'));
     var screenDataFiller = h('div', { class: 'us-p-screen', 'data-us-cc': 'screen-dataFiller' },
       h('div.us-p-detail-header',
         h('div.us-p-detail-header-row',
           h('button.us-p-nav-back', { type: 'button', 'data-df-back': '1' }, '\u2039 \u8a2d\u5b9a')
         ),
         h('div.us-p-detail-header-row',
+          dfDetailIcon,
           h('span.us-p-title', 'data', h('span.us-title-editor', 'Filler')),
-          h('span.us-p-df-capture-wrap', dfCaptureLabel, h('span.us-p-df-capture-label', 'キャプチャモード'))
+          h('span.us-p-header-toggle', dfMainToggleLabel)
+        ),
+        h('div.us-p-detail-header-row.us-p-df-capture-row',
+          h('span.us-p-df-capture-label', 'キャプチャモード'),
+          dfCaptureLabel
         )
       ),
       h('div.us-p-section-title', { 'data-us-cc': 'section' },
         h('span', 'フォーム要素（クリックで追加）'),
-        h('button', { id: 'us-p-df-template-dl', title: 'CSVテンプレートをダウンロード' }, 'Template Download')
+        h('button', { id: 'us-p-df-template-dl', title: 'CSVテンプレートをダウンロード', class: 'us-p-df-template-btn' }, '\u2B07')
       ),
       h('div.us-p-df-steps-wrap',
         h('div.us-p-df-steps', { id: 'us-p-df-steps' }),
@@ -1882,6 +1901,9 @@ var Panel = (function () {
     if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
     if (this._screenDataFiller) this._screenDataFiller.classList.add('us-p-screen-visible');
     DataFiller.load().then(function () { Panel.refreshDataFillerSteps(); });
+    var listDfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
+    var mainToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-main-toggle');
+    if (mainToggle && listDfToggle) mainToggle.checked = listDfToggle.checked;
     var capToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-capture-toggle');
     if (capToggle) capToggle.checked = DataFiller.captureMode;
   },
@@ -2003,6 +2025,11 @@ var Panel = (function () {
     if (this._screenDataFiller) {
       var dfBack = this._screenDataFiller.querySelector('[data-df-back="1"]');
       if (dfBack) dfBack.addEventListener('click', function () { self._showList(); });
+      var dfMainToggle = this._screenDataFiller.querySelector('#us-p-df-main-toggle');
+      if (dfMainToggle) dfMainToggle.addEventListener('change', function () {
+        var listT = self._screenList && self._screenList.querySelector('#us-p-feature-dataFiller-toggle');
+        if (listT) listT.checked = this.checked;
+      });
       var dfCaptureToggle = this._screenDataFiller.querySelector('#us-p-df-capture-toggle');
       if (dfCaptureToggle) dfCaptureToggle.addEventListener('change', function () {
         if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
