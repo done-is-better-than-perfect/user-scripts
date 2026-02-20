@@ -7,8 +7,24 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.70';
+var US_VERSION = '1.6.71';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
+
+// Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
+var GEAR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor"><path d="M496 293.984c9.031-.703 16-8.25 16-17.297v-41.375c0-9.063-6.969-16.594-16-17.313l-54.828-4.281c-3.484-.266-6.484-2.453-7.828-5.688l-18.031-43.516c-1.344-3.219-.781-6.906 1.5-9.547l35.75-41.813c5.875-6.891 5.5-17.141-.922-23.547l-29.25-29.25c-6.406-6.406-16.672-6.813-23.547-.922l-41.813 35.75c-2.641 2.266-6.344 2.844-9.547 1.516l-43.531-18.047c-3.219-1.328-5.422-4.375-5.703-7.828l-4.266-54.813C293.281 6.969 285.75 0 276.688 0h-41.375c-9.063 0-16.594 6.969-17.297 16.016l-4.281 54.813c-.266 3.469-2.469 6.5-5.688 7.828l-43.531 18.047c-3.219 1.328-6.906.75-9.563-1.516l-41.797-35.75c-6.875-5.891-17.125-5.484-23.547.922l-29.25 29.25c-6.406 6.406-6.797 16.656-.922 23.547l35.75 41.813c2.25 2.641 2.844 6.328 1.5 9.547l-18.031 43.516c-1.313 3.234-4.359 5.422-7.813 5.688L16 218c-9.031.719-16 8.25-16 17.313v41.359c0 9.063 6.969 16.609 16 17.313l54.844 4.266c3.453.281 6.5 2.484 7.813 5.703l18.031 43.516c1.344 3.219.75 6.922-1.5 9.563l-35.75 41.813c-5.875 6.875-5.484 17.125.922 23.547l29.25 29.25c6.422 6.406 16.672 6.797 23.547.906l41.797-35.75c2.656-2.25 6.344-2.844 9.563-1.5l43.531 18.031c3.219 1.344 5.422 4.359 5.688 7.844l4.281 54.813c.703 9.031 8.234 16.016 17.297 16.016h41.375c9.063 0 16.594-6.984 17.297-16.016l4.266-54.813c.281-3.484 2.484-6.5 5.703-7.844l43.531-18.031c3.203-1.344 6.922-.75 9.547 1.5l41.813 35.75c6.875 5.891 17.141 5.5 23.547-.906l29.25-29.25c6.422-6.422 6.797-16.672.922-23.547l-35.75-41.813c-2.25-2.641-2.844-6.344-1.5-9.563l18.031-43.516c1.344-3.219 4.344-5.422 7.828-5.703L496 293.984zM256 342.516c-23.109 0-44.844-9-61.188-25.328-16.344-16.359-25.344-38.078-25.344-61.203 0-23.109 9-44.844 25.344-61.172 16.344-16.359 38.078-25.344 61.188-25.344 23.125 0 44.844 8.984 61.188 25.344 16.344 16.328 25.344 38.063 25.344 61.172 0 23.125-9 44.844-25.344 61.203C300.844 333.516 279.125 342.516 256 342.516z"/></svg>';
+function createGearNode() {
+  var wrap = document.createElement('div');
+  wrap.innerHTML = GEAR_SVG;
+  var svg = wrap.querySelector('svg');
+  if (svg) {
+    var node = document.importNode(svg, true);
+    node.setAttribute('aria-hidden', 'true');
+    return node;
+  }
+  var span = document.createElement('span');
+  span.textContent = '\u2699';
+  return span;
+}
 
 // =========================
 // 1. RPC Client (module)
@@ -469,8 +485,9 @@ var Styles = (function () {
       '}',
       '#us-cc-tab .us-cc-tab-gear {',
       '  display: inline-flex !important; align-items: center !important; justify-content: center !important;',
-      '  font-size: 38px !important; line-height: 1 !important; color: rgba(0,0,0,0.55) !important;',
+      '  width: 38px !important; height: 38px !important; color: rgba(0,0,0,0.55) !important;',
       '}',
+      '#us-cc-tab .us-cc-tab-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-tab .us-cc-tab-icon:hover .us-cc-tab-gear { color: rgba(0,0,0,0.75) !important; }',
       '#us-cc-tab.us-tab-active .us-cc-tab-gear { color: rgba(0,0,0,0.55) !important; }',
       '#us-cc-tab.us-tab-active {',
@@ -558,8 +575,9 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-list-header .us-p-list-header-gear {',
       '  display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important;',
-      '  font-size: 24px !important; line-height: 1 !important; color: rgba(0,0,0,0.5) !important;',
+      '  width: 24px !important; height: 24px !important; color: rgba(0,0,0,0.5) !important;',
       '}',
+      '#us-cc-panel .us-p-list-header .us-p-list-header-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-panel .us-p-list-header .us-p-title { font-size: 17px !important; font-weight: 600 !important; }',
       '#us-cc-panel .us-p-feature-list { flex: 1 !important; overflow-y: auto !important; padding: 8px 0 !important; }',
       '#us-cc-panel .us-p-feature-row {',
@@ -1717,7 +1735,7 @@ var Panel = (function () {
 
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
       h('div.us-p-list-header',
-        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, '\u2699'),
+        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, createGearNode()),
         h('span.us-p-title', '設定')
       ),
       h('div.us-p-feature-list', featureRow)
@@ -2257,7 +2275,7 @@ var Tab = (function () {
 
     var iconWrap = h('div.us-cc-tab-icon', { title: '設定' });
     var gearEl = h('span.us-cc-tab-gear', { 'aria-hidden': 'true' });
-    gearEl.textContent = '\u2699';
+    gearEl.appendChild(createGearNode());
     iconWrap.appendChild(gearEl);
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
