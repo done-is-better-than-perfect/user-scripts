@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.71';
+var US_VERSION = '1.6.72';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -485,7 +485,7 @@ var Styles = (function () {
       '}',
       '#us-cc-tab .us-cc-tab-gear {',
       '  display: inline-flex !important; align-items: center !important; justify-content: center !important;',
-      '  width: 38px !important; height: 38px !important; color: rgba(0,0,0,0.55) !important;',
+      '  width: 24px !important; height: 24px !important; color: rgba(0,0,0,0.55) !important;',
       '}',
       '#us-cc-tab .us-cc-tab-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-tab .us-cc-tab-icon:hover .us-cc-tab-gear { color: rgba(0,0,0,0.75) !important; }',
