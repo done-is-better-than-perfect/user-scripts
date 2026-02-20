@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.7';
+var US_VERSION = '1.7.0-dev.8';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2585,7 +2585,7 @@ var DataFiller = (function () {
       var self = this;
       var backdrop = h('div', { class: 'us-df-prompt-backdrop', 'data-us-cc': 'df-prompt' });
       var box = h('div', { class: 'us-df-prompt-box' },
-        h('div', { class: 'us-df-prompt-title' }, '論理名（CSVヘッダー）'),
+        h('div', { class: 'us-df-prompt-title' }, '項目名'),
         h('input', { type: 'text', class: 'us-df-prompt-input', placeholder: '例: メールアドレス', value: suggested || '' }),
         h('div', { class: 'us-df-prompt-actions' },
           h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-cancel' }, 'キャンセル'),
