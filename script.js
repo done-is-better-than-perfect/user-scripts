@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.60';
+var US_VERSION = '1.6.61';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -2147,10 +2147,22 @@ var Tab = (function () {
         ColorPopover.hide();
         Panel.open();
       });
+    var hoverOpenTimer = null;
+    var HOVER_OPEN_DELAY_MS = 500;
     tab.addEventListener('mouseenter', function () {
+      if (hoverOpenTimer) return;
+      hoverOpenTimer = setTimeout(function () {
+        hoverOpenTimer = null;
         ColorPopover.hide();
         Panel.open();
-      });
+      }, HOVER_OPEN_DELAY_MS);
+    });
+    tab.addEventListener('mouseleave', function () {
+      if (hoverOpenTimer) {
+        clearTimeout(hoverOpenTimer);
+        hoverOpenTimer = null;
+      }
+    });
 
     document.body.appendChild(tab);
     this.el = tab;
