@@ -729,11 +729,15 @@ const Panel = {
 };
 
 export default {
-  async init() {
+  async init(rpcInstance) {
     console.log('[ColorCustomizer] Module initialized');
     
     // Set global RPC reference from parent
-    if (window.RPC) {
+    if (rpcInstance) {
+      RPC = rpcInstance;
+    } else if (window.US && window.US.rpc) {
+      RPC = window.US.rpc;
+    } else if (window.RPC) {
       RPC = window.RPC;
     } else {
       console.error('[ColorCustomizer] RPC not available');
