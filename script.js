@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.59';
+var US_VERSION = '1.6.60';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -2147,7 +2147,7 @@ var Tab = (function () {
         ColorPopover.hide();
         Panel.open();
       });
-    iconWrap.addEventListener('mouseenter', function () {
+    tab.addEventListener('mouseenter', function () {
         ColorPopover.hide();
         Panel.open();
       });
