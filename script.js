@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.69';
+var US_VERSION = '1.6.70';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -418,19 +418,10 @@ var DomHelpers = (function () {
     for (var i = 2; i < arguments.length; i++) el.appendChild(arguments[i]);
     return el;
   }
-  function createGearSvg() {
-    // 8-tooth cog (filled), center hole via evenodd — familiar settings icon
-    var gearPath = 'M12 1 L14.68 5.54 L19.78 4.22 L18.46 9.32 L23 12 L18.46 14.68 L19.78 19.78 L14.68 18.46 L12 23 L5.32 18.46 L4.22 19.78 L5.54 14.68 L1 12 L5.54 9.32 L4.22 4.22 L5.32 5.54 Z M12 9 a3 3 0 1 0 0 6 a3 3 0 1 0 0-6 z';
-    var path = makeSvg('path', { 'fill-rule': 'evenodd', fill: 'currentColor', d: gearPath });
-    var svg = makeSvg('svg', { viewBox: '0 0 24 24' }, path);
-    svg.setAttribute('aria-hidden', 'true');
-    return svg;
-  }
-  return { h: h, makeSvg: makeSvg, createGearSvg: createGearSvg };
+  return { h: h, makeSvg: makeSvg };
 })();
 var h = DomHelpers.h;
 var makeSvg = DomHelpers.makeSvg;
-var createGearSvg = DomHelpers.createGearSvg;
 
 // =========================
 // 7. CSS Injection / Styles (module)
@@ -478,9 +469,8 @@ var Styles = (function () {
       '}',
       '#us-cc-tab .us-cc-tab-gear {',
       '  display: inline-flex !important; align-items: center !important; justify-content: center !important;',
-      '  width: 38px !important; height: 38px !important; color: rgba(0,0,0,0.55) !important;',
+      '  font-size: 38px !important; line-height: 1 !important; color: rgba(0,0,0,0.55) !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-tab .us-cc-tab-icon:hover .us-cc-tab-gear { color: rgba(0,0,0,0.75) !important; }',
       '#us-cc-tab.us-tab-active .us-cc-tab-gear { color: rgba(0,0,0,0.55) !important; }',
       '#us-cc-tab.us-tab-active {',
@@ -568,9 +558,8 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-list-header .us-p-list-header-gear {',
       '  display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important;',
-      '  width: 24px !important; height: 24px !important; color: rgba(0,0,0,0.5) !important;',
+      '  font-size: 24px !important; line-height: 1 !important; color: rgba(0,0,0,0.5) !important;',
       '}',
-      '#us-cc-panel .us-p-list-header .us-p-list-header-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-panel .us-p-list-header .us-p-title { font-size: 17px !important; font-weight: 600 !important; }',
       '#us-cc-panel .us-p-feature-list { flex: 1 !important; overflow-y: auto !important; padding: 8px 0 !important; }',
       '#us-cc-panel .us-p-feature-row {',
@@ -1728,7 +1717,7 @@ var Panel = (function () {
 
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
       h('div.us-p-list-header',
-        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, createGearSvg()),
+        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, '\u2699'),
         h('span.us-p-title', '設定')
       ),
       h('div.us-p-feature-list', featureRow)
@@ -2268,7 +2257,7 @@ var Tab = (function () {
 
     var iconWrap = h('div.us-cc-tab-icon', { title: '設定' });
     var gearEl = h('span.us-cc-tab-gear', { 'aria-hidden': 'true' });
-    gearEl.appendChild(createGearSvg());
+    gearEl.textContent = '\u2699';
     iconWrap.appendChild(gearEl);
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
