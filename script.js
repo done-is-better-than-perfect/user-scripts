@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.68';
+var US_VERSION = '1.6.69';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -419,18 +419,10 @@ var DomHelpers = (function () {
     return el;
   }
   function createGearSvg() {
-    var svg = makeSvg('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round' },
-      makeSvg('circle', { cx: '12', cy: '12', r: '9' }),
-      makeSvg('circle', { cx: '12', cy: '12', r: '3' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '12', y2: '3' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '12', y2: '21' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '3', y2: '12' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '21', y2: '12' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '5.64', y2: '5.64' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '18.36', y2: '18.36' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '5.64', y2: '18.36' }),
-      makeSvg('line', { x1: '12', y1: '12', x2: '18.36', y2: '5.64' })
-    );
+    // 8-tooth cog (filled), center hole via evenodd — familiar settings icon
+    var gearPath = 'M12 1 L14.68 5.54 L19.78 4.22 L18.46 9.32 L23 12 L18.46 14.68 L19.78 19.78 L14.68 18.46 L12 23 L5.32 18.46 L4.22 19.78 L5.54 14.68 L1 12 L5.54 9.32 L4.22 4.22 L5.32 5.54 Z M12 9 a3 3 0 1 0 0 6 a3 3 0 1 0 0-6 z';
+    var path = makeSvg('path', { 'fill-rule': 'evenodd', fill: 'currentColor', d: gearPath });
+    var svg = makeSvg('svg', { viewBox: '0 0 24 24' }, path);
     svg.setAttribute('aria-hidden', 'true');
     return svg;
   }
