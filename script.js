@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.67';
+var US_VERSION = '1.6.68';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -418,10 +418,27 @@ var DomHelpers = (function () {
     for (var i = 2; i < arguments.length; i++) el.appendChild(arguments[i]);
     return el;
   }
-  return { h: h, makeSvg: makeSvg };
+  function createGearSvg() {
+    var svg = makeSvg('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round' },
+      makeSvg('circle', { cx: '12', cy: '12', r: '9' }),
+      makeSvg('circle', { cx: '12', cy: '12', r: '3' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '12', y2: '3' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '12', y2: '21' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '3', y2: '12' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '21', y2: '12' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '5.64', y2: '5.64' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '18.36', y2: '18.36' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '5.64', y2: '18.36' }),
+      makeSvg('line', { x1: '12', y1: '12', x2: '18.36', y2: '5.64' })
+    );
+    svg.setAttribute('aria-hidden', 'true');
+    return svg;
+  }
+  return { h: h, makeSvg: makeSvg, createGearSvg: createGearSvg };
 })();
 var h = DomHelpers.h;
 var makeSvg = DomHelpers.makeSvg;
+var createGearSvg = DomHelpers.createGearSvg;
 
 // =========================
 // 7. CSS Injection / Styles (module)
@@ -468,9 +485,10 @@ var Styles = (function () {
       '  cursor: pointer !important; padding: 6px 0 !important; overflow: visible !important;',
       '}',
       '#us-cc-tab .us-cc-tab-gear {',
-      '  color: rgba(0,0,0,0.55) !important; font-size: 30px !important; line-height: 1 !important;',
-      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  width: 38px !important; height: 38px !important; color: rgba(0,0,0,0.55) !important;',
       '}',
+      '#us-cc-tab .us-cc-tab-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-tab .us-cc-tab-icon:hover .us-cc-tab-gear { color: rgba(0,0,0,0.75) !important; }',
       '#us-cc-tab.us-tab-active .us-cc-tab-gear { color: rgba(0,0,0,0.55) !important; }',
       '#us-cc-tab.us-tab-active {',
@@ -557,8 +575,10 @@ var Styles = (function () {
       '  padding: 14px 16px 12px !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important; flex-shrink: 0 !important;',
       '}',
       '#us-cc-panel .us-p-list-header .us-p-list-header-gear {',
-      '  font-size: 20px !important; line-height: 1 !important; color: rgba(0,0,0,0.5) !important;',
+      '  display: inline-flex !important; align-items: center !important; flex-shrink: 0 !important;',
+      '  width: 24px !important; height: 24px !important; color: rgba(0,0,0,0.5) !important;',
       '}',
+      '#us-cc-panel .us-p-list-header .us-p-list-header-gear svg { width: 100% !important; height: 100% !important; }',
       '#us-cc-panel .us-p-list-header .us-p-title { font-size: 17px !important; font-weight: 600 !important; }',
       '#us-cc-panel .us-p-feature-list { flex: 1 !important; overflow-y: auto !important; padding: 8px 0 !important; }',
       '#us-cc-panel .us-p-feature-row {',
@@ -1716,7 +1736,7 @@ var Panel = (function () {
 
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
       h('div.us-p-list-header',
-        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, '\u2699'),
+        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, createGearSvg()),
         h('span.us-p-title', '設定')
       ),
       h('div.us-p-feature-list', featureRow)
@@ -2256,7 +2276,7 @@ var Tab = (function () {
 
     var iconWrap = h('div.us-cc-tab-icon', { title: '設定' });
     var gearEl = h('span.us-cc-tab-gear', { 'aria-hidden': 'true' });
-    gearEl.textContent = '\u2699';
+    gearEl.appendChild(createGearSvg());
     iconWrap.appendChild(gearEl);
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
