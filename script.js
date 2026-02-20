@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.8';
+var US_VERSION = '1.7.0-dev.9';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -749,6 +749,7 @@ var Styles = (function () {
       '.us-df-prompt-cancel:hover { background: rgba(0,0,0,0.1) !important; }',
       '.us-df-prompt-ok { background: rgba(59,130,246,0.9) !important; color: #fff !important; }',
       '.us-df-prompt-ok:hover { background: rgba(59,130,246,1) !important; }',
+      '.us-df-dialog-message { font-size: 15px !important; color: rgba(0,0,0,0.85) !important; line-height: 1.45 !important; margin-bottom: 16px !important; }',
       '#us-cc-panel .us-p-empty {',
       '  all: initial !important; display: block !important; font-family: inherit !important;',
       '  text-align: center !important; color: rgba(0,0,0,0.45) !important;',
@@ -2639,6 +2640,73 @@ var DataFiller = (function () {
       this._promptEl = backdrop;
     },
 
+    _showAlert: function (message, onClose) {
+      var backdrop = h('div', { class: 'us-df-prompt-backdrop', 'data-us-cc': 'df-prompt' });
+      var box = h('div', { class: 'us-df-prompt-box' },
+        h('div', { class: 'us-df-dialog-message' }, message),
+        h('div', { class: 'us-df-prompt-actions' },
+          h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-ok' }, 'OK')
+        )
+      );
+      backdrop.appendChild(box);
+      var okBtn = box.querySelector('.us-df-prompt-ok');
+      function close() {
+        if (!backdrop.parentNode) return;
+        backdrop.removeEventListener('click', onBackdropClick);
+        okBtn.removeEventListener('click', onOkClick);
+        document.removeEventListener('keydown', onKeydown);
+        backdrop.classList.remove('us-df-prompt-visible');
+        setTimeout(function () {
+          if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        }, 200);
+        if (onClose) onClose();
+      }
+      function onBackdropClick(e) { if (e.target === backdrop) close(); }
+      function onOkClick() { close(); }
+      function onKeydown(e) { if (e.key === 'Escape' || e.key === 'Enter') close(); }
+      backdrop.addEventListener('click', onBackdropClick);
+      okBtn.addEventListener('click', onOkClick);
+      document.addEventListener('keydown', onKeydown);
+      document.body.appendChild(backdrop);
+      requestAnimationFrame(function () { backdrop.classList.add('us-df-prompt-visible'); okBtn.focus(); });
+    },
+
+    _showConfirm: function (message, onConfirm, onCancel) {
+      var backdrop = h('div', { class: 'us-df-prompt-backdrop', 'data-us-cc': 'df-prompt' });
+      var box = h('div', { class: 'us-df-prompt-box' },
+        h('div', { class: 'us-df-dialog-message' }, message),
+        h('div', { class: 'us-df-prompt-actions' },
+          h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-cancel' }, 'キャンセル'),
+          h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-ok' }, '上書き')
+        )
+      );
+      backdrop.appendChild(box);
+      var okBtn = box.querySelector('.us-df-prompt-ok');
+      var cancelBtn = box.querySelector('.us-df-prompt-cancel');
+      function finish(confirmed) {
+        if (!backdrop.parentNode) return;
+        backdrop.removeEventListener('click', onBackdropClick);
+        okBtn.removeEventListener('click', onOkClick);
+        cancelBtn.removeEventListener('click', onCancelClick);
+        document.removeEventListener('keydown', onKeydown);
+        backdrop.classList.remove('us-df-prompt-visible');
+        setTimeout(function () {
+          if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        }, 200);
+        if (confirmed) onConfirm(); else onCancel();
+      }
+      function onBackdropClick(e) { if (e.target === backdrop) finish(false); }
+      function onOkClick() { finish(true); }
+      function onCancelClick() { finish(false); }
+      function onKeydown(e) { if (e.key === 'Escape') finish(false); if (e.key === 'Enter') finish(true); }
+      backdrop.addEventListener('click', onBackdropClick);
+      okBtn.addEventListener('click', onOkClick);
+      cancelBtn.addEventListener('click', onCancelClick);
+      document.addEventListener('keydown', onKeydown);
+      document.body.appendChild(backdrop);
+      requestAnimationFrame(function () { backdrop.classList.add('us-df-prompt-visible'); cancelBtn.focus(); });
+    },
+
     addStep: function (el, suggestedNameOverride) {
       var self = this;
       var xpath = getXPath(el);
@@ -2651,6 +2719,25 @@ var DataFiller = (function () {
         logicalName = String(logicalName).trim() || type;
         var step = { xpath: xpath, type: type, logicalName: logicalName };
         self._steps = self._steps || [];
+        var existingIndex = -1;
+        for (var i = 0; i < self._steps.length; i++) {
+          if (self._steps[i].xpath === xpath) { existingIndex = i; break; }
+        }
+        if (existingIndex >= 0) {
+          var existing = self._steps[existingIndex];
+          if (existing.logicalName === logicalName) {
+            self._showAlert('すでに同じ項目名で取得済みです。', function () {
+              if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+            });
+            return;
+          }
+          self._showConfirm('項目名が変わります。上書きしますか？', function () {
+            self._steps[existingIndex] = step;
+            self.save(self._steps);
+            if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+          }, function () {});
+          return;
+        }
         self._steps.push(step);
         self.save(self._steps);
         if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
