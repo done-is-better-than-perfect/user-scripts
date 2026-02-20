@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.64';
+var US_VERSION = '1.6.65';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -464,24 +464,15 @@ var Styles = (function () {
       '}',
       '#us-cc-tab:hover { width: 62px !important; background: rgba(255,255,255,0.16) !important; }',
       '#us-cc-tab .us-cc-tab-icon {',
-      '  color: rgba(0,0,0,0.55) !important; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;',
-      '  font-size: 11px !important; font-weight: 600 !important; letter-spacing: 0.02em !important;',
-      '  flex: 1 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important;',
-      '  min-height: 0 !important; cursor: pointer !important; padding: 1px 0 1px !important; overflow: visible !important;',
+      '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  min-height: 0 !important; cursor: pointer !important; padding: 4px 0 !important; overflow: visible !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-icon:hover { color: rgba(0,0,0,0.75) !important; }',
-      '#us-cc-tab .us-cc-tab-icon-row {',
-      '  display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 1px !important; transform: translateY(-29px) !important;',
-      '  width: fit-content !important; font-size: 11px !important; line-height: 1.2 !important;',
+      '#us-cc-tab .us-cc-tab-gear {',
+      '  color: rgba(0,0,0,0.55) !important; font-size: 22px !important; line-height: 1 !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
-      '#us-cc-tab .us-cc-tab-text { writing-mode: horizontal-tb !important; text-orientation: mixed !important; }',
-      '#us-cc-tab .us-cc-tab-swatch {',
-      '  display: block !important; visibility: visible !important; width: 100% !important; height: 0.5em !important; min-height: 4px !important;',
-      '  border-radius: 4px !important; flex-shrink: 0 !important;',
-      '  background: linear-gradient(to right, #f44336 0%, #e91e63 12.5%, #9c27b0 25%, #2196f3 37.5%, #00bcd4 50%, #4caf50 62.5%, #ffeb3b 75%, #ff9800 87.5%, #f44336 100%) !important;',
-      '  border: none !important; box-sizing: border-box !important;',
-      '}',
-      '#us-cc-tab.us-tab-active .us-cc-tab-swatch { opacity: 1 !important; }',
+      '#us-cc-tab .us-cc-tab-icon:hover .us-cc-tab-gear { color: rgba(0,0,0,0.75) !important; }',
+      '#us-cc-tab.us-tab-active .us-cc-tab-gear { color: rgba(0,0,0,0.55) !important; }',
       '#us-cc-tab.us-tab-active {',
       '  border-color: rgba(59,130,246,0.4) !important;',
       '  background: rgba(255,255,255,0.18) !important;',
@@ -2256,13 +2247,10 @@ var Tab = (function () {
     switchLabel.appendChild(h('span.us-slider'));
     toggleWrap.appendChild(switchLabel);
 
-    var iconWrap = h('div.us-cc-tab-icon', { title: 'Color Customizer 設定' });
-    var row = h('div.us-cc-tab-icon-row', {});
-    var textSpan = h('span.us-cc-tab-text', {});
-    textSpan.appendChild(document.createTextNode('あAa'));
-    row.appendChild(textSpan);
-    row.appendChild(h('div.us-cc-tab-swatch', { 'aria-hidden': 'true' }));
-    iconWrap.appendChild(row);
+    var iconWrap = h('div.us-cc-tab-icon', { title: '設定' });
+    var gearEl = h('span.us-cc-tab-gear', { 'aria-hidden': 'true' });
+    gearEl.textContent = '\u2699';
+    iconWrap.appendChild(gearEl);
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
     tab.appendChild(toggleWrap);
