@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.57';
+var US_VERSION = '1.6.58';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1017,6 +1017,8 @@ var EditMode = (function () {
     _highlighted: null,
     _boundHover: null,
     _boundClick: null,
+    _lastMouseX: null,
+    _lastMouseY: null,
     _hoverPopoverTimer: null,
     _hidePopoverTimer: null,
     _popoverOpenedByHover: false,
@@ -1061,11 +1063,13 @@ var EditMode = (function () {
       this._clearHighlight();
       var hasRule = this._hasRuleForElement(el);
       if (hasRule) {
+        self._lastMouseX = e.clientX;
+        self._lastMouseY = e.clientY;
         el.classList.add('us-cc-highlight-defined');
         this._hoverPopoverTimer = setTimeout(function () {
           self._hoverPopoverTimer = null;
           try {
-            ColorPopover.show(el);
+            ColorPopover.show(el, self._lastMouseX, self._lastMouseY);
             self._popoverOpenedByHover = true;
             if (ColorPopover.el) {
               ColorPopover.el.addEventListener('mouseenter', function onPopoverEnter() {
@@ -1092,7 +1096,7 @@ var EditMode = (function () {
       this._clearHighlight();
       console.log('[ColorCustomizer] Element clicked:', el.tagName, el.className);
       try {
-        ColorPopover.show(el);
+        ColorPopover.show(el, e.clientX, e.clientY);
       } catch (err) {
         console.error('[ColorCustomizer] Popover show failed:', err);
       }
@@ -1270,7 +1274,7 @@ var PopoversModule = (function () {
     this.el.querySelector('#us-pop-cancel').addEventListener('click', function () { self._cancel(); });
   },
 
-  show: function (el) {
+  show: function (el, mouseX, mouseY) {
     this._create();
     this._currentTarget = el;
 
@@ -1300,23 +1304,31 @@ var PopoversModule = (function () {
       };
     }
 
-    // Position near element: prefer below, horizontally centered on element (clamped to viewport)
-    var rect = el.getBoundingClientRect();
     var popW = 280;
     var popH = 320;
     var gap = 8;
-    var left = rect.left + (rect.width / 2) - (popW / 2);
-    left = Math.max(gap, Math.min(left, window.innerWidth - popW - gap));
-    var top = rect.bottom + gap;
-    if (top + popH > window.innerHeight - gap) {
-      top = rect.top - popH - gap;
+    var cursorOffset = 12;
+    var left;
+    var top;
+    if (mouseX != null && mouseY != null) {
+      left = mouseX + cursorOffset;
+      top = mouseY + cursorOffset;
+      if (left + popW > window.innerWidth - gap) left = mouseX - popW - cursorOffset;
+      if (left < gap) left = gap;
+      if (top + popH > window.innerHeight - gap) top = window.innerHeight - popH - gap;
+      if (top < gap) top = gap;
+    } else {
+      var rect = el.getBoundingClientRect();
+      left = rect.left + (rect.width / 2) - (popW / 2);
+      left = Math.max(gap, Math.min(left, window.innerWidth - popW - gap));
+      top = rect.bottom + gap;
+      if (top + popH > window.innerHeight - gap) top = rect.top - popH - gap;
+      if (top < gap) top = gap;
     }
-    if (top < gap) top = gap;
 
     this.el.style.setProperty('left', left + 'px', 'important');
     this.el.style.setProperty('top', top + 'px', 'important');
     this.el.classList.add('us-visible');
-    console.log('[ColorCustomizer] Popover shown at', left, top);
   },
 
   hide: function () {
