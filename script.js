@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.4';
+var US_VERSION = '1.7.0-dev.5';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2490,6 +2490,7 @@ var DataFiller = (function () {
     return 'unknown';
   }
 
+  /** フォーム要素に紐づく label 要素の textContent のみ取得。placeholder / title / aria-label は使わない。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
     var doc = el.ownerDocument;
@@ -2513,19 +2514,22 @@ var DataFiller = (function () {
       if (clone.textContent) return trim(clone.textContent);
     }
     var prev = el.previousElementSibling;
-    if (prev && prev.textContent) return trim(prev.textContent);
+    if (prev && prev.tagName && prev.tagName.toLowerCase() === 'label' && prev.textContent) return trim(prev.textContent);
     var next = el.nextElementSibling;
     if (next && next.tagName && next.tagName.toLowerCase() === 'label' && next.textContent) return trim(next.textContent);
-    if (parent) {
-      var first = parent.firstChild;
-      while (first && first.nodeType !== Node.TEXT_NODE) first = first.nextSibling;
-      if (first && first.textContent) return trim(first.textContent);
-    }
-    var aria = el.getAttribute('aria-label');
-    if (aria) return trim(aria);
-    if (el.title) return trim(el.title);
-    if (el.placeholder) return trim(el.placeholder);
     return '';
+  }
+
+  /** label 要素から紐づくフォーム要素を取得（子または for 先）。 */
+  function getControlFromLabel(labelEl) {
+    if (!labelEl || !labelEl.tagName || labelEl.tagName.toLowerCase() !== 'label') return null;
+    var doc = labelEl.ownerDocument;
+    var forId = labelEl.getAttribute('for');
+    if (forId) {
+      var ctrl = doc.getElementById(forId);
+      if (ctrl && /^(input|select|textarea)$/i.test(ctrl.tagName)) return ctrl;
+    }
+    return labelEl.querySelector('input, select, textarea') || null;
   }
 
   function _storageKey() {
@@ -2620,11 +2624,13 @@ var DataFiller = (function () {
       this._promptEl = backdrop;
     },
 
-    addStep: function (el) {
+    addStep: function (el, suggestedNameOverride) {
       var self = this;
       var xpath = getXPath(el);
       var type = getElementType(el);
-      var suggested = getLabelNearElement(el) || (type === 'text' ? 'テキスト' : type);
+      var suggested = (suggestedNameOverride != null && suggestedNameOverride !== '')
+        ? String(suggestedNameOverride).replace(/\s+/g, ' ').trim().slice(0, 80)
+        : (getLabelNearElement(el) || (type === 'text' ? 'テキスト' : type));
       this._showLogicalNamePrompt(suggested, function (logicalName) {
         if (logicalName == null) return;
         logicalName = String(logicalName).trim() || type;
@@ -2657,12 +2663,20 @@ var DataFiller = (function () {
       this._boundClick = function (e) {
         if (e.target.closest && e.target.closest('[data-us-cc]')) return;
         var el = e.target;
+        var control = null;
+        var suggestedFromLabel = '';
+        if (el.tagName && el.tagName.toLowerCase() === 'label') {
+          control = getControlFromLabel(el);
+          if (control) {
+            suggestedFromLabel = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+            el = control;
+          }
+        }
         var type = getElementType(el);
         if (type === 'unknown' || type === 'button') return;
         e.preventDefault();
         e.stopPropagation();
-        self.addStep(el);
-        if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+        self.addStep(el, suggestedFromLabel || undefined);
       };
       document.addEventListener('click', this._boundClick, true);
     },
