@@ -11,467 +11,435 @@ var US_VERSION = '1.6.53';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
-// 1. RPC Client
+// 1. RPC Client (module)
 // =========================
-var REQ_FLAG = '__US_RPC__';
-var REP_FLAG = '__US_RPC_REPLY__';
-var DOC_EVENT_REQUEST = 'us-rpc-request';
-var DOC_EVENT_REPLY = 'us-rpc-reply';
+var RPC = (function () {
+  'use strict';
+  var REQ_FLAG = '__US_RPC__';
+  var REP_FLAG = '__US_RPC_REPLY__';
+  var DOC_EVENT_REQUEST = 'us-rpc-request';
+  var DOC_EVENT_REPLY = 'us-rpc-reply';
 
-function makeId() {
-  return 'rpc_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
-}
-
-function sendRequest(req) {
-  window.postMessage(req, '*');
-  try {
-    document.dispatchEvent(new CustomEvent(DOC_EVENT_REQUEST, { detail: req }));
-  } catch (e) { }
-}
-
-function oneRpc(id, req, timeoutMs, methodLabel) {
-  return new Promise(function (resolve, reject) {
-    var done = false;
-    var timer = setTimeout(function () {
-      if (done) return;
-      done = true;
-      cleanup();
-      reject(new Error('RPC timeout: ' + methodLabel));
-    }, timeoutMs);
-
-    function onReply(d) {
-      if (!d || d[REP_FLAG] !== true || d.id !== id) return;
-      if (done) return;
-      done = true;
-      cleanup();
-      if (d.ok) resolve(d.result);
-      else reject(new Error(d.error || ('RPC error: ' + methodLabel)));
-    }
-
-    function onMessage(ev) {
-      if (ev.source !== window && ev.source !== window.top) return;
-      onReply(ev.data);
-    }
-
-    function onDocReply(ev) {
-      onReply(ev.detail);
-    }
-
-    function cleanup() {
-      clearTimeout(timer);
-      window.removeEventListener('message', onMessage);
-      document.removeEventListener(DOC_EVENT_REPLY, onDocReply);
-    }
-
-    window.addEventListener('message', onMessage);
-    document.addEventListener(DOC_EVENT_REPLY, onDocReply);
-    sendRequest(req);
-  });
-}
-
-function rpcCall(token, method, params, timeoutMs) {
-  timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 15000;
-  var id = makeId();
-  var req = { [REQ_FLAG]: true, id: id, token: token, method: method, params: params || [] };
-  return oneRpc(id, req, timeoutMs, method);
-}
-
-function handshake() {
-  var id = makeId();
-  var req = { [REQ_FLAG]: true, id: id, token: '', method: 'core.handshake', params: [] };
-  return oneRpc(id, req, 8000, 'core.handshake');
-}
-
-var RPC = {
-  token: null,
-  initialized: false,
-  async init() {
-    if (this.initialized) return;
-    var hs = await handshake();
-    this.token = hs.token;
-    this.initialized = true;
-    return hs;
-  },
-  async call(method, params) {
-    if (!this.initialized) await this.init();
-    return await rpcCall(this.token, method, params);
+  function makeId() {
+    return 'rpc_' + Math.random().toString(16).slice(2) + '_' + Date.now().toString(16);
   }
-};
+
+  function sendRequest(req) {
+    window.postMessage(req, '*');
+    try {
+      document.dispatchEvent(new CustomEvent(DOC_EVENT_REQUEST, { detail: req }));
+    } catch (e) { }
+  }
+
+  function oneRpc(id, req, timeoutMs, methodLabel) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error('RPC timeout: ' + methodLabel));
+      }, timeoutMs);
+
+      function onReply(d) {
+        if (!d || d[REP_FLAG] !== true || d.id !== id) return;
+        if (done) return;
+        done = true;
+        cleanup();
+        if (d.ok) resolve(d.result);
+        else reject(new Error(d.error || ('RPC error: ' + methodLabel)));
+      }
+
+      function onMessage(ev) {
+        if (ev.source !== window && ev.source !== window.top) return;
+        onReply(ev.data);
+      }
+
+      function onDocReply(ev) {
+        onReply(ev.detail);
+      }
+
+      function cleanup() {
+        clearTimeout(timer);
+        window.removeEventListener('message', onMessage);
+        document.removeEventListener(DOC_EVENT_REPLY, onDocReply);
+      }
+
+      window.addEventListener('message', onMessage);
+      document.addEventListener(DOC_EVENT_REPLY, onDocReply);
+      sendRequest(req);
+    });
+  }
+
+  function rpcCall(token, method, params, timeoutMs) {
+    timeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 15000;
+    var id = makeId();
+    var req = { [REQ_FLAG]: true, id: id, token: token, method: method, params: params || [] };
+    return oneRpc(id, req, timeoutMs, method);
+  }
+
+  function handshake() {
+    var id = makeId();
+    var req = { [REQ_FLAG]: true, id: id, token: '', method: 'core.handshake', params: [] };
+    return oneRpc(id, req, 8000, 'core.handshake');
+  }
+
+  return {
+    token: null,
+    initialized: false,
+    async init() {
+      if (this.initialized) return;
+      var hs = await handshake();
+      this.token = hs.token;
+      this.initialized = true;
+      return hs;
+    },
+    async call(method, params) {
+      if (!this.initialized) await this.init();
+      return await rpcCall(this.token, method, params);
+    }
+  };
+})();
 
 // =========================
-// 2. SelectorEngine
+// 2. SelectorEngine (module)
 // =========================
-var SelectorEngine = {
-  /**
-   * Build a unique CSS selector path for a given element.
-   * Prefers id-based shortcuts; falls back to nth-child chains.
-   */
-  generate: function (el) {
-    if (!(el instanceof HTMLElement)) return '';
-    var parts = [];
-    var current = el;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (current.id) {
-        parts.unshift('#' + CSS.escape(current.id));
-        break;
-      }
-      var tag = current.tagName.toLowerCase();
-      var parent = current.parentElement;
-      if (parent) {
-        var siblings = Array.from(parent.children).filter(function (c) { return c.tagName === current.tagName; });
-        if (siblings.length > 1) {
-          var idx = siblings.indexOf(current) + 1;
-          tag += ':nth-of-type(' + idx + ')';
+var SelectorEngine = (function () {
+  'use strict';
+  return {
+    generate: function (el) {
+      if (!(el instanceof HTMLElement)) return '';
+      var parts = [];
+      var current = el;
+      while (current && current !== document.body && current !== document.documentElement) {
+        if (current.id) {
+          parts.unshift('#' + CSS.escape(current.id));
+          break;
         }
+        var tag = current.tagName.toLowerCase();
+        var parent = current.parentElement;
+        if (parent) {
+          var siblings = Array.from(parent.children).filter(function (c) { return c.tagName === current.tagName; });
+          if (siblings.length > 1) {
+            var idx = siblings.indexOf(current) + 1;
+            tag += ':nth-of-type(' + idx + ')';
+          }
+        }
+        parts.unshift(tag);
+        current = parent;
       }
-      parts.unshift(tag);
-      current = parent;
+      if (parts.length === 0) return el.tagName.toLowerCase();
+      return parts.join(' > ');
+    },
+    find: function (selector) {
+      try { return document.querySelector(selector); } catch (e) { return null; }
+    },
+    findAll: function (selector) {
+      try {
+        var list = document.querySelectorAll(selector);
+        return Array.prototype.slice.call(list);
+      } catch (e) {
+        return [];
+      }
     }
-    if (parts.length === 0) return el.tagName.toLowerCase();
-    return parts.join(' > ');
-  },
-
-  /**
-   * Find element(s) matching a selector. Returns first match or null.
-   */
-  find: function (selector) {
-    try { return document.querySelector(selector); } catch (e) { return null; }
-  },
-
-  /**
-   * Find all elements matching a selector. Returns array (empty on error).
-   */
-  findAll: function (selector) {
-    try {
-      var list = document.querySelectorAll(selector);
-      return Array.prototype.slice.call(list);
-    } catch (e) {
-      return [];
-    }
-  }
-};
+  };
+})();
 
 // =========================
-// 3. RulesManager
+// 3. RulesManager (module)
 // =========================
-var RulesManager = {
-  _storagePrefix: 'userscripts:features:colorCustomizer:page:',
-  _pageKey: window.location.hostname + window.location.pathname,
-  _rules: [],
-
-  _key: function () {
-    return this._storagePrefix + encodeURIComponent(this._pageKey);
-  },
-
-  async load() {
-    try {
-      console.log('[ColorCustomizer] Loading rules for:', this._pageKey);
-      var data = await RPC.call('storage.get', [this._key(), null]);
-      if (data && Array.isArray(data.rules)) {
-        this._rules = data.rules;
-        console.log('[ColorCustomizer] Loaded', this._rules.length, 'rules');
-      } else {
+var RulesManager = (function () {
+  'use strict';
+  var RPC_REF = RPC;
+  return {
+    _storagePrefix: 'userscripts:features:colorCustomizer:page:',
+    _pageKey: window.location.hostname + window.location.pathname,
+    _rules: [],
+    _key: function () {
+      return this._storagePrefix + encodeURIComponent(this._pageKey);
+    },
+    async load() {
+      try {
+        console.log('[ColorCustomizer] Loading rules for:', this._pageKey);
+        var data = await RPC_REF.call('storage.get', [this._key(), null]);
+        if (data && Array.isArray(data.rules)) {
+          this._rules = data.rules;
+          console.log('[ColorCustomizer] Loaded', this._rules.length, 'rules');
+        } else {
+          this._rules = [];
+        }
+      } catch (e) {
+        console.warn('[ColorCustomizer] Failed to load rules:', e);
         this._rules = [];
       }
-    } catch (e) {
-      console.warn('[ColorCustomizer] Failed to load rules:', e);
-      this._rules = [];
-    }
-    return this._rules;
-  },
-
-  async importRules(rules) {
-    if (!Array.isArray(rules)) return;
-    var self = this;
-    var count = 0;
-    rules.forEach(function (r) {
-      if (!r.selector || !r.property || !r.value) return;
-      var idx = self._rules.findIndex(function (x) { return x.selector === r.selector && x.property === r.property; });
-      if (idx >= 0) {
-        self._rules[idx] = r;
-      } else {
-        self._rules.push(r);
-      }
-      count++;
-    });
-    if (count > 0) {
-      try {
-        await self.save();
-        console.log('[ColorCustomizer] Imported ' + count + ' rules and saved');
-      } catch (e) {
-        console.error('[ColorCustomizer] Failed to save imported rules:', e);
-        throw new Error('ルールの保存に失敗しました: ' + (e && e.message ? e.message : e));
-      }
-    }
-    return count;
-  },
-
-  async save() {
-    try {
-      console.log('[ColorCustomizer] Saving rules for:', this._pageKey);
-      await RPC.call('storage.set', [this._key(), {
-        origin: this._pageKey,
-        rules: this._rules,
-        updatedAt: Date.now()
-      }]);
-    } catch (e) {
-      console.error('[ColorCustomizer] Failed to save rules:', e);
-    }
-  },
-
-  getRules: function () {
-    return this._rules.slice();
-  },
-
-  async addRule(selector, property, value, mode) {
-    mode = mode || 'inline';
-    // Replace existing rule for same selector+property, or add new
-    var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
-    var rule = { selector: selector, property: property, value: value, mode: mode };
-    if (idx >= 0) {
-      this._rules[idx] = rule;
-    } else {
-      this._rules.push(rule);
-    }
-    await this.save();
-    return rule;
-  },
-
-  async removeRule(index) {
-    if (index >= 0 && index < this._rules.length) {
-      this._rules.splice(index, 1);
-      await this.save();
-    }
-  },
-
-  async deleteRule(selector, property) {
-    var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
-    if (idx >= 0) {
-      this._rules.splice(idx, 1);
-      await this.save();
-    }
-  },
-
-  async clearRules() {
-    this._rules = [];
-    await this.save();
-  }
-};
-
-// =========================
-// 4b. ProfileManager
-// =========================
-var ProfileManager = {
-  _storageKey: 'userscripts:features:colorCustomizer:profiles',
-  _profiles: [],
-
-  async load() {
-    try {
-      var data = await RPC.call('storage.get', [this._storageKey, null]);
-      this._profiles = (data && Array.isArray(data)) ? data : [];
-    } catch (e) {
-      console.warn('[ColorCustomizer] Failed to load profiles:', e);
-      this._profiles = [];
-    }
-    return this._profiles;
-  },
-
-  async save() {
-    try {
-      await RPC.call('storage.set', [this._storageKey, this._profiles]);
-    } catch (e) {
-      console.error('[ColorCustomizer] Failed to save profiles:', e);
-    }
-  },
-
-  getProfiles: function () { return this._profiles.slice(); },
-
-  async importProfiles(profiles) {
-    if (!Array.isArray(profiles)) return 0;
-    var self = this;
-    var count = 0;
-    profiles.forEach(function (p) {
-      if (!p.name || !Array.isArray(p.colors)) return;
-
-      // Update existing by ID if possible, otherwise add
-      var existing = p.id ? self._profiles.find(function (x) { return x.id === p.id; }) : null;
-      if (existing) {
-        existing.name = p.name;
-        existing.colors = p.colors;
-      } else {
-        // Avoid exact duplicates by name/content if no ID match
-        var duplicate = self._profiles.some(function (x) {
-          return x.name === p.name && JSON.stringify(x.colors) === JSON.stringify(p.colors);
-        });
-        if (duplicate) return;
-
-        var profile = {
-          id: p.id || ('prof_' + Math.random().toString(36).slice(2, 10)),
-          name: p.name,
-          colors: p.colors
-        };
-        self._profiles.push(profile);
-      }
-      count++;
-    });
-    if (count > 0) await self.save();
-    console.log('[ColorCustomizer] Imported ' + count + ' profiles');
-    return count;
-  },
-
-  async addProfile(name, colors) {
-    var profile = {
-      id: 'prof_' + Math.random().toString(36).slice(2, 10),
-      name: name || 'Untitled',
-      colors: colors || [{ value: '#3b82f6', name: '' }]
-    };
-    this._profiles.push(profile);
-    await this.save();
-    return profile;
-  },
-
-  async updateProfile(id, name, colors) {
-    var p = this._profiles.find(function (x) { return x.id === id; });
-    if (!p) return null;
-    p.name = name;
-    p.colors = colors;
-    await this.save();
-    return p;
-  },
-
-  async deleteProfile(id) {
-    this._profiles = this._profiles.filter(function (x) { return x.id !== id; });
-    await this.save();
-  }
-};
-
-// =========================
-// 5. StyleApplier
-// =========================
-var StyleApplier = {
-  _applied: [], // { el, property, originalValue }
-
-  /**
-   * Apply all rules to the page (inline mode).
-   */
-  applyAll: function (rules) {
-    var self = this;
-    self.clearAll();
-    rules.forEach(function (rule) {
-      if (rule.mode !== 'inline') return; // Phase 1: inline only
-      self.applyOne(rule);
-    });
-  },
-
-  applyOne: function (rule) {
-    var el = SelectorEngine.find(rule.selector);
-    if (!el) return;
-    var original = el.style.getPropertyValue(rule.property);
-    this._applied.push({ el: el, property: rule.property, originalValue: original });
-    el.style.setProperty(rule.property, rule.value, 'important');
-  },
-
-  clearAll: function () {
-    this._applied.forEach(function (rec) {
-      try {
-        if (rec.originalValue) {
-          rec.el.style.setProperty(rec.property, rec.originalValue);
+      return this._rules;
+    },
+    async importRules(rules) {
+      if (!Array.isArray(rules)) return;
+      var self = this;
+      var count = 0;
+      rules.forEach(function (r) {
+        if (!r.selector || !r.property || !r.value) return;
+        var idx = self._rules.findIndex(function (x) { return x.selector === r.selector && x.property === r.property; });
+        if (idx >= 0) {
+          self._rules[idx] = r;
         } else {
-          rec.el.style.removeProperty(rec.property);
+          self._rules.push(r);
         }
-      } catch (e) { /* element may no longer exist */ }
-    });
-    this._applied = [];
-  },
-
-  /**
-   * Apply a single inline style immediately (for live preview).
-   */
-  previewOne: function (el, property, value) {
-    if (value) {
-      el.style.setProperty(property, value, 'important');
-    } else {
-      el.style.removeProperty(property);
-    }
-  },
-
-  /**
-   * 指定セレクタに一致する全要素から、指定プロパティのインラインを解除する（ルール削除時用）。
-   */
-  removeRuleFromPage: function (selector, property) {
-    var elements = SelectorEngine.findAll(selector);
-    elements.forEach(function (el) {
+        count++;
+      });
+      if (count > 0) {
+        try {
+          await self.save();
+          console.log('[ColorCustomizer] Imported ' + count + ' rules and saved');
+        } catch (e) {
+          console.error('[ColorCustomizer] Failed to save imported rules:', e);
+          throw new Error('ルールの保存に失敗しました: ' + (e && e.message ? e.message : e));
+        }
+      }
+      return count;
+    },
+    async save() {
       try {
+        console.log('[ColorCustomizer] Saving rules for:', this._pageKey);
+        await RPC_REF.call('storage.set', [this._key(), {
+          origin: this._pageKey,
+          rules: this._rules,
+          updatedAt: Date.now()
+        }]);
+      } catch (e) {
+        console.error('[ColorCustomizer] Failed to save rules:', e);
+      }
+    },
+    getRules: function () {
+      return this._rules.slice();
+    },
+    async addRule(selector, property, value, mode) {
+      mode = mode || 'inline';
+      var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
+      var rule = { selector: selector, property: property, value: value, mode: mode };
+      if (idx >= 0) {
+        this._rules[idx] = rule;
+      } else {
+        this._rules.push(rule);
+      }
+      await this.save();
+      return rule;
+    },
+    async removeRule(index) {
+      if (index >= 0 && index < this._rules.length) {
+        this._rules.splice(index, 1);
+        await this.save();
+      }
+    },
+    async deleteRule(selector, property) {
+      var idx = this._rules.findIndex(function (r) { return r.selector === selector && r.property === property; });
+      if (idx >= 0) {
+        this._rules.splice(idx, 1);
+        await this.save();
+      }
+    },
+    async clearRules() {
+      this._rules = [];
+      await this.save();
+    }
+  };
+})();
+
+// =========================
+// 4b. ProfileManager (module)
+// =========================
+var ProfileManager = (function () {
+  'use strict';
+  var RPC_REF = RPC;
+  return {
+    _storageKey: 'userscripts:features:colorCustomizer:profiles',
+    _profiles: [],
+    async load() {
+      try {
+        var data = await RPC_REF.call('storage.get', [this._storageKey, null]);
+        this._profiles = (data && Array.isArray(data)) ? data : [];
+      } catch (e) {
+        console.warn('[ColorCustomizer] Failed to load profiles:', e);
+        this._profiles = [];
+      }
+      return this._profiles;
+    },
+    async save() {
+      try {
+        await RPC_REF.call('storage.set', [this._storageKey, this._profiles]);
+      } catch (e) {
+        console.error('[ColorCustomizer] Failed to save profiles:', e);
+      }
+    },
+    getProfiles: function () { return this._profiles.slice(); },
+    async importProfiles(profiles) {
+      if (!Array.isArray(profiles)) return 0;
+      var self = this;
+      var count = 0;
+      profiles.forEach(function (p) {
+        if (!p.name || !Array.isArray(p.colors)) return;
+        var existing = p.id ? self._profiles.find(function (x) { return x.id === p.id; }) : null;
+        if (existing) {
+          existing.name = p.name;
+          existing.colors = p.colors;
+        } else {
+          var duplicate = self._profiles.some(function (x) {
+            return x.name === p.name && JSON.stringify(x.colors) === JSON.stringify(p.colors);
+          });
+          if (duplicate) return;
+          var profile = {
+            id: p.id || ('prof_' + Math.random().toString(36).slice(2, 10)),
+            name: p.name,
+            colors: p.colors
+          };
+          self._profiles.push(profile);
+        }
+        count++;
+      });
+      if (count > 0) await self.save();
+      console.log('[ColorCustomizer] Imported ' + count + ' profiles');
+      return count;
+    },
+    async addProfile(name, colors) {
+      var profile = {
+        id: 'prof_' + Math.random().toString(36).slice(2, 10),
+        name: name || 'Untitled',
+        colors: colors || [{ value: '#3b82f6', name: '' }]
+      };
+      this._profiles.push(profile);
+      await this.save();
+      return profile;
+    },
+    async updateProfile(id, name, colors) {
+      var p = this._profiles.find(function (x) { return x.id === id; });
+      if (!p) return null;
+      p.name = name;
+      p.colors = colors;
+      await this.save();
+      return p;
+    },
+    async deleteProfile(id) {
+      this._profiles = this._profiles.filter(function (x) { return x.id !== id; });
+      await this.save();
+    }
+  };
+})();
+
+// =========================
+// 5. StyleApplier (module)
+// =========================
+var StyleApplier = (function () {
+  'use strict';
+  var SelectorEngineRef = SelectorEngine;
+  return {
+    _applied: [],
+    applyAll: function (rules) {
+      var self = this;
+      self.clearAll();
+      rules.forEach(function (rule) {
+        if (rule.mode !== 'inline') return;
+        self.applyOne(rule);
+      });
+    },
+    applyOne: function (rule) {
+      var el = SelectorEngineRef.find(rule.selector);
+      if (!el) return;
+      var original = el.style.getPropertyValue(rule.property);
+      this._applied.push({ el: el, property: rule.property, originalValue: original });
+      el.style.setProperty(rule.property, rule.value, 'important');
+    },
+    clearAll: function () {
+      this._applied.forEach(function (rec) {
+        try {
+          if (rec.originalValue) {
+            rec.el.style.setProperty(rec.property, rec.originalValue);
+          } else {
+            rec.el.style.removeProperty(rec.property);
+          }
+        } catch (e) { }
+      });
+      this._applied = [];
+    },
+    previewOne: function (el, property, value) {
+      if (value) {
+        el.style.setProperty(property, value, 'important');
+      } else {
         el.style.removeProperty(property);
-      } catch (e) { /* ignore */ }
-    });
-  }
-};
+      }
+    },
+    removeRuleFromPage: function (selector, property) {
+      var elements = SelectorEngineRef.findAll(selector);
+      elements.forEach(function (el) {
+        try {
+          el.style.removeProperty(property);
+        } catch (e) { }
+      });
+    }
+  };
+})();
 
 // =========================
-// 5. DOM helpers (Trusted-Types safe)
+// 6. DOM helpers (module)
 // =========================
-
-/**
- * Build a DOM element tree without innerHTML.
- * h(tag, attrs?, ...children)
- *   tag      – 'div', 'span.cls', 'button#id.cls1.cls2'
- *   attrs    – plain object  { style: '...', title: '...' } or omitted
- *   children – strings (→ textNode) or other DOM nodes
- */
-function h(tag, attrsOrChild) {
-  var parts = tag.split(/([.#])/);
-  var tagName = parts[0] || 'div';
-  var el = document.createElement(tagName);
-  var i = 1;
-  while (i < parts.length) {
-    if (parts[i] === '#') { el.id = parts[i + 1]; i += 2; }
-    else if (parts[i] === '.') { el.classList.add(parts[i + 1]); i += 2; }
-    else { i++; }
+var DomHelpers = (function () {
+  'use strict';
+  function h(tag, attrsOrChild) {
+    var parts = tag.split(/([.#])/);
+    var tagName = parts[0] || 'div';
+    var el = document.createElement(tagName);
+    var i = 1;
+    while (i < parts.length) {
+      if (parts[i] === '#') { el.id = parts[i + 1]; i += 2; }
+      else if (parts[i] === '.') { el.classList.add(parts[i + 1]); i += 2; }
+      else { i++; }
+    }
+    var childStart = 1;
+    if (attrsOrChild && typeof attrsOrChild === 'object' && !(attrsOrChild instanceof Node)) {
+      childStart = 2;
+      var attrs = attrsOrChild;
+      Object.keys(attrs).forEach(function (k) {
+        if (k === 'style') el.style.cssText = attrs[k];
+        else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), attrs[k]);
+        else el.setAttribute(k, attrs[k]);
+      });
+    }
+    for (var c = childStart; c < arguments.length; c++) {
+      var child = arguments[c];
+      if (child == null) continue;
+      if (typeof child === 'string') el.appendChild(document.createTextNode(child));
+      else el.appendChild(child);
+    }
+    return el;
   }
-  var childStart = 1;
-  if (attrsOrChild && typeof attrsOrChild === 'object' && !(attrsOrChild instanceof Node)) {
-    childStart = 2;
-    var attrs = attrsOrChild;
-    Object.keys(attrs).forEach(function (k) {
-      if (k === 'style') el.style.cssText = attrs[k];
-      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), attrs[k]);
-      else el.setAttribute(k, attrs[k]);
-    });
+  function makeSvg(tag, attrs) {
+    var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    for (var i = 2; i < arguments.length; i++) el.appendChild(arguments[i]);
+    return el;
   }
-  for (var c = childStart; c < arguments.length; c++) {
-    var child = arguments[c];
-    if (child == null) continue;
-    if (typeof child === 'string') el.appendChild(document.createTextNode(child));
-    else el.appendChild(child);
-  }
-  return el;
-}
-
-function makeSvg(tag, attrs) {
-  var el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  if (attrs) Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
-  for (var i = 2; i < arguments.length; i++) el.appendChild(arguments[i]);
-  return el;
-}
+  return { h: h, makeSvg: makeSvg };
+})();
+var h = DomHelpers.h;
+var makeSvg = DomHelpers.makeSvg;
 
 // =========================
-// 6. CSS Injection (UI styles)
+// 7. CSS Injection / Styles (module)
 // =========================
-var Styles = {
-  injected: false,
-
-  inject: function () {
-    if (this.injected) return;
-    var style = document.createElement('style');
-    style.setAttribute('data-us-cc-styles', '1');
-    style.textContent = this._css();
-    (document.head || document.documentElement).appendChild(style);
-    this.injected = true;
-  },
-
-  _css: function () {
-    return [
+var Styles = (function () {
+  'use strict';
+  return {
+    injected: false,
+    inject: function () {
+      if (this.injected) return;
+      var style = document.createElement('style');
+      style.setAttribute('data-us-cc-styles', '1');
+      style.textContent = this._css();
+      (document.head || document.documentElement).appendChild(style);
+      this.injected = true;
+    },
+    _css: function () {
+      return [
       '/* === UserScripts Color Customizer === */',
 
       /* ── Reset for our UI ── */
@@ -1008,100 +976,143 @@ var Styles = {
       '#us-cc-prof-color-popover .us-prof-popover-cell input { width: 44px !important; }',
       '#us-cc-prof-color-popover .us-prof-popover-cell [data-role="hex"] { width: 80px !important; }',
     ].join('\n');
+    }
+  };
+})();
+
+// =========================
+// 8. EditMode (module)
+// =========================
+var EditMode = (function () {
+  'use strict';
+  return {
+    active: false,
+    _highlighted: null,
+    _boundHover: null,
+    _boundClick: null,
+    enable: function () {
+      if (this.active) return;
+      this.active = true;
+      var self = this;
+      this._boundHover = function (e) { self._onHover(e); };
+      this._boundClick = function (e) { self._onClick(e); };
+      document.addEventListener('mouseover', this._boundHover, true);
+      document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
+      document.addEventListener('click', this._boundClick, true);
+      Tab.setActive(true);
+      this._persist(true);
+    },
+    disable: function () {
+      if (!this.active) return;
+      this.active = false;
+      this._clearHighlight();
+      document.removeEventListener('mouseover', this._boundHover, true);
+      document.removeEventListener('click', this._boundClick, true);
+      this._boundHover = null;
+      this._boundClick = null;
+      Tab.setActive(false);
+      this._persist(false);
+    },
+    _isOurUI: function (el) {
+      return !!(el && el.closest && el.closest('[data-us-cc]'));
+    },
+    _onHover: function (e) {
+      if (!this.active) return;
+      var el = e.target;
+      if (this._isOurUI(el)) { this._clearHighlight(); return; }
+      if (el === this._highlighted) return;
+      this._clearHighlight();
+      el.classList.add('us-cc-highlight');
+      this._highlighted = el;
+    },
+    _onClick: function (e) {
+      if (!this.active) return;
+      var el = e.target;
+      if (this._isOurUI(el)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      this._clearHighlight();
+      console.log('[ColorCustomizer] Element clicked:', el.tagName, el.className);
+      try {
+        ColorPopover.show(el);
+      } catch (err) {
+        console.error('[ColorCustomizer] Popover show failed:', err);
+      }
+    },
+    _clearHighlight: function () {
+      if (this._highlighted) {
+        this._highlighted.classList.remove('us-cc-highlight');
+        this._highlighted = null;
+      }
+    },
+    _persist: async function (active) {
+      try {
+        await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode', active]);
+      } catch (e) {
+        console.error('[ColorCustomizer] Failed to save EditMode state:', e);
+      }
+    }
+  };
+})();
+
+// =========================
+// 9. Popovers: ColorPopover, ChipColorPopover, ProfileColorPopover (module)
+// =========================
+var PopoversModule = (function () {
+  'use strict';
+  var PROP_LIST = [
+    { key: 'background-color', label: '背景' },
+    { key: 'color', label: '文字' },
+    { key: 'border-color', label: 'ボーダー' }
+  ];
+
+  function parseFlexibleColor(str) {
+    if (!str || typeof str !== 'string') return null;
+    var s = str.trim().replace(/\s+/g, ' ');
+    var hexOnly = s.replace(/^#/, '').replace(/[^0-9a-fA-F]/g, '');
+    if (hexOnly.length === 6 || hexOnly.length === 3) {
+      var hex = hexOnly.length === 3
+        ? hexOnly[0] + hexOnly[0] + hexOnly[1] + hexOnly[1] + hexOnly[2] + hexOnly[2]
+        : hexOnly;
+      hex = hex.slice(0, 6);
+      var r = parseInt(hex.slice(0, 2), 16);
+      var g = parseInt(hex.slice(2, 4), 16);
+      var b = parseInt(hex.slice(4, 6), 16);
+      return { hex: '#' + hex.toLowerCase(), r: r, g: g, b: b };
+    }
+    var inner = s.replace(/^.*?rgb(?:a)?\s*\(?\s*/i, '').replace(/\s*\)?\s*$/, '').replace(/[,/]/g, ' ');
+    var parts = inner.split(/\s+/).filter(Boolean);
+    var nums = [];
+    for (var i = 0; i < parts.length; i++) {
+      var n = parseFloat(parts[i]);
+      if (!isNaN(n)) nums.push(n);
+    }
+    if (nums.length < 3) {
+      var anyNum = s.replace(/[^\d.\s,]/g, ' ').replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+      nums = [];
+      for (var j = 0; j < anyNum.length; j++) {
+        var v = parseFloat(anyNum[j]);
+        if (!isNaN(v)) nums.push(v);
+        if (nums.length >= 3) break;
+      }
+    }
+    if (nums.length >= 3) {
+      var r = nums[0], g = nums[1], b = nums[2];
+      if (r <= 1 && g <= 1 && b <= 1) { r *= 255; g *= 255; b *= 255; }
+      r = Math.max(0, Math.min(255, Math.round(r)));
+      g = Math.max(0, Math.min(255, Math.round(g)));
+      b = Math.max(0, Math.min(255, Math.round(b)));
+      var h = '#' + [r, g, b].map(function (x) {
+        var t = x.toString(16);
+        return t.length === 1 ? '0' + t : t;
+      }).join('');
+      return { hex: h, r: r, g: g, b: b };
+    }
+    return null;
   }
-};
 
-// =========================
-// 7. EditMode
-// =========================
-var EditMode = {
-  active: false,
-  _highlighted: null,
-  _boundHover: null,
-  _boundClick: null,
-
-  enable: function () {
-    if (this.active) return;
-    this.active = true;
-    var self = this;
-    this._boundHover = function (e) { self._onHover(e); };
-    this._boundClick = function (e) { self._onClick(e); };
-    document.addEventListener('mouseover', this._boundHover, true);
-    document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
-    document.addEventListener('click', this._boundClick, true);
-    Tab.setActive(true);
-    this._persist(true);
-  },
-
-  disable: function () {
-    if (!this.active) return;
-    this.active = false;
-    this._clearHighlight();
-    document.removeEventListener('mouseover', this._boundHover, true);
-    document.removeEventListener('click', this._boundClick, true);
-    this._boundHover = null;
-    this._boundClick = null;
-    Tab.setActive(false);
-    this._persist(false);
-  },
-
-  _isOurUI: function (el) {
-    // Don't interact with our own UI elements
-    return !!(el && el.closest && el.closest('[data-us-cc]'));
-  },
-
-  _onHover: function (e) {
-    if (!this.active) return;
-    var el = e.target;
-    if (this._isOurUI(el)) { this._clearHighlight(); return; }
-    if (el === this._highlighted) return;
-    this._clearHighlight();
-    el.classList.add('us-cc-highlight');
-    this._highlighted = el;
-  },
-
-  _onClick: function (e) {
-    if (!this.active) return;
-    var el = e.target;
-    if (this._isOurUI(el)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    this._clearHighlight();
-    console.log('[ColorCustomizer] Element clicked:', el.tagName, el.className);
-    try {
-      ColorPopover.show(el);
-    } catch (err) {
-      console.error('[ColorCustomizer] Popover show failed:', err);
-    }
-  },
-
-  _clearHighlight: function () {
-    if (this._highlighted) {
-      this._highlighted.classList.remove('us-cc-highlight');
-      this._highlighted = null;
-    }
-  },
-
-  _persist: async function (active) {
-    try {
-      await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode', active]);
-    } catch (e) {
-      console.error('[ColorCustomizer] Failed to save EditMode state:', e);
-    }
-  }
-};
-
-// =========================
-// 8. ColorPopover
-// =========================
-var PROP_LIST = [
-  { key: 'background-color', label: '背景' },
-  { key: 'color', label: '文字' },
-  { key: 'border-color', label: 'ボーダー' }
-];
-
-var ColorPopover = {
+  var ColorPopover = {
   el: null,
   _currentTarget: null,
   _lastActiveProp: 'background-color',
@@ -1391,56 +1402,7 @@ var ChipColorPopover = {
   }
 };
 
-// 柔軟な色文字列を解釈（rgb/rgba/hex の揺れに対応）→ { hex, r, g, b } または null
-function parseFlexibleColor(str) {
-  if (!str || typeof str !== 'string') return null;
-  var s = str.trim().replace(/\s+/g, ' ');
-  // Hex: # の有無、3桁 or 6桁
-  var hexOnly = s.replace(/^#/, '').replace(/[^0-9a-fA-F]/g, '');
-  if (hexOnly.length === 6 || hexOnly.length === 3) {
-    var hex = hexOnly.length === 3
-      ? hexOnly[0] + hexOnly[0] + hexOnly[1] + hexOnly[1] + hexOnly[2] + hexOnly[2]
-      : hexOnly;
-    hex = hex.slice(0, 6);
-    var r = parseInt(hex.slice(0, 2), 16);
-    var g = parseInt(hex.slice(2, 4), 16);
-    var b = parseInt(hex.slice(4, 6), 16);
-    return { hex: '#' + hex.toLowerCase(), r: r, g: g, b: b };
-  }
-  // 数字列を抽出（rgb/rgba の有無・閉じ括弧の有無に依存しない。アルファは .5 / 0.5 とも parseFloat で解釈）
-  var inner = s.replace(/^.*?rgb(?:a)?\s*\(?\s*/i, '').replace(/\s*\)?\s*$/, '').replace(/[,/]/g, ' ');
-  var parts = inner.split(/\s+/).filter(Boolean);
-  var nums = [];
-  for (var i = 0; i < parts.length; i++) {
-    var n = parseFloat(parts[i]);
-    if (!isNaN(n)) nums.push(n);
-  }
-  if (nums.length < 3) {
-    var anyNum = s.replace(/[^\d.\s,]/g, ' ').replace(/,/g, ' ').split(/\s+/).filter(Boolean);
-    nums = [];
-    for (var j = 0; j < anyNum.length; j++) {
-      var v = parseFloat(anyNum[j]);
-      if (!isNaN(v)) nums.push(v);
-        if (nums.length >= 3) break;
-    }
-  }
-  if (nums.length >= 3) {
-    var r = nums[0], g = nums[1], b = nums[2];
-    if (r <= 1 && g <= 1 && b <= 1) { r *= 255; g *= 255; b *= 255; }
-    r = Math.max(0, Math.min(255, Math.round(r)));
-    g = Math.max(0, Math.min(255, Math.round(g)));
-    b = Math.max(0, Math.min(255, Math.round(b)));
-    var h = '#' + [r, g, b].map(function (x) {
-      var t = x.toString(16);
-      return t.length === 1 ? '0' + t : t;
-    }).join('');
-    return { hex: h, r: r, g: g, b: b };
-  }
-  return null;
-}
-
-// プロファイル編集でカラーチップをクリックしたときに開くポップオーバー（柔軟テキスト + RGB/HEX、HSL なし）
-var ProfileColorPopover = {
+  var ProfileColorPopover = {
   el: null,
   backdrop: null,
   _onApply: null,
@@ -1564,10 +1526,18 @@ var ProfileColorPopover = {
   }
 };
 
+  return { ColorPopover: ColorPopover, ChipColorPopover: ChipColorPopover, ProfileColorPopover: ProfileColorPopover };
+})();
+var ColorPopover = PopoversModule.ColorPopover;
+var ChipColorPopover = PopoversModule.ChipColorPopover;
+var ProfileColorPopover = PopoversModule.ProfileColorPopover;
+
 // =========================
-// 9. Panel
+// 10. Panel (module)
 // =========================
-var Panel = {
+var Panel = (function () {
+  'use strict';
+  return {
   el: null,
   backdrop: null,
   _open: false,
@@ -1980,12 +1950,15 @@ var Panel = {
       );
     });
   }
-};
+  };
+})();
 
 // =========================
-// 10. Tab
+// 11. Tab (module)
 // =========================
-var Tab = {
+var Tab = (function () {
+  'use strict';
+  return {
   el: null,
 
   create: function () {
@@ -2037,12 +2010,15 @@ var Tab = {
     }
     if (this._tabEditCheck) this._tabEditCheck.checked = !!active;
   }
-};
+  };
+})();
 
 // =========================
-// 11. Feature Interface + Global API
+// 12. Feature Interface + Global API (module)
 // =========================
-var ColorCustomizerFeature = {
+var ColorCustomizerFeature = (function () {
+  'use strict';
+  return {
   _initialized: false,
 
   async init() {
@@ -2074,7 +2050,8 @@ var ColorCustomizerFeature = {
   disable: function () {
     EditMode.disable();
   }
-};
+  };
+})();
 
 // Global API
 window.UserScripts = window.UserScripts || {};
