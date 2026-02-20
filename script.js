@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.74';
+var US_VERSION = '1.7.0-dev.0';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -681,6 +681,29 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-rules::-webkit-scrollbar { width: 3px !important; }',
       '#us-cc-panel .us-p-rules::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12) !important; border-radius: 3px !important; }',
+      /* DataFiller screen */
+      '#us-cc-panel .us-p-df-steps-wrap { flex: 1 !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }',
+      '#us-cc-panel .us-p-df-capture-wrap { display: flex !important; align-items: center !important; gap: 8px !important; }',
+      '#us-cc-panel .us-p-df-capture-label { font-size: 13px !important; color: rgba(0,0,0,0.6) !important; }',
+      '#us-cc-panel .us-p-df-steps { flex: 1 !important; overflow-y: auto !important; padding: 8px 16px !important; }',
+      '#us-cc-panel .us-p-df-step {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important;',
+      '  padding: 8px 10px !important; margin-bottom: 4px !important;',
+      '  background: rgba(255,255,255,0.6) !important; border-radius: 8px !important;',
+      '  border: 1px solid rgba(0,0,0,0.06) !important; font-size: 13px !important;',
+      '}',
+      '#us-cc-panel .us-p-df-step-type {',
+      '  flex-shrink: 0 !important; padding: 2px 6px !important; border-radius: 4px !important;',
+      '  background: rgba(0,0,0,0.06) !important; font-size: 11px !important; color: rgba(0,0,0,0.7) !important;',
+      '}',
+      '#us-cc-panel .us-p-df-step-name { flex: 0 0 120px !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; }',
+      '#us-cc-panel .us-p-df-step-xpath { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; color: rgba(0,0,0,0.5) !important; font-size: 11px !important; }',
+      '#us-cc-panel .us-p-df-step-del {',
+      '  flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important;',
+      '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 14px !important;',
+      '}',
+      '#us-cc-panel .us-p-df-step-del:hover { background: rgba(0,0,0,0.06) !important; color: rgba(0,0,0,0.8) !important; }',
+      '#us-cc-panel #us-p-df-empty { padding: 24px 16px !important; text-align: center !important; color: rgba(0,0,0,0.45) !important; font-size: 13px !important; }',
       '#us-cc-panel .us-p-empty {',
       '  all: initial !important; display: block !important; font-family: inherit !important;',
       '  text-align: center !important; color: rgba(0,0,0,0.45) !important;',
@@ -1735,12 +1758,21 @@ var Panel = (function () {
       featureRight
     );
 
+    var dataFillerIcon = h('div.us-p-feature-icon', document.createTextNode('CSV'));
+    var dataFillerLabel = h('span.us-p-feature-label', 'data', h('span.us-title-editor', 'Filler'));
+    var dataFillerRight = h('div.us-p-feature-right', h('span.us-p-feature-chevron', '\u203A'));
+    var dataFillerRow = h('div', { class: 'us-p-feature-row', 'data-feature': 'dataFiller' },
+      dataFillerIcon,
+      dataFillerLabel,
+      dataFillerRight
+    );
+
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
       h('div.us-p-list-header',
         h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, createGearNode()),
         h('span.us-p-title', '設定')
       ),
-      h('div.us-p-feature-list', featureRow)
+      h('div.us-p-feature-list', featureRow, dataFillerRow)
     );
 
     var switchLabelEdit = document.createElement('label');
@@ -1784,11 +1816,36 @@ var Panel = (function () {
       )
     );
 
-    var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }, screenList, screenColorEditor);
+    var dfCaptureLabel = document.createElement('label');
+    dfCaptureLabel.className = 'us-switch';
+    dfCaptureLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-capture-toggle' }));
+    dfCaptureLabel.appendChild(h('span.us-slider'));
+    var screenDataFiller = h('div', { class: 'us-p-screen', 'data-us-cc': 'screen-dataFiller' },
+      h('div.us-p-detail-header',
+        h('div.us-p-detail-header-row',
+          h('button.us-p-nav-back', { type: 'button', 'data-df-back': '1' }, '\u2039 \u8a2d\u5b9a')
+        ),
+        h('div.us-p-detail-header-row',
+          h('span.us-p-title', 'data', h('span.us-title-editor', 'Filler')),
+          h('span.us-p-df-capture-wrap', dfCaptureLabel, h('span.us-p-df-capture-label', 'キャプチャモード'))
+        )
+      ),
+      h('div.us-p-section-title', { 'data-us-cc': 'section' },
+        h('span', 'フォーム要素（クリックで追加）'),
+        h('button', { id: 'us-p-df-template-dl', title: 'CSVテンプレートをダウンロード' }, 'Template Download')
+      ),
+      h('div.us-p-df-steps-wrap',
+        h('div.us-p-df-steps', { id: 'us-p-df-steps' }),
+        h('span.us-p-empty', { id: 'us-p-df-empty' }, 'キャプチャモードをONにしてフォーム要素をクリックすると追加されます')
+      )
+    );
+
+    var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }, screenList, screenColorEditor, screenDataFiller);
     document.body.appendChild(p);
     this.el = p;
     this._screenList = screenList;
     this._screenColorEditor = screenColorEditor;
+    this._screenDataFiller = screenDataFiller;
 
     this._ensureImportToast();
     this._bindEvents();
@@ -1797,6 +1854,7 @@ var Panel = (function () {
   _showList: function () {
     if (this._screenList) this._screenList.classList.add('us-p-screen-visible');
     if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
+    if (this._screenDataFiller) this._screenDataFiller.classList.remove('us-p-screen-visible');
     var listToggle = this._screenList && this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
     if (listToggle) listToggle.checked = EditMode.active;
   },
@@ -1804,10 +1862,45 @@ var Panel = (function () {
   _showColorEditor: function () {
     if (this._screenList) this._screenList.classList.remove('us-p-screen-visible');
     if (this._screenColorEditor) this._screenColorEditor.classList.add('us-p-screen-visible');
+    if (this._screenDataFiller) this._screenDataFiller.classList.remove('us-p-screen-visible');
     this.refreshRules();
     this.refreshProfiles();
     var editToggle = this._screenColorEditor && this._screenColorEditor.querySelector('#us-p-edit-toggle');
     if (editToggle) editToggle.checked = EditMode.active;
+  },
+
+  _showDataFiller: function () {
+    if (this._screenList) this._screenList.classList.remove('us-p-screen-visible');
+    if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
+    if (this._screenDataFiller) this._screenDataFiller.classList.add('us-p-screen-visible');
+    DataFiller.load().then(function () { Panel.refreshDataFillerSteps(); });
+    var capToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-capture-toggle');
+    if (capToggle) capToggle.checked = DataFiller.captureMode;
+  },
+
+  refreshDataFillerSteps: function () {
+    if (!this._screenDataFiller) return;
+    var container = this._screenDataFiller.querySelector('#us-p-df-steps');
+    var emptyEl = this._screenDataFiller.querySelector('#us-p-df-empty');
+    if (!container) return;
+    while (container.firstChild) container.removeChild(container.firstChild);
+    var steps = DataFiller.getSteps();
+    if (emptyEl) emptyEl.style.display = steps.length ? 'none' : 'block';
+    var self = this;
+    steps.forEach(function (step, i) {
+      var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
+      var row = h('div.us-p-df-step',
+        h('span.us-p-df-step-type', step.type),
+        h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+        h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
+        h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(i), title: '削除' }, '\u2715')
+      );
+      row.querySelector('.us-p-df-step-del').addEventListener('click', function () {
+        DataFiller.removeStep(i);
+        self.refreshDataFillerSteps();
+      });
+      container.appendChild(row);
+    });
   },
 
   _ensureImportToast: function () {
@@ -1874,6 +1967,10 @@ var Panel = (function () {
           self._showColorEditor();
         });
       }
+      var dfRow = this._screenList.querySelector('[data-feature="dataFiller"]');
+      if (dfRow) {
+        dfRow.addEventListener('click', function () { self._showDataFiller(); });
+      }
       var listToggle = this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
       if (listToggle) {
         listToggle.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -1889,6 +1986,16 @@ var Panel = (function () {
     if (this._screenColorEditor) {
       var backBtn = this._screenColorEditor.querySelector('.us-p-nav-back');
       if (backBtn) backBtn.addEventListener('click', function () { self._showList(); });
+    }
+    if (this._screenDataFiller) {
+      var dfBack = this._screenDataFiller.querySelector('[data-df-back="1"]');
+      if (dfBack) dfBack.addEventListener('click', function () { self._showList(); });
+      var dfCaptureToggle = this._screenDataFiller.querySelector('#us-p-df-capture-toggle');
+      if (dfCaptureToggle) dfCaptureToggle.addEventListener('change', function () {
+        if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
+      });
+      var dfTemplateDl = this._screenDataFiller.querySelector('#us-p-df-template-dl');
+      if (dfTemplateDl) dfTemplateDl.addEventListener('click', function () { DataFiller.exportCSVTemplate(); });
     }
 
     this.el.addEventListener('mouseleave', function () {
@@ -2261,6 +2368,148 @@ var Panel = (function () {
       );
     });
   }
+  };
+})();
+
+// =========================
+// 10b. DataFiller (CSV auto-filler) – prototype
+// =========================
+var DataFiller = (function () {
+  'use strict';
+
+  function getXPath(el) {
+    if (!el || !el.ownerDocument) return '';
+    if (el.id) return '//*[@id="' + el.id + '"]';
+    var parts = [];
+    var current = el;
+    while (current && current.nodeType === Node.ELEMENT_NODE) {
+      var idx = 1;
+      var sibling = current.previousSibling;
+      while (sibling) {
+        if (sibling.nodeType === Node.ELEMENT_NODE && sibling.tagName === current.tagName) idx++;
+        sibling = sibling.previousSibling;
+      }
+      var tag = current.tagName.toLowerCase();
+      var part = idx > 1 ? tag + '[' + idx + ']' : tag;
+      parts.unshift(part);
+      current = current.parentNode;
+    }
+    return '/' + parts.join('/');
+  }
+
+  function getElementType(el) {
+    if (!el || !el.tagName) return 'unknown';
+    var tag = el.tagName.toLowerCase();
+    if (tag === 'input') {
+      var t = (el.type || 'text').toLowerCase();
+      if (t === 'checkbox' || t === 'radio') return t;
+      if (t === 'file') return 'file';
+      if (t === 'submit' || t === 'button' || t === 'image') return 'button';
+      return 'text';
+    }
+    if (tag === 'select') return 'select';
+    if (tag === 'textarea') return 'textarea';
+    if (tag === 'button') return 'button';
+    return 'unknown';
+  }
+
+  function _storageKey() {
+    return 'userscripts:features:dataFiller:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
+  }
+
+  return {
+    captureMode: false,
+    _boundClick: null,
+
+    getSteps: function () { return this._steps || []; },
+    _steps: [],
+
+    load: async function () {
+      try {
+        var data = await RPC.call('storage.get', [_storageKey(), null]);
+        this._steps = (data && Array.isArray(data.steps)) ? data.steps : [];
+        return this._steps;
+      } catch (e) {
+        console.warn('[DataFiller] load failed:', e);
+        this._steps = [];
+        return this._steps;
+      }
+    },
+
+    save: async function (steps) {
+      this._steps = steps || this._steps;
+      try {
+        await RPC.call('storage.set', [_storageKey(), { steps: this._steps }]);
+      } catch (e) {
+        console.warn('[DataFiller] save failed:', e);
+      }
+    },
+
+    addStep: function (el) {
+      var xpath = getXPath(el);
+      var type = getElementType(el);
+      var logicalName = window.prompt('この要素の論理名（CSVヘッダー名）を入力:', type === 'text' ? 'テキスト' : type);
+      if (logicalName == null) return null;
+      logicalName = String(logicalName).trim() || type;
+      var step = { xpath: xpath, type: type, logicalName: logicalName };
+      this._steps = this._steps || [];
+      this._steps.push(step);
+      this.save(this._steps);
+      return step;
+    },
+
+    removeStep: function (index) {
+      if (index < 0 || index >= (this._steps || []).length) return;
+      this._steps.splice(index, 1);
+      this.save(this._steps);
+    },
+
+    moveStep: function (fromIndex, toIndex) {
+      var s = this._steps || [];
+      if (fromIndex < 0 || fromIndex >= s.length || toIndex < 0 || toIndex >= s.length) return;
+      var item = s.splice(fromIndex, 1)[0];
+      s.splice(toIndex, 0, item);
+      this.save(this._steps);
+    },
+
+    enableCapture: function () {
+      var self = this;
+      if (this.captureMode) return;
+      this.captureMode = true;
+      this._boundClick = function (e) {
+        if (e.target.closest && e.target.closest('[data-us-cc]')) return;
+        var el = e.target;
+        var type = getElementType(el);
+        if (type === 'unknown' || type === 'button') return;
+        e.preventDefault();
+        e.stopPropagation();
+        self.addStep(el);
+        if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+      };
+      document.addEventListener('click', this._boundClick, true);
+    },
+
+    disableCapture: function () {
+      if (!this.captureMode) return;
+      this.captureMode = false;
+      if (this._boundClick) {
+        document.removeEventListener('click', this._boundClick, true);
+        this._boundClick = null;
+      }
+    },
+
+    exportCSVTemplate: function () {
+      var steps = this._steps || [];
+      var header = steps.map(function (s) { return (s.logicalName || '').replace(/"/g, '""'); }).join(',');
+      var csv = '\uFEFF' + header + '\n';
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'dataFiller_template_' + (new Date().toISOString().slice(0, 10)) + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   };
 })();
 
