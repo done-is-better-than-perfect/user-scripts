@@ -1,197 +1,780 @@
-// Color Editor Module (Original v1.6.53 Liquid Glass UI)
-export default {
-  init() {
-    console.log('[ColorCustomizer] Module initialized');
+// Color Editor Module (v2.0.8 Complete Implementation)
+// Global reference for RPC calls
+let RPC;
+
+// Utility function for DOM creation
+function h(tag, attrs = {}) {
+  const parts = tag.split(/([.#][^.#]*)/);
+  const tagName = parts[0] || 'div';
+  const el = document.createElement(tagName);
+  
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    if (part.startsWith('.')) {
+      el.classList.add(part.slice(1));
+    } else if (part.startsWith('#')) {
+      el.id = part.slice(1);
+    }
+  }
+  
+  Object.entries(attrs).forEach(([key, value]) => {
+    if (key === 'class' || key === 'className') {
+      el.className += ' ' + value;
+    } else {
+      el.setAttribute(key, value);
+    }
+  });
+  
+  for (let i = 2; i < arguments.length; i++) {
+    const child = arguments[i];
+    if (typeof child === 'string') {
+      el.appendChild(document.createTextNode(child));
+    } else if (child) {
+      el.appendChild(child);
+    }
+  }
+  
+  return el;
+}
+
+// =========================
+// SelectorEngine
+// =========================
+const SelectorEngine = {
+  generate(el) {
+    if (!el || !el.tagName) return '';
+    const parts = [];
+    let current = el;
+    const root = document.documentElement;
     
-    // Wait for DOM to be ready
-    const initWhenReady = () => {
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-          setTimeout(this.setup.bind(this), 100);
-        });
-      } else {
-        setTimeout(this.setup.bind(this), 100);
+    while (current && current !== root) {
+      let tag = current.tagName.toLowerCase();
+      const parent = current.parentElement;
+      
+      if (current.id && !/\d/.test(current.id) && document.querySelectorAll('#' + CSS.escape(current.id)).length === 1) {
+        parts.unshift('#' + current.id);
+        break;
+      } else if (parent) {
+        const siblings = Array.from(parent.children).filter(c => c.tagName === current.tagName);
+        if (siblings.length > 1) {
+          const idx = siblings.indexOf(current) + 1;
+          tag += ':nth-of-type(' + idx + ')';
+        }
       }
+      parts.unshift(tag);
+      current = parent;
+    }
+    
+    if (parts.length === 0) return el.tagName.toLowerCase();
+    return parts.join(' > ');
+  },
+
+  find(selector) {
+    try { return document.querySelector(selector); } catch (e) { return null; }
+  },
+
+  findAll(selector) {
+    try {
+      const list = document.querySelectorAll(selector);
+      return Array.prototype.slice.call(list);
+    } catch (e) {
+      return [];
+    }
+  }
+};
+
+// =========================
+// RulesManager
+// =========================
+const RulesManager = {
+  _storagePrefix: 'userscripts:features:colorCustomizer:page:',
+  _pageKey: window.location.hostname + window.location.pathname,
+  _rules: [],
+
+  _key() {
+    return this._storagePrefix + encodeURIComponent(this._pageKey);
+  },
+
+  async load() {
+    try {
+      console.log('[ColorCustomizer] Loading rules for:', this._pageKey);
+      const data = await RPC.call('storage.get', [this._key(), null]);
+      if (data && Array.isArray(data.rules)) {
+        this._rules = data.rules;
+        console.log('[ColorCustomizer] Loaded', this._rules.length, 'rules');
+      } else {
+        this._rules = [];
+      }
+    } catch (e) {
+      console.warn('[ColorCustomizer] Failed to load rules:', e);
+      this._rules = [];
+    }
+    return this._rules;
+  },
+
+  async save() {
+    try {
+      console.log('[ColorCustomizer] Saving rules for:', this._pageKey);
+      await RPC.call('storage.set', [this._key(), {
+        origin: this._pageKey,
+        rules: this._rules,
+        updatedAt: Date.now()
+      }]);
+    } catch (e) {
+      console.error('[ColorCustomizer] Failed to save rules:', e);
+    }
+  },
+
+  getRules() {
+    return this._rules.slice();
+  },
+
+  async addRule(selector, property, value, mode = 'inline') {
+    const idx = this._rules.findIndex(r => r.selector === selector && r.property === property);
+    const rule = { selector, property, value, mode };
+    if (idx >= 0) {
+      this._rules[idx] = rule;
+    } else {
+      this._rules.push(rule);
+    }
+    await this.save();
+    return rule;
+  },
+
+  async removeRule(index) {
+    if (index >= 0 && index < this._rules.length) {
+      this._rules.splice(index, 1);
+      await this.save();
+    }
+  },
+
+  async deleteRule(selector, property) {
+    const idx = this._rules.findIndex(r => r.selector === selector && r.property === property);
+    if (idx >= 0) {
+      this._rules.splice(idx, 1);
+      await this.save();
+    }
+  },
+
+  async clearRules() {
+    this._rules = [];
+    await this.save();
+  }
+};
+
+// =========================
+// StyleApplier
+// =========================
+const StyleApplier = {
+  _applied: [], // { el, property, originalValue }
+
+  applyAll(rules) {
+    this.clearAll();
+    rules.forEach(rule => {
+      if (rule.mode === 'inline') {
+        this.applyOne(rule);
+      }
+    });
+  },
+
+  applyOne(rule) {
+    const el = SelectorEngine.find(rule.selector);
+    if (!el) return;
+    const original = el.style.getPropertyValue(rule.property);
+    this._applied.push({ el, property: rule.property, originalValue: original });
+    el.style.setProperty(rule.property, rule.value, 'important');
+  },
+
+  clearAll() {
+    this._applied.forEach(rec => {
+      try {
+        if (rec.originalValue) {
+          rec.el.style.setProperty(rec.property, rec.originalValue);
+        } else {
+          rec.el.style.removeProperty(rec.property);
+        }
+      } catch (e) {
+        console.warn('[ColorCustomizer] Failed to restore style:', e);
+      }
+    });
+    this._applied = [];
+  },
+
+  previewOne(el, property, value) {
+    if (el) el.style.setProperty(property, value, 'important');
+  },
+
+  removeRuleFromPage(selector, property) {
+    const elements = SelectorEngine.findAll(selector);
+    elements.forEach(el => {
+      el.style.removeProperty(property);
+    });
+  }
+};
+
+// =========================
+// ProfileManager
+// =========================
+const ProfileManager = {
+  _storageKey: 'userscripts:features:colorCustomizer:profiles',
+  _profiles: [],
+
+  async load() {
+    try {
+      const data = await RPC.call('storage.get', [this._storageKey, null]);
+      this._profiles = (data && Array.isArray(data)) ? data : [];
+    } catch (e) {
+      console.warn('[ColorCustomizer] Failed to load profiles:', e);
+      this._profiles = [];
+    }
+    return this._profiles;
+  },
+
+  async save() {
+    try {
+      await RPC.call('storage.set', [this._storageKey, this._profiles]);
+    } catch (e) {
+      console.error('[ColorCustomizer] Failed to save profiles:', e);
+    }
+  },
+
+  getProfiles() {
+    return this._profiles.slice();
+  },
+
+  async addProfile(name, colors) {
+    const profile = {
+      id: 'prof_' + Math.random().toString(36).slice(2, 10),
+      name: name || 'Untitled',
+      colors: colors || [{ value: '#3b82f6', name: '' }]
     };
-    
-    initWhenReady();
+    this._profiles.push(profile);
+    await this.save();
+    return profile;
   },
 
-  setup() {
-    console.log('[ColorCustomizer] Setting up UI');
-    this.createUI();
-    this.initEventListeners();
+  async updateProfile(id, name, colors) {
+    const p = this._profiles.find(x => x.id === id);
+    if (!p) return null;
+    p.name = name;
+    p.colors = colors;
+    await this.save();
+    return p;
   },
 
-  createUI() {
-    // Inject styles first
-    this.injectStyles();
-    
-    // Create tab
-    const tab = this.createElement('div', {
-      id: 'us-cc-tab',
-      'data-us-cc': 'tab'
-    });
-    
-    const tabIcon = this.createElement('div', { class: 'us-cc-tab-icon' });
-    const iconRow = this.createElement('div', { class: 'us-cc-tab-icon-row' });
-    const tabText = this.createElement('div', { class: 'us-cc-tab-text' }, 'ツール');
-    const tabSwatch = this.createElement('div', { class: 'us-cc-tab-swatch' });
-    
-    iconRow.appendChild(tabText);
-    iconRow.appendChild(tabSwatch);
-    tabIcon.appendChild(iconRow);
-    tab.appendChild(tabIcon);
-    
-    // Create backdrop
-    const backdrop = this.createElement('div', {
-      id: 'us-cc-backdrop',
-      'data-us-cc': 'backdrop'
-    });
-    
-    // Create panel
-    const panel = this.createElement('div', {
-      id: 'us-cc-panel',
-      'data-us-cc': 'panel'
-    });
-    
-    // Panel header
-    const header = this.createElement('div', { class: 'us-p-header' });
-    const title = this.createElement('div', { class: 'us-p-title' });
-    const titleEditor = this.createElement('span', { class: 'us-title-editor' }, 'Color ');
-    const titleNormal = document.createTextNode('Customizer');
-    title.appendChild(titleEditor);
-    title.appendChild(titleNormal);
-    
-    const version = this.createElement('div', { class: 'us-p-version' }, 'v2.0.7');
-    
-    // iOS-style toggle switch
-    const toggle = this.createElement('label', { class: 'us-switch us-p-header-toggle' });
-    const toggleInput = this.createElement('input', { type: 'checkbox' });
-    const slider = this.createElement('span', { class: 'us-slider' });
-    toggle.appendChild(toggleInput);
-    toggle.appendChild(slider);
-    
-    header.appendChild(title);
-    header.appendChild(version);
-    header.appendChild(toggle);
-    
-    // Panel content
-    const rules = this.createElement('div', { class: 'us-p-rules' });
-    const empty = this.createElement('div', { class: 'us-p-empty' }, 'カラールールはまだありません\n要素をクリックしてカスタマイズしましょう');
-    rules.appendChild(empty);
-    
-    // Panel footer
-    const footer = this.createElement('div', { class: 'us-p-footer' });
-    const footerRow = this.createElement('div', { class: 'us-p-footer-row' });
-    
-    const clearBtn = this.createElement('button', { class: 'us-btn us-btn-danger' }, '全削除');
-    const exportBtn = this.createElement('button', { class: 'us-btn us-btn-secondary' }, 'エクスポート');
-    const importBtn = this.createElement('button', { class: 'us-btn us-btn-secondary' }, 'インポート');
-    
-    footerRow.appendChild(clearBtn);
-    footerRow.appendChild(exportBtn);
-    footerRow.appendChild(importBtn);
-    footer.appendChild(footerRow);
-    
-    // Assemble panel
-    panel.appendChild(header);
-    panel.appendChild(rules);
-    panel.appendChild(footer);
-    
-    // Append to body
-    document.body.appendChild(tab);
-    document.body.appendChild(backdrop);
-    document.body.appendChild(panel);
-    
-    console.log('[ColorCustomizer] UI elements created and added to DOM');
+  async deleteProfile(id) {
+    this._profiles = this._profiles.filter(x => x.id !== id);
+    await this.save();
+  }
+};
+
+// =========================
+// EditMode
+// =========================
+const EditMode = {
+  active: false,
+  _highlighted: null,
+  _boundHover: null,
+  _boundClick: null,
+
+  enable() {
+    if (this.active) return;
+    this.active = true;
+    this._boundHover = e => this._onHover(e);
+    this._boundClick = e => this._onClick(e);
+    document.addEventListener('mouseover', this._boundHover, true);
+    document.addEventListener('mouseout', () => this._clearHighlight(), true);
+    document.addEventListener('click', this._boundClick, true);
+    Tab.setActive(true);
+    this._persist(true);
   },
 
-  createElement(tag, attrs = {}, text = '') {
-    const el = document.createElement(tag);
-    Object.entries(attrs).forEach(([key, value]) => {
-      if (key === 'class') {
-        el.className = value;
+  disable() {
+    if (!this.active) return;
+    this.active = false;
+    this._clearHighlight();
+    document.removeEventListener('mouseover', this._boundHover, true);
+    document.removeEventListener('click', this._boundClick, true);
+    this._boundHover = null;
+    this._boundClick = null;
+    Tab.setActive(false);
+    this._persist(false);
+  },
+
+  _isOurUI(el) {
+    return !!(el && el.closest && el.closest('[data-us-cc]'));
+  },
+
+  _onHover(e) {
+    if (!this.active) return;
+    const el = e.target;
+    if (this._isOurUI(el)) { 
+      this._clearHighlight(); 
+      return; 
+    }
+    if (el === this._highlighted) return;
+    this._clearHighlight();
+    el.classList.add('us-cc-highlight');
+    this._highlighted = el;
+  },
+
+  _onClick(e) {
+    if (!this.active) return;
+    const el = e.target;
+    if (this._isOurUI(el)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    this._clearHighlight();
+    console.log('[ColorCustomizer] Element clicked:', el.tagName, el.className);
+    try {
+      ColorPopover.show(el);
+    } catch (err) {
+      console.error('[ColorCustomizer] Popover show failed:', err);
+    }
+  },
+
+  _clearHighlight() {
+    if (this._highlighted) {
+      this._highlighted.classList.remove('us-cc-highlight');
+      this._highlighted = null;
+    }
+  },
+
+  async _persist(active) {
+    try {
+      await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode', active]);
+    } catch (e) {
+      console.error('[ColorCustomizer] Failed to save EditMode state:', e);
+    }
+  }
+};
+
+// =========================
+// ColorPopover
+// =========================
+const PROP_LIST = [
+  { key: 'background-color', label: '背景' },
+  { key: 'color', label: '文字' },
+  { key: 'border-color', label: 'ボーダー' }
+];
+
+const ColorPopover = {
+  el: null,
+  _currentTarget: null,
+
+  _create() {
+    if (this.el) return;
+    console.log('[ColorCustomizer] Creating popover DOM');
+
+    const propsContainer = h('div', { id: 'us-pop-props' });
+    PROP_LIST.forEach(p => {
+      const swatch = h('span', { 'data-role': 'preview-swatch', title: 'クリックで色を選択' });
+      swatch.style.setProperty('background', '#000000', 'important');
+      const input = h('input', { type: 'text', 'data-role': 'flexible', placeholder: '#000000' });
+      const rowMain = h('div.us-pop-prop-row-main', swatch, input);
+      propsContainer.appendChild(
+        h('div.us-pop-prop-row', { 'data-prop-key': p.key },
+          h('span.us-pop-prop-label', p.label),
+          rowMain
+        )
+      );
+    });
+
+    const pop = h('div', { id: 'us-cc-popover', 'data-us-cc': 'popover' },
+      h('span.us-pop-label', '要素'),
+      h('span.us-pop-selector-text', { id: 'us-pop-sel' }),
+      h('span.us-pop-label', 'プロパティ'),
+      propsContainer,
+      h('div.us-pop-actions',
+        h('button.us-pop-btn.us-pop-btn-cancel', { id: 'us-pop-cancel' }, '取消')
+      )
+    );
+    document.body.appendChild(pop);
+    this.el = pop;
+    this._bindEvents();
+  },
+
+  _bindEvents() {
+    const rows = this.el.querySelectorAll('.us-pop-prop-row');
+    rows.forEach(row => {
+      const flexible = row.querySelector('[data-role="flexible"]');
+      const previewSwatch = row.querySelector('[data-role="preview-swatch"]');
+      const propKey = row.getAttribute('data-prop-key');
+
+      const updatePreview = hexVal => {
+        if (previewSwatch && /^#[0-9a-fA-F]{6}$/.test(hexVal)) {
+          previewSwatch.style.setProperty('background', hexVal, 'important');
+        }
+      };
+
+      flexible.addEventListener('input', () => {
+        const value = flexible.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+          updatePreview(value);
+          this._previewOne(row);
+        }
+      });
+
+      flexible.addEventListener('blur', async () => {
+        const value = flexible.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+          await this._saveRule(propKey, value);
+        }
+      });
+    });
+
+    this.el.querySelector('#us-pop-cancel').addEventListener('click', () => this.hide());
+  },
+
+  show(el) {
+    this._create();
+    this._currentTarget = el;
+
+    const selector = SelectorEngine.generate(el);
+    this.el.querySelector('#us-pop-sel').textContent = selector;
+    this.el.querySelector('#us-pop-sel').title = selector;
+
+    const rows = this.el.querySelectorAll('.us-pop-prop-row');
+    rows.forEach(row => {
+      const propKey = row.getAttribute('data-prop-key');
+      const computed = getComputedStyle(el).getPropertyValue(propKey);
+      const hexVal = this._rgbToHex(computed);
+      row.querySelector('[data-role="flexible"]').value = hexVal;
+      const ps = row.querySelector('[data-role="preview-swatch"]');
+      if (ps) ps.style.setProperty('background', hexVal, 'important');
+    });
+
+    const rect = el.getBoundingClientRect();
+    const popW = 280;
+    const popH = 320;
+    let left = Math.min(rect.left, window.innerWidth - popW - 16);
+    let top = rect.bottom + 8;
+    if (top + popH > window.innerHeight) {
+      top = Math.max(8, rect.top - popH - 8);
+    }
+    left = Math.max(8, left);
+
+    this.el.style.setProperty('left', left + 'px', 'important');
+    this.el.style.setProperty('top', top + 'px', 'important');
+    this.el.classList.add('us-visible');
+  },
+
+  hide() {
+    if (this.el) this.el.classList.remove('us-visible');
+    this._currentTarget = null;
+  },
+
+  _previewOne(row) {
+    if (!this._currentTarget) return;
+    const key = row.getAttribute('data-prop-key');
+    const flexible = row.querySelector('[data-role="flexible"]');
+    const val = flexible && /^#[0-9a-fA-F]{6}$/.test(flexible.value) ? flexible.value : '';
+    StyleApplier.previewOne(this._currentTarget, key, val);
+  },
+
+  async _saveRule(prop, val) {
+    if (!this._currentTarget || !val) return;
+    const selector = SelectorEngine.generate(this._currentTarget);
+    if (selector) {
+      await RulesManager.addRule(selector, prop, val, 'inline');
+      Panel.refreshRules();
+    }
+  },
+
+  _rgbToHex(rgb) {
+    if (!rgb) return '#000000';
+    if (rgb.charAt(0) === '#') return rgb;
+    const m = rgb.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m) return '#000000';
+    return '#' + [m[1], m[2], m[3]].map(x => 
+      parseInt(x, 10).toString(16).padStart(2, '0')
+    ).join('');
+  }
+};
+
+// =========================
+// Tab
+// =========================
+const Tab = {
+  el: null,
+
+  create() {
+    if (this.el) return;
+    this.el = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' },
+      h('div.us-cc-tab-icon',
+        h('div.us-cc-tab-icon-row',
+          h('div.us-cc-tab-text', 'ツール'),
+          h('div.us-cc-tab-swatch')
+        )
+      )
+    );
+    
+    this.el.addEventListener('click', () => Panel.toggle());
+    document.body.appendChild(this.el);
+  },
+
+  setActive(active) {
+    if (this.el) {
+      this.el.classList.toggle('us-tab-active', active);
+    }
+  }
+};
+
+// =========================
+// Panel
+// =========================
+const Panel = {
+  el: null,
+  backdrop: null,
+  _open: false,
+
+  _create() {
+    if (this.el) return;
+
+    this.backdrop = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop' });
+    this.backdrop.addEventListener('click', () => this.close());
+
+    const header = h('div.us-p-header',
+      h('div.us-p-title',
+        h('span.us-title-editor', 'Color '),
+        'Customizer'
+      ),
+      h('div.us-p-version', 'v2.0.8'),
+      h('label.us-switch.us-p-header-toggle',
+        h('input', { type: 'checkbox', id: 'us-p-edit-toggle' }),
+        h('span.us-slider')
+      )
+    );
+
+    const rules = h('div.us-p-rules', { id: 'us-p-rules' },
+      h('span.us-p-empty', 'カラールールはまだありません\n要素をクリックしてカスタマイズしましょう')
+    );
+
+    const footer = h('div.us-p-footer',
+      h('div.us-p-footer-row',
+        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全削除'),
+        h('button.us-btn.us-btn-secondary', { id: 'us-p-export' }, 'エクスポート'),
+        h('button.us-btn.us-btn-secondary', { id: 'us-p-import' }, 'インポート')
+      )
+    );
+
+    this.el = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }, header, rules, footer);
+    
+    document.body.appendChild(this.backdrop);
+    document.body.appendChild(this.el);
+    this._bindEvents();
+  },
+
+  _bindEvents() {
+    // Toggle switch
+    this.el.querySelector('#us-p-edit-toggle').addEventListener('change', function() {
+      if (this.checked) {
+        EditMode.enable();
       } else {
-        el.setAttribute(key, value);
+        EditMode.disable();
       }
     });
-    if (text) el.textContent = text;
-    return el;
+
+    // Clear rules
+    this.el.querySelector('#us-p-clear').addEventListener('click', async () => {
+      await RulesManager.clearRules();
+      StyleApplier.clearAll();
+      this.refreshRules();
+    });
+
+    // Export
+    this.el.querySelector('#us-p-export').addEventListener('click', () => {
+      const data = {
+        version: '2.0.8',
+        exportedAt: new Date().toISOString(),
+        page: window.location.hostname + window.location.pathname,
+        rules: RulesManager.getRules(),
+        profiles: ProfileManager.getProfiles()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `color-customizer-${window.location.hostname}-${ts}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Import
+    this.el.querySelector('#us-p-import').addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.addEventListener('change', async () => {
+        const file = input.files[0];
+        if (!file) return;
+        
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          
+          let rulesCount = 0;
+          let profilesCount = 0;
+          
+          // Import rules
+          if (Array.isArray(data.rules)) {
+            for (const rule of data.rules) {
+              if (rule.selector && rule.property && rule.value) {
+                await RulesManager.addRule(rule.selector, rule.property, rule.value, rule.mode || 'inline');
+                rulesCount++;
+              }
+            }
+          }
+          
+          // Import profiles
+          if (Array.isArray(data.profiles)) {
+            for (const profile of data.profiles) {
+              if (profile.name && Array.isArray(profile.colors)) {
+                await ProfileManager.addProfile(profile.name, profile.colors);
+                profilesCount++;
+              }
+            }
+          }
+          
+          StyleApplier.clearAll();
+          StyleApplier.applyAll(RulesManager.getRules());
+          this.refreshRules();
+          
+          console.log(`[ColorCustomizer] Import complete: ${rulesCount} rules, ${profilesCount} profiles`);
+          alert(`インポート完了:\nルール: ${rulesCount}件\nプロファイル: ${profilesCount}件`);
+        } catch (e) {
+          console.error('[ColorCustomizer] Import failed:', e);
+          alert('インポートに失敗しました: ' + e.message);
+        }
+      });
+      input.click();
+    });
+
+    // Delete rules
+    this.el.querySelector('#us-p-rules').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-rule-idx]');
+      if (!btn) return;
+      const idx = parseInt(btn.getAttribute('data-rule-idx'), 10);
+      const rules = RulesManager.getRules();
+      const rule = rules[idx];
+      if (rule) {
+        await RulesManager.removeRule(idx);
+        StyleApplier.removeRuleFromPage(rule.selector, rule.property);
+        StyleApplier.clearAll();
+        StyleApplier.applyAll(RulesManager.getRules());
+        this.refreshRules();
+      }
+    });
   },
 
-  initEventListeners() {
-    const tab = document.getElementById('us-cc-tab');
-    const panel = document.getElementById('us-cc-panel');
-    const backdrop = document.getElementById('us-cc-backdrop');
-    const toggle = document.querySelector('#us-cc-panel .us-switch input');
+  open() {
+    this._create();
+    this.refreshRules();
+    this.el.querySelector('#us-p-edit-toggle').checked = EditMode.active;
     
-    if (!tab || !panel || !backdrop || !toggle) {
-      console.error('[ColorCustomizer] Required UI elements not found');
+    this.backdrop.style.display = 'block';
+    void this.backdrop.offsetWidth;
+    this.backdrop.classList.add('us-visible');
+    this.el.classList.add('us-open');
+    this._open = true;
+  },
+
+  close() {
+    if (this.el) this.el.classList.remove('us-open');
+    if (this.backdrop) this.backdrop.classList.remove('us-visible');
+    setTimeout(() => {
+      if (this.backdrop && !this._open) this.backdrop.style.display = 'none';
+    }, 250);
+    this._open = false;
+  },
+
+  toggle() {
+    if (this._open) {
+      this.close();
+    } else {
+      this.open();
+    }
+  },
+
+  refreshRules() {
+    if (!this.el) return;
+    const container = this.el.querySelector('#us-p-rules');
+    const rules = RulesManager.getRules();
+    
+    while (container.firstChild) container.removeChild(container.firstChild);
+
+    if (rules.length === 0) {
+      container.appendChild(h('span.us-p-empty', 'ルールがありません'));
       return;
     }
-    
-    // Tab click to toggle panel
-    tab.addEventListener('click', () => {
-      const isOpen = panel.classList.contains('us-open');
-      if (isOpen) {
-        this.closePanel();
-      } else {
-        this.openPanel();
-      }
-    });
-    
-    // Backdrop click to close
-    backdrop.addEventListener('click', () => {
-      this.closePanel();
-    });
-    
-    // Toggle switch for edit mode
-    toggle.addEventListener('change', (e) => {
-      if (e.target.checked) {
-        this.enableEditMode();
-      } else {
-        this.disableEditMode();
-      }
-    });
-    
-    console.log('[ColorCustomizer] Event listeners initialized');
-  },
 
-  openPanel() {
-    const panel = document.getElementById('us-cc-panel');
-    const backdrop = document.getElementById('us-cc-backdrop');
-    const tab = document.getElementById('us-cc-tab');
+    rules.forEach((r, i) => {
+      const shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
+      const swatch = h('span.us-rule-swatch');
+      swatch.style.setProperty('background', r.value, 'important');
+      container.appendChild(
+        h('div.us-rule-item',
+          swatch,
+          h('span.us-rule-info',
+            h('span.us-rule-selector', { title: r.selector }, shortSel),
+            h('span.us-rule-prop', r.property)
+          ),
+          h('button.us-rule-del', { 'data-rule-idx': String(i), title: '削除' }, '✕')
+        )
+      );
+    });
+  }
+};
+
+export default {
+  async init() {
+    console.log('[ColorCustomizer] Module initialized');
     
-    if (panel && backdrop && tab) {
-      panel.classList.add('us-open');
-      backdrop.classList.add('us-visible');
-      tab.classList.add('us-tab-active');
+export default {
+  async init() {
+    console.log('[ColorCustomizer] Module initialized');
+    
+    // Set global RPC reference from parent
+    if (window.RPC) {
+      RPC = window.RPC;
+    } else {
+      console.error('[ColorCustomizer] RPC not available');
+      return false;
     }
-  },
-
-  closePanel() {
-    const panel = document.getElementById('us-cc-panel');
-    const backdrop = document.getElementById('us-cc-backdrop');
-    const tab = document.getElementById('us-cc-tab');
     
-    if (panel && backdrop && tab) {
-      panel.classList.remove('us-open');
-      backdrop.classList.remove('us-visible');
-      tab.classList.remove('us-tab-active');
+    // Wait for DOM ready
+    if (document.readyState === 'loading') {
+      await new Promise(resolve => {
+        document.addEventListener('DOMContentLoaded', resolve);
+      });
     }
-  },
-
-  enableEditMode() {
-    console.log('[ColorCustomizer] Edit mode enabled');
-    const tab = document.getElementById('us-cc-tab');
-    if (tab) tab.classList.add('us-tab-active');
-  },
-
-  disableEditMode() {
-    console.log('[ColorCustomizer] Edit mode disabled');
-    const tab = document.getElementById('us-cc-tab');
-    if (tab) tab.classList.remove('us-tab-active');
+    
+    try {
+      // Initialize managers
+      await RulesManager.load();
+      await ProfileManager.load();
+      
+      // Create UI
+      this.injectStyles();
+      Tab.create();
+      
+      // Apply existing rules
+      StyleApplier.applyAll(RulesManager.getRules());
+      
+      // Restore edit mode state
+      const editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
+      if (editState) {
+        EditMode.enable();
+      }
+      
+      console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
+      return true;
+    } catch (e) {
+      console.error('[ColorCustomizer] Init failed:', e);
+      return false;
+    }
   },
 
   injectStyles() {
@@ -409,7 +992,85 @@ export default {
       '  background: rgba(255,255,255,0.6) !important; color: rgba(0,0,0,0.65) !important;',
       '  border: 1px solid rgba(255,255,255,0.5) !important; flex: 1 !important;',
       '}',
-      '#us-cc-panel .us-btn-secondary:hover { background: rgba(255,255,255,0.8) !important; color: rgba(0,0,0,0.85) !important; }'
+      '#us-cc-panel .us-btn-secondary:hover { background: rgba(255,255,255,0.8) !important; color: rgba(0,0,0,0.85) !important; }',
+      
+      /* ── Color Popover (Liquid Glass) ── */
+      '#us-cc-popover {',
+      '  all: initial !important; position: fixed !important;',
+      '  z-index: 2147483647 !important;',
+      '  background: rgba(255,255,255,0.2) !important;',
+      '  backdrop-filter: blur(24px) saturate(160%) !important; -webkit-backdrop-filter: blur(24px) saturate(160%) !important;',
+      '  border: 1px solid rgba(255,255,255,0.35) !important;',
+      '  border-radius: 12px !important; padding: 14px !important;',
+      '  width: 280px !important;',
+      '  overflow: visible !important;',
+      '  color: rgba(0,0,0,0.82) !important;',
+      '  font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 12px !important;',
+      '  box-shadow: 0 12px 40px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3) !important;',
+      '  display: none !important;',
+      '}',
+      '#us-cc-popover.us-visible { display: block !important; }',
+      '#us-cc-popover .us-pop-label {',
+      '  all: initial !important; display: block !important; font-family: inherit !important;',
+      '  font-size: 10px !important; font-weight: 600 !important; text-transform: uppercase !important;',
+      '  letter-spacing: 0.5px !important; color: rgba(0,0,0,0.45) !important;',
+      '  margin-bottom: 6px !important;',
+      '}',
+      '#us-cc-popover .us-pop-selector-text {',
+      '  all: initial !important; display: block !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 10px !important;',
+      '  color: rgba(0,0,0,0.5) !important; margin-bottom: 12px !important;',
+      '  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row {',
+      '  display: flex !important; flex-wrap: wrap !important; align-items: flex-start !important; gap: 0 !important;',
+      '  margin-bottom: 10px !important; padding: 4px 0 !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-label {',
+      '  all: initial !important; display: inline-block !important;',
+      '  width: 56px !important; flex-shrink: 0 !important; padding-top: 6px !important;',
+      '  font-family: inherit !important; font-size: 11px !important;',
+      '  color: rgba(0,0,0,0.6) !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row-main {',
+      '  display: flex !important; align-items: center !important; gap: 8px !important; flex: 1 !important; min-width: 0 !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row [data-role="preview-swatch"] {',
+      '  display: inline-block !important; width: 28px !important; height: 28px !important; flex-shrink: 0 !important; cursor: pointer !important;',
+      '  border: 1px solid rgba(0,0,0,0.12) !important; border-radius: 6px !important;',
+      '  transition: transform 0.1s, box-shadow 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row [data-role="preview-swatch"]:hover {',
+      '  transform: scale(1.08) !important; box-shadow: 0 0 8px rgba(0,0,0,0.15) !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row [data-role="flexible"] {',
+      '  all: initial !important; flex: 1 !important; min-width: 80px !important; text-align: center !important;',
+      '  padding: 4px 6px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important; font-size: 11px !important;',
+      '  color: rgba(0,0,0,0.75) !important;',
+      '  background: rgba(255,255,255,0.6) !important; border: 1px solid rgba(255,255,255,0.5) !important;',
+      '  border-radius: 4px !important; outline: none !important;',
+      '}',
+      '#us-cc-popover .us-pop-prop-row input[type="text"]:focus { border-color: rgba(59,130,246,0.5) !important; }',
+      '#us-cc-popover .us-pop-actions {',
+      '  display: flex !important; gap: 8px !important; justify-content: flex-end !important;',
+      '  margin-top: 10px !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn {',
+      '  all: initial !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;',
+      '  padding: 6px 14px !important; font-family: inherit !important; font-size: 11px !important; font-weight: 500 !important;',
+      '  border-radius: 6px !important; cursor: pointer !important; transition: filter 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn-cancel {',
+      '  background: rgba(255,255,255,0.6) !important; color: rgba(0,0,0,0.65) !important;',
+      '  border: 1px solid rgba(255,255,255,0.5) !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn-apply {',
+      '  background: rgba(59,130,246,0.25) !important; color: #2563eb !important;',
+      '  border: 1px solid rgba(59,130,246,0.35) !important;',
+      '}',
+      '#us-cc-popover .us-pop-btn-apply:hover { background: rgba(59,130,246,0.35) !important; }'
     ].join('\n');
   }
 };
