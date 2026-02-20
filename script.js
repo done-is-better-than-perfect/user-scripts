@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.0';
+var US_VERSION = '1.7.0-dev.1';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -589,8 +589,8 @@ var Styles = (function () {
       '#us-cc-panel .us-p-feature-row:hover { background: rgba(0,0,0,0.04) !important; }',
       '#us-cc-panel .us-p-feature-row:active { background: rgba(0,0,0,0.08) !important; }',
       '#us-cc-panel .us-p-feature-row .us-p-feature-icon {',
-      '  flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important;',
-      '  font-size: 10px !important; font-weight: 600 !important; color: rgba(0,0,0,0.55) !important; margin-right: 12px !important;',
+      '  flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 2px !important;',
+      '  width: 32px !important; min-width: 32px !important; font-size: 10px !important; font-weight: 600 !important; color: rgba(0,0,0,0.55) !important; margin-right: 12px !important;',
       '}',
       '#us-cc-panel .us-p-feature-row .us-p-feature-icon-swatch {',
       '  display: block !important; width: 24px !important; height: 3px !important; border-radius: 2px !important;',
@@ -1758,9 +1758,17 @@ var Panel = (function () {
       featureRight
     );
 
+    var switchLabelDataFiller = document.createElement('label');
+    switchLabelDataFiller.className = 'us-switch';
+    switchLabelDataFiller.setAttribute('data-us-cc', 'switch');
+    switchLabelDataFiller.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-dataFiller-toggle' }));
+    switchLabelDataFiller.appendChild(h('span.us-slider'));
     var dataFillerIcon = h('div.us-p-feature-icon', document.createTextNode('CSV'));
     var dataFillerLabel = h('span.us-p-feature-label', 'data', h('span.us-title-editor', 'Filler'));
-    var dataFillerRight = h('div.us-p-feature-right', h('span.us-p-feature-chevron', '\u203A'));
+    var dataFillerRight = h('div.us-p-feature-right',
+      switchLabelDataFiller,
+      h('span.us-p-feature-chevron', '\u203A')
+    );
     var dataFillerRow = h('div', { class: 'us-p-feature-row', 'data-feature': 'dataFiller' },
       dataFillerIcon,
       dataFillerLabel,
@@ -1969,8 +1977,13 @@ var Panel = (function () {
       }
       var dfRow = this._screenList.querySelector('[data-feature="dataFiller"]');
       if (dfRow) {
-        dfRow.addEventListener('click', function () { self._showDataFiller(); });
+        dfRow.addEventListener('click', function (e) {
+          if (e.target.closest('.us-switch')) return;
+          self._showDataFiller();
+        });
       }
+      var dfListToggle = this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
+      if (dfListToggle) dfListToggle.addEventListener('click', function (e) { e.stopPropagation(); });
       var listToggle = this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
       if (listToggle) {
         listToggle.addEventListener('click', function (e) { e.stopPropagation(); });
