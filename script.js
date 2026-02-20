@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.54';
+var US_VERSION = '1.6.55';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -493,9 +493,14 @@ var Styles = (function () {
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '  transform: translateY(47px) scale(0.7) !important; transform-origin: center center !important; }',
 
-      /* ── Edit-mode highlight ── */
+      /* ── Edit-mode highlight (未定義: 青 / 定義済み: 緑) ── */
       '.us-cc-highlight {',
       '  outline: 2px solid rgba(59,130,246,0.8) !important;',
+      '  outline-offset: 1px !important;',
+      '  cursor: crosshair !important;',
+      '}',
+      '.us-cc-highlight-defined {',
+      '  outline: 2px solid rgba(34,197,94,0.85) !important;',
       '  outline-offset: 1px !important;',
       '  cursor: crosshair !important;',
       '}',
@@ -549,6 +554,28 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-header-toggle {',
       '  margin-left: auto !important; flex-shrink: 0 !important;',
+      '}',
+
+      /* Rules list tabs */
+      '#us-cc-panel .us-p-tabs {',
+      '  display: flex !important; gap: 2px !important; padding: 8px 16px 6px !important; flex-shrink: 0 !important;',
+      '  border-bottom: 1px solid rgba(0,0,0,0.06) !important;',
+      '}',
+      '#us-cc-panel .us-p-tab-btn {',
+      '  all: initial !important; font-family: inherit !important; font-size: 12px !important;',
+      '  padding: 6px 12px !important; border-radius: 6px !important; cursor: pointer !important;',
+      '  color: rgba(0,0,0,0.55) !important; background: transparent !important;',
+      '  transition: background 0.15s, color 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-p-tab-btn:hover { color: rgba(0,0,0,0.75) !important; background: rgba(0,0,0,0.04) !important; }',
+      '#us-cc-panel .us-p-tab-btn.active {',
+      '  color: rgba(59,130,246,0.95) !important; font-weight: 600 !important;',
+      '  background: rgba(59,130,246,0.1) !important;',
+      '}',
+      '/* このページに存在するルールの行: 控えめな枠線強調 */',
+      '#us-cc-panel .us-rule-item.us-rule-item-exists {',
+      '  border-color: rgba(59,130,246,0.35) !important;',
+      '  box-shadow: 0 0 0 1px rgba(59,130,246,0.12) !important;',
       '}',
 
       /* iOS-style toggle switch */
@@ -990,6 +1017,9 @@ var EditMode = (function () {
     _highlighted: null,
     _boundHover: null,
     _boundClick: null,
+    _hoverPopoverTimer: null,
+    _hidePopoverTimer: null,
+    _popoverOpenedByHover: false,
     enable: function () {
       if (this.active) return;
       this.active = true;
@@ -1016,13 +1046,39 @@ var EditMode = (function () {
     _isOurUI: function (el) {
       return !!(el && el.closest && el.closest('[data-us-cc]'));
     },
+    _hasRuleForElement: function (el) {
+      var selector = SelectorEngine.generate(el);
+      if (!selector) return false;
+      var rules = RulesManager.getRules();
+      return rules.some(function (r) { return r.selector === selector; });
+    },
     _onHover: function (e) {
       if (!this.active) return;
       var el = e.target;
       if (this._isOurUI(el)) { this._clearHighlight(); return; }
       if (el === this._highlighted) return;
+      var self = this;
       this._clearHighlight();
-      el.classList.add('us-cc-highlight');
+      var hasRule = this._hasRuleForElement(el);
+      if (hasRule) {
+        el.classList.add('us-cc-highlight-defined');
+        this._hoverPopoverTimer = setTimeout(function () {
+          self._hoverPopoverTimer = null;
+          try {
+            ColorPopover.show(el);
+            self._popoverOpenedByHover = true;
+            if (ColorPopover.el) {
+              ColorPopover.el.addEventListener('mouseenter', function onPopoverEnter() {
+                clearTimeout(self._hidePopoverTimer);
+                self._hidePopoverTimer = null;
+                if (ColorPopover.el) ColorPopover.el.removeEventListener('mouseenter', onPopoverEnter);
+              });
+            }
+          } catch (err) { console.error('[ColorCustomizer] Popover show failed:', err); }
+        }, 400);
+      } else {
+        el.classList.add('us-cc-highlight');
+      }
       this._highlighted = el;
     },
     _onClick: function (e) {
@@ -1032,6 +1088,7 @@ var EditMode = (function () {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
+      this._popoverOpenedByHover = false;
       this._clearHighlight();
       console.log('[ColorCustomizer] Element clicked:', el.tagName, el.className);
       try {
@@ -1041,8 +1098,21 @@ var EditMode = (function () {
       }
     },
     _clearHighlight: function () {
+      if (this._hoverPopoverTimer) {
+        clearTimeout(this._hoverPopoverTimer);
+        this._hoverPopoverTimer = null;
+      }
       if (this._highlighted) {
         this._highlighted.classList.remove('us-cc-highlight');
+        this._highlighted.classList.remove('us-cc-highlight-defined');
+        if (this._popoverOpenedByHover) {
+          var self = this;
+          this._hidePopoverTimer = setTimeout(function () {
+            self._hidePopoverTimer = null;
+            ColorPopover.hide();
+            self._popoverOpenedByHover = false;
+          }, 300);
+        }
         this._highlighted = null;
       }
     },
@@ -1543,6 +1613,7 @@ var Panel = (function () {
   _open: false,
   _profileEditorEl: null,
   _editingProfileId: null,
+  _activeRulesTab: 'exists',
 
   _create: function () {
     if (this.el) return;
@@ -1560,12 +1631,15 @@ var Panel = (function () {
     switchLabel.appendChild(h('span.us-slider'));
 
     // Panel（トグルは「colorEditor v1.x.x」の右端、xボタン・Edit Modeラベルなし）
+    var tabExists = h('button.us-p-tab-btn', { id: 'us-p-tab-exists', type: 'button', 'data-tab': 'exists' }, 'このページに存在 (0)');
+    var tabOther = h('button.us-p-tab-btn', { id: 'us-p-tab-other', type: 'button', 'data-tab': 'other' }, 'その他 (0)');
     var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' },
       h('div.us-p-header',
         h('span.us-p-title', 'color', h('span.us-title-editor', 'Editor')),
         h('span.us-p-version', 'v' + US_VERSION),
         h('span.us-p-header-toggle', switchLabel)
       ),
+      h('div.us-p-tabs', tabExists, tabOther),
       h('div.us-p-rules', { id: 'us-p-rules' }),
       h('div.us-p-section-title', { 'data-us-cc': 'section' },
         h('span', 'カラープロファイル'),
@@ -1664,6 +1738,19 @@ var Panel = (function () {
       } else {
         EditMode.disable();
       }
+    });
+
+    this.el.querySelector('#us-p-tab-exists').addEventListener('click', function () {
+      self._activeRulesTab = 'exists';
+      self.el.querySelector('#us-p-tab-exists').classList.add('active');
+      self.el.querySelector('#us-p-tab-other').classList.remove('active');
+      self.refreshRules();
+    });
+    this.el.querySelector('#us-p-tab-other').addEventListener('click', function () {
+      self._activeRulesTab = 'other';
+      self.el.querySelector('#us-p-tab-other').classList.add('active');
+      self.el.querySelector('#us-p-tab-exists').classList.remove('active');
+      self.refreshRules();
     });
 
     this.el.querySelector('#us-p-clear').addEventListener('click', function () {
@@ -1899,24 +1986,53 @@ var Panel = (function () {
     while (container.firstChild) container.removeChild(container.firstChild);
 
     if (rules.length === 0) {
+      this.el.querySelector('#us-p-tab-exists').textContent = 'このページに存在 (0)';
+      this.el.querySelector('#us-p-tab-other').textContent = 'その他 (0)';
+      this.el.querySelector('#us-p-tab-exists').classList.add('active');
+      this.el.querySelector('#us-p-tab-other').classList.remove('active');
       container.appendChild(h('span.us-p-empty', 'ルールがありません'));
       return;
     }
 
-    rules.forEach(function (r, i) {
+    var self = this;
+    var withIndex = rules.map(function (r, i) { return { rule: r, idx: i }; });
+    var matching = [];
+    var other = [];
+    withIndex.forEach(function (w) {
+      try {
+        var el = SelectorEngine.find(w.rule.selector);
+        if (el) matching.push(w); else other.push(w);
+      } catch (e) { other.push(w); }
+    });
+    matching.sort(function (a, b) { return b.idx - a.idx; });
+    other.sort(function (a, b) { return b.idx - a.idx; });
+
+    this.el.querySelector('#us-p-tab-exists').textContent = 'このページに存在 (' + matching.length + ')';
+    this.el.querySelector('#us-p-tab-other').textContent = 'その他 (' + other.length + ')';
+    this.el.querySelector('#us-p-tab-exists').classList.toggle('active', self._activeRulesTab === 'exists');
+    this.el.querySelector('#us-p-tab-other').classList.toggle('active', self._activeRulesTab === 'other');
+
+    var list = self._activeRulesTab === 'exists' ? matching : other;
+    if (list.length === 0) {
+      container.appendChild(h('span.us-p-empty', self._activeRulesTab === 'exists' ? 'このページに該当するルールはありません' : 'その他のルールはありません'));
+      return;
+    }
+
+    list.forEach(function (w) {
+      var r = w.rule;
       var shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
       var swatch = h('span.us-rule-swatch');
       swatch.style.setProperty('background', r.value, 'important');
-      container.appendChild(
-        h('div.us-rule-item',
-          swatch,
-          h('span.us-rule-info',
-            h('span.us-rule-selector', { title: r.selector }, shortSel),
-            h('span.us-rule-prop', r.property)
-          ),
-          h('button.us-rule-del', { 'data-rule-idx': String(i), title: '削除' }, '✕')
-        )
+      var item = h('div.us-rule-item',
+        swatch,
+        h('span.us-rule-info',
+          h('span.us-rule-selector', { title: r.selector }, shortSel),
+          h('span.us-rule-prop', r.property)
+        ),
+        h('button.us-rule-del', { 'data-rule-idx': String(w.idx), title: '削除' }, '✕')
       );
+      if (self._activeRulesTab === 'exists') item.classList.add('us-rule-item-exists');
+      container.appendChild(item);
     });
   },
 
