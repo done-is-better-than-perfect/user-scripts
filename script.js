@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.61';
+var US_VERSION = '1.6.62';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -555,6 +555,39 @@ var Styles = (function () {
       '#us-cc-panel .us-p-header-toggle {',
       '  margin-left: auto !important; flex-shrink: 0 !important;',
       '}',
+
+      /* Two-level panel: list screen + detail screen (iOS style) */
+      '#us-cc-panel .us-p-screen {',
+      '  display: none !important; flex-direction: column !important; flex: 1 !important; min-height: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-screen.us-p-screen-visible { display: flex !important; }',
+      '#us-cc-panel .us-p-list-header {',
+      '  padding: 14px 16px 12px !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-list-header .us-p-title { font-size: 17px !important; font-weight: 600 !important; }',
+      '#us-cc-panel .us-p-feature-list { flex: 1 !important; overflow-y: auto !important; padding: 8px 0 !important; }',
+      '#us-cc-panel .us-p-feature-row {',
+      '  display: flex !important; align-items: center !important; min-height: 44px !important; padding: 0 16px !important;',
+      '  background: rgba(255,255,255,0.5) !important; border: none !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important;',
+      '  cursor: pointer !important; font-family: inherit !important; font-size: 16px !important; color: rgba(0,0,0,0.88) !important;',
+      '  text-align: left !important; width: 100% !important; transition: background 0.15s !important;',
+      '}',
+      '#us-cc-panel .us-p-feature-row:hover { background: rgba(0,0,0,0.04) !important; }',
+      '#us-cc-panel .us-p-feature-row:active { background: rgba(0,0,0,0.08) !important; }',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-label { flex: 1 !important; }',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-toggle { flex-shrink: 0 !important; margin-right: 4px !important; }',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-chevron {',
+      '  flex-shrink: 0 !important; color: rgba(0,0,0,0.35) !important; font-size: 14px !important;',
+      '}',
+      '#us-cc-panel .us-p-nav-back {',
+      '  all: initial !important; display: flex !important; align-items: center !important; gap: 4px !important;',
+      '  padding: 8px 0 !important; margin: 0 -4px 0 0 !important; cursor: pointer !important;',
+      '  font-family: inherit !important; font-size: 17px !important; color: rgba(59,130,246,0.95) !important;',
+      '  background: none !important; border: none !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-nav-back:hover { opacity: 0.85 !important; }',
+      '#us-cc-panel .us-p-detail-header { display: flex !important; align-items: center !important; gap: 8px !important; padding: 12px 16px !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important; flex-shrink: 0 !important; }',
+      '#us-cc-panel .us-p-detail-header .us-p-title { font-size: 15px !important; }',
 
       /* Rules list tabs */
       '#us-cc-panel .us-p-tabs {',
@@ -1628,30 +1661,47 @@ var Panel = (function () {
   _profileEditorEl: null,
   _editingProfileId: null,
   _activeRulesTab: 'exists',
+  _screenList: null,
+  _screenColorEditor: null,
 
   _create: function () {
     if (this.el) return;
 
-    // Backdrop
     var bd = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop', onclick: function () { Panel.close(); } });
     document.body.appendChild(bd);
     this.backdrop = bd;
 
-    // Switch label
-    var switchLabel = document.createElement('label');
-    switchLabel.className = 'us-switch';
-    switchLabel.setAttribute('data-us-cc', 'switch');
-    switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-edit-toggle' }));
-    switchLabel.appendChild(h('span.us-slider'));
+    var switchLabelList = document.createElement('label');
+    switchLabelList.className = 'us-switch';
+    switchLabelList.setAttribute('data-us-cc', 'switch');
+    switchLabelList.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-colorEditor-toggle' }));
+    switchLabelList.appendChild(h('span.us-slider'));
 
-    // Panel（トグルは「colorEditor v1.x.x」の右端、xボタン・Edit Modeラベルなし）
+    var featureRow = h('div', { class: 'us-p-feature-row', 'data-feature': 'colorEditor' },
+      h('span.us-p-feature-label', 'colorEditor'),
+      h('span.us-p-feature-toggle', switchLabelList),
+      h('span.us-p-feature-chevron', '\u203A')
+    );
+
+    var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
+      h('div.us-p-list-header', h('span.us-p-title', '設定')),
+      h('div.us-p-feature-list', featureRow)
+    );
+
+    var switchLabelEdit = document.createElement('label');
+    switchLabelEdit.className = 'us-switch';
+    switchLabelEdit.setAttribute('data-us-cc', 'switch');
+    switchLabelEdit.appendChild(h('input', { type: 'checkbox', id: 'us-p-edit-toggle' }));
+    switchLabelEdit.appendChild(h('span.us-slider'));
+
     var tabExists = h('button.us-p-tab-btn', { id: 'us-p-tab-exists', type: 'button', 'data-tab': 'exists' }, 'このページに存在 (0)');
     var tabOther = h('button.us-p-tab-btn', { id: 'us-p-tab-other', type: 'button', 'data-tab': 'other' }, 'その他 (0)');
-    var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' },
-      h('div.us-p-header',
+    var screenColorEditor = h('div', { class: 'us-p-screen', 'data-us-cc': 'screen-colorEditor' },
+      h('div.us-p-detail-header',
+        h('button.us-p-nav-back', { type: 'button' }, '\u2039 \u8a2d\u5b9a'),
         h('span.us-p-title', 'color', h('span.us-title-editor', 'Editor')),
         h('span.us-p-version', 'v' + US_VERSION),
-        h('span.us-p-header-toggle', switchLabel)
+        h('span.us-p-header-toggle', switchLabelEdit)
       ),
       h('div.us-p-tabs', tabExists, tabOther),
       h('div.us-p-rules', { id: 'us-p-rules' }),
@@ -1669,12 +1719,29 @@ var Panel = (function () {
         h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア')
       )
     );
+
+    var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }, screenList, screenColorEditor);
     document.body.appendChild(p);
     this.el = p;
+    this._screenList = screenList;
+    this._screenColorEditor = screenColorEditor;
 
     this._ensureImportToast();
-
     this._bindEvents();
+  },
+
+  _showList: function () {
+    if (this._screenList) this._screenList.classList.add('us-p-screen-visible');
+    if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
+  },
+
+  _showColorEditor: function () {
+    if (this._screenList) this._screenList.classList.remove('us-p-screen-visible');
+    if (this._screenColorEditor) this._screenColorEditor.classList.add('us-p-screen-visible');
+    this.refreshRules();
+    this.refreshProfiles();
+    var editToggle = this._screenColorEditor && this._screenColorEditor.querySelector('#us-p-edit-toggle');
+    if (editToggle) editToggle.checked = EditMode.active;
   },
 
   _ensureImportToast: function () {
@@ -1733,7 +1800,26 @@ var Panel = (function () {
     var self = this;
     var closeTimer = null;
 
-    // 設定パネルから mouseOut 後 0.5秒で閉じる（プロファイル色・カラーチップポップ表示中は閉じない）
+    if (this._screenList) {
+      var row = this._screenList.querySelector('[data-feature="colorEditor"]');
+      if (row) {
+        row.addEventListener('click', function (e) {
+          if (e.target.closest('.us-switch')) return;
+          self._showColorEditor();
+        });
+      }
+      var listToggle = this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
+      if (listToggle) {
+        listToggle.addEventListener('click', function (e) { e.stopPropagation(); });
+        listToggle.checked = true;
+      }
+    }
+
+    if (this._screenColorEditor) {
+      var backBtn = this._screenColorEditor.querySelector('.us-p-nav-back');
+      if (backBtn) backBtn.addEventListener('click', function () { self._showList(); });
+    }
+
     this.el.addEventListener('mouseleave', function () {
       closeTimer = setTimeout(function () {
         if (ProfileColorPopover.backdrop && ProfileColorPopover.backdrop.classList.contains('us-visible')) return;
@@ -1745,7 +1831,8 @@ var Panel = (function () {
       if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
     });
 
-    this.el.querySelector('#us-p-edit-toggle').addEventListener('change', function () {
+    var editToggleEl = this.el.querySelector('#us-p-edit-toggle');
+    if (editToggleEl) editToggleEl.addEventListener('change', function () {
       if (this.checked) {
         EditMode.enable();
         self.close();
@@ -1973,9 +2060,7 @@ var Panel = (function () {
 
   open: function () {
     this._create();
-    this.refreshRules();
-    this.refreshProfiles();
-    this.el.querySelector('#us-p-edit-toggle').checked = EditMode.active;
+    this._showList();
 
     this.backdrop.style.display = 'block';
     void this.backdrop.offsetWidth;
@@ -1992,6 +2077,7 @@ var Panel = (function () {
     }, 250);
     this._open = false;
     this._activeRulesTab = 'exists';
+    this._showList();
   },
 
   refreshRules: async function () {
