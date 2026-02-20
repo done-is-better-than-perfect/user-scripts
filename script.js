@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.56';
+var US_VERSION = '1.6.57';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -1075,7 +1075,7 @@ var EditMode = (function () {
               });
             }
           } catch (err) { console.error('[ColorCustomizer] Popover show failed:', err); }
-        }, 400);
+        }, 250);
       } else {
         el.classList.add('us-cc-highlight');
       }
@@ -1300,16 +1300,18 @@ var PopoversModule = (function () {
       };
     }
 
-    // Position near element
+    // Position near element: prefer below, horizontally centered on element (clamped to viewport)
     var rect = el.getBoundingClientRect();
     var popW = 280;
     var popH = 320;
-    var left = Math.min(rect.left, window.innerWidth - popW - 16);
-    var top = rect.bottom + 8;
-    if (top + popH > window.innerHeight) {
-      top = Math.max(8, rect.top - popH - 8);
+    var gap = 8;
+    var left = rect.left + (rect.width / 2) - (popW / 2);
+    left = Math.max(gap, Math.min(left, window.innerWidth - popW - gap));
+    var top = rect.bottom + gap;
+    if (top + popH > window.innerHeight - gap) {
+      top = rect.top - popH - gap;
     }
-    left = Math.max(8, left);
+    if (top < gap) top = gap;
 
     this.el.style.setProperty('left', left + 'px', 'important');
     this.el.style.setProperty('top', top + 'px', 'important');
@@ -1977,15 +1979,36 @@ var Panel = (function () {
       if (Panel.backdrop && !Panel._open) Panel.backdrop.style.display = 'none';
     }, 250);
     this._open = false;
+    this._activeRulesTab = 'exists';
   },
 
-  refreshRules: function () {
+  refreshRules: async function () {
     if (!this.el) return;
     var container = this.el.querySelector('#us-p-rules');
     var rules = RulesManager.getRules();
+    var self = this;
+
+    var currentPageKey = 'userscripts:features:colorCustomizer:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
+    var hostPrefix = 'userscripts:features:colorCustomizer:page:' + encodeURIComponent(window.location.hostname);
+    var otherPagesRules = [];
+    try {
+      var byPrefix = await RPC.call('storage.getAllByPrefix', [hostPrefix]);
+      if (byPrefix && typeof byPrefix === 'object') {
+        Object.keys(byPrefix).forEach(function (k) {
+          if (k === currentPageKey) return;
+          var val = byPrefix[k];
+          if (val && Array.isArray(val.rules)) {
+            val.rules.forEach(function (r) {
+              otherPagesRules.push({ rule: r, idx: -1 });
+            });
+          }
+        });
+      }
+    } catch (e) { console.warn('[ColorCustomizer] getAllByPrefix failed:', e); }
+
     while (container.firstChild) container.removeChild(container.firstChild);
 
-    if (rules.length === 0) {
+    if (rules.length === 0 && otherPagesRules.length === 0) {
       this.el.querySelector('#us-p-tab-exists').textContent = 'このページに存在 (0)';
       this.el.querySelector('#us-p-tab-other').textContent = 'その他 (0)';
       this.el.querySelector('#us-p-tab-exists').classList.add('active');
@@ -1994,7 +2017,6 @@ var Panel = (function () {
       return;
     }
 
-    var self = this;
     var withIndex = rules.map(function (r, i) { return { rule: r, idx: i }; });
     var matching = [];
     var other = [];
@@ -2006,6 +2028,7 @@ var Panel = (function () {
     });
     matching.sort(function (a, b) { return b.idx - a.idx; });
     other.sort(function (a, b) { return b.idx - a.idx; });
+    other = other.concat(otherPagesRules);
 
     this.el.querySelector('#us-p-tab-exists').textContent = 'このページに存在 (' + matching.length + ')';
     this.el.querySelector('#us-p-tab-other').textContent = 'その他 (' + other.length + ')';
@@ -2023,13 +2046,14 @@ var Panel = (function () {
       var shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
       var swatch = h('span.us-rule-swatch');
       swatch.style.setProperty('background', r.value, 'important');
+      var canDelete = w.idx >= 0;
       var item = h('div.us-rule-item',
         swatch,
         h('span.us-rule-info',
           h('span.us-rule-selector', { title: r.selector }, shortSel),
           h('span.us-rule-prop', r.property)
         ),
-        h('button.us-rule-del', { 'data-rule-idx': String(w.idx), title: '削除' }, '✕')
+        canDelete ? h('button.us-rule-del', { 'data-rule-idx': String(w.idx), title: '削除' }, '✕') : null
       );
       if (self._activeRulesTab === 'exists') item.classList.add('us-rule-item-exists');
       container.appendChild(item);
