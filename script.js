@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.11';
+var US_VERSION = '1.7.0-dev.12';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -711,6 +711,10 @@ var Styles = (function () {
       '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 14px !important;',
       '}',
       '#us-cc-panel .us-p-df-step-del:hover { background: rgba(0,0,0,0.06) !important; color: rgba(0,0,0,0.8) !important; }',
+      '#us-cc-panel .us-p-df-step-duplicate { border-left: 3px solid rgba(255,149,0,0.8) !important; }',
+      '#us-cc-panel .us-p-df-step-dup-badge { flex-shrink: 0 !important; padding: 2px 6px !important; border-radius: 4px !important; background: rgba(255,149,0,0.2) !important; font-size: 10px !important; color: rgba(200,100,0,0.95) !important; }',
+      '#us-cc-panel .us-p-df-other-head { padding: 8px 0 4px 0 !important; font-size: 11px !important; color: rgba(0,0,0,0.5) !important; border-bottom: 1px solid rgba(0,0,0,0.08) !important; margin-bottom: 4px !important; }',
+      '#us-cc-panel .us-p-df-step-other .us-p-df-step-del { display: none !important; }',
       '#us-cc-panel #us-p-df-empty { padding: 24px 16px !important; text-align: center !important; color: rgba(0,0,0,0.45) !important; font-size: 13px !important; }',
 
       '/* DataFiller logical name prompt (Liquid Glass) */',
@@ -1778,6 +1782,7 @@ var Panel = (function () {
   _profileEditorEl: null,
   _editingProfileId: null,
   _activeRulesTab: 'exists',
+  _activeDataFillerTab: 'page',
   _screenList: null,
   _screenColorEditor: null,
 
@@ -1885,6 +1890,8 @@ var Panel = (function () {
     dfCaptureLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-capture-toggle' }));
     dfCaptureLabel.appendChild(h('span.us-slider'));
     var dfDetailIcon = h('div.us-p-detail-icon', document.createTextNode('CSV'));
+    var dfTabPage = h('button.us-p-tab-btn.active', { id: 'us-p-df-tab-page', type: 'button', 'data-df-tab': 'page' }, 'このページ (0)');
+    var dfTabOther = h('button.us-p-tab-btn', { id: 'us-p-df-tab-other', type: 'button', 'data-df-tab': 'other' }, 'その他 (0)');
     var screenDataFiller = h('div', { class: 'us-p-screen', 'data-us-cc': 'screen-dataFiller' },
       h('div.us-p-detail-header',
         h('div.us-p-detail-header-row',
@@ -1900,6 +1907,7 @@ var Panel = (function () {
           dfCaptureLabel
         )
       ),
+      h('div.us-p-tabs', dfTabPage, dfTabOther),
       h('div.us-p-section-title', { 'data-us-cc': 'section' },
         h('span', 'フォーム要素（クリックで追加）'),
         h('button', { id: 'us-p-df-template-dl', title: 'CSVテンプレートをダウンロード', class: 'us-p-df-template-btn' }, '\u2B07')
@@ -1943,6 +1951,7 @@ var Panel = (function () {
     if (this._screenList) this._screenList.classList.remove('us-p-screen-visible');
     if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
     if (this._screenDataFiller) this._screenDataFiller.classList.add('us-p-screen-visible');
+    this._activeDataFillerTab = 'page';
     DataFiller.load().then(function () { Panel.refreshDataFillerSteps(); });
     var listDfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
     var mainToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-main-toggle');
@@ -1951,29 +1960,110 @@ var Panel = (function () {
     if (capToggle) capToggle.checked = DataFiller.captureMode;
   },
 
-  refreshDataFillerSteps: function () {
+  refreshDataFillerSteps: async function () {
     if (!this._screenDataFiller) return;
-    var container = this._screenDataFiller.querySelector('#us-p-df-steps');
     var emptyEl = this._screenDataFiller.querySelector('#us-p-df-empty');
-    if (!container) return;
-    while (container.firstChild) container.removeChild(container.firstChild);
-    var steps = DataFiller.getSteps();
-    if (emptyEl) emptyEl.style.display = steps.length ? 'none' : 'block';
+    var stepsEl = this._screenDataFiller.querySelector('#us-p-df-steps');
+    var tabPage = this._screenDataFiller.querySelector('#us-p-df-tab-page');
+    var tabOther = this._screenDataFiller.querySelector('#us-p-df-tab-other');
+    if (!stepsEl) return;
     var self = this;
-    steps.forEach(function (step, i) {
-      var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
-      var row = h('div.us-p-df-step',
-        h('span.us-p-df-step-type', step.type),
-        h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
-        h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
-        h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(i), title: '削除' }, '\u2715')
-      );
-      row.querySelector('.us-p-df-step-del').addEventListener('click', function () {
-        DataFiller.removeStep(i);
-        self.refreshDataFillerSteps();
+    var currentKey = 'userscripts:features:dataFiller:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
+    var hostname = window.location.hostname;
+    var prefix = 'userscripts:features:dataFiller:page:';
+
+    var thisPageSteps = (DataFiller.getSteps() || []).map(function (step, i) { return { step: step, originalIndex: i }; });
+    thisPageSteps.sort(function (a, b) { return (a.step.xpath || '').localeCompare(b.step.xpath || ''); });
+
+    var otherPages = [];
+    try {
+      var byPrefix = await RPC.call('storage.getAllByPrefix', [prefix]);
+      if (byPrefix && typeof byPrefix === 'object') {
+        Object.keys(byPrefix).forEach(function (k) {
+          if (k === currentKey) return;
+          var decoded = '';
+          try { decoded = decodeURIComponent(k.slice(prefix.length)); } catch (e) { return; }
+          if (decoded !== hostname && decoded.indexOf(hostname + '/') !== 0) return;
+          var val = byPrefix[k];
+          if (!val || !Array.isArray(val.steps)) return;
+          var pagePath = decoded === hostname ? '/' : decoded.slice(hostname.length) || '/';
+          var list = val.steps.map(function (s) { return { step: s }; });
+          list.sort(function (a, b) { return (a.step.xpath || '').localeCompare(b.step.xpath || ''); });
+          otherPages.push({ pagePath: pagePath, steps: list });
+        });
+      }
+    } catch (e) { console.warn('[DataFiller] getAllByPrefix failed:', e); }
+    otherPages.sort(function (a, b) { return (a.pagePath || '').localeCompare(b.pagePath || ''); });
+
+    var otherCount = otherPages.reduce(function (sum, g) { return sum + g.steps.length; }, 0);
+    if (tabPage) tabPage.textContent = 'このページ (' + thisPageSteps.length + ')';
+    if (tabOther) tabOther.textContent = 'その他 (' + otherCount + ')';
+    if (tabPage) tabPage.classList.toggle('active', self._activeDataFillerTab === 'page');
+    if (tabOther) tabOther.classList.toggle('active', self._activeDataFillerTab === 'other');
+
+    while (stepsEl.firstChild) stepsEl.removeChild(stepsEl.firstChild);
+
+    function xpathCounts(list) {
+      var counts = {};
+      list.forEach(function (w) {
+        var x = (w.step && w.step.xpath) || '';
+        counts[x] = (counts[x] || 0) + 1;
       });
-      container.appendChild(row);
-    });
+      return counts;
+    }
+
+    if (self._activeDataFillerTab === 'page') {
+      if (emptyEl) emptyEl.style.display = thisPageSteps.length ? 'none' : 'block';
+      var counts = xpathCounts(thisPageSteps);
+      thisPageSteps.forEach(function (w) {
+        var step = w.step;
+        var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
+        var isDup = (counts[step.xpath] || 0) > 1;
+        var row = h('div.us-p-df-step' + (isDup ? ' us-p-df-step-duplicate' : ''),
+          h('span.us-p-df-step-type', step.type),
+          isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
+          h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+          h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
+          h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(w.originalIndex), title: '削除' }, '\u2715')
+        );
+        var delBtn = row.querySelector('.us-p-df-step-del');
+        if (delBtn) delBtn.addEventListener('click', function () {
+          DataFiller.removeStep(w.originalIndex);
+          self.refreshDataFillerSteps();
+        });
+        stepsEl.appendChild(row);
+      });
+    } else {
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (otherCount === 0) {
+        stepsEl.appendChild(h('span.us-p-empty', '同じドメインの他ページの定義はありません'));
+        return;
+      }
+      var allOther = [];
+      otherPages.forEach(function (g) {
+        g.steps.forEach(function (w) { allOther.push({ step: w.step, pagePath: g.pagePath }); });
+      });
+      var otherCounts = {};
+      allOther.forEach(function (w) {
+        var x = (w.step && w.step.xpath) || '';
+        otherCounts[x] = (otherCounts[x] || 0) + 1;
+      });
+      otherPages.forEach(function (g) {
+        stepsEl.appendChild(h('div.us-p-df-other-head', g.pagePath));
+        g.steps.forEach(function (w) {
+          var step = w.step;
+          var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
+          var isDup = (otherCounts[step.xpath] || 0) > 1;
+          var row = h('div.us-p-df-step.us-p-df-step-other' + (isDup ? ' us-p-df-step-duplicate' : ''),
+            h('span.us-p-df-step-type', step.type),
+            isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
+            h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+            h('span.us-p-df-step-xpath', { title: step.xpath }, shortX)
+          );
+          stepsEl.appendChild(row);
+        });
+      });
+    }
   },
 
   _ensureImportToast: function () {
@@ -2079,6 +2169,20 @@ var Panel = (function () {
       });
       var dfTemplateDl = this._screenDataFiller.querySelector('#us-p-df-template-dl');
       if (dfTemplateDl) dfTemplateDl.addEventListener('click', function () { DataFiller.exportCSVTemplate(); });
+      var dfTabPage = this._screenDataFiller.querySelector('#us-p-df-tab-page');
+      var dfTabOther = this._screenDataFiller.querySelector('#us-p-df-tab-other');
+      if (dfTabPage) dfTabPage.addEventListener('click', function () {
+        self._activeDataFillerTab = 'page';
+        dfTabPage.classList.add('active');
+        if (dfTabOther) dfTabOther.classList.remove('active');
+        self.refreshDataFillerSteps();
+      });
+      if (dfTabOther) dfTabOther.addEventListener('click', function () {
+        self._activeDataFillerTab = 'other';
+        dfTabOther.classList.add('active');
+        if (dfTabPage) dfTabPage.classList.remove('active');
+        self.refreshDataFillerSteps();
+      });
     }
 
     this.el.addEventListener('mouseleave', function () {
