@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.13';
+var US_VERSION = '1.7.0-dev.14';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -1983,8 +1983,13 @@ var Panel = (function () {
       }
       return 0;
     }
+    /* 重複も含め XPath 階層でソートする（重複を下に固めない＝同じ XPath が隣同士になりどこと重複か分かりやすい） */
     var thisPageSteps = (DataFiller.getSteps() || []).map(function (step, i) { return { step: step, originalIndex: i }; });
-    thisPageSteps.sort(function (a, b) { return compareXPathByHierarchy(a.step.xpath, b.step.xpath); });
+    thisPageSteps.sort(function (a, b) {
+      var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
+      if (c !== 0) return c;
+      return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
+    });
 
     var otherPages = [];
     try {
@@ -1999,7 +2004,11 @@ var Panel = (function () {
           if (!val || !Array.isArray(val.steps)) return;
           var pagePath = decoded === hostname ? '/' : decoded.slice(hostname.length) || '/';
           var list = val.steps.map(function (s) { return { step: s }; });
-          list.sort(function (a, b) { return compareXPathByHierarchy(a.step.xpath, b.step.xpath); });
+          list.sort(function (a, b) {
+            var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
+            if (c !== 0) return c;
+            return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
+          });
           otherPages.push({ pagePath: pagePath, steps: list });
         });
       }
