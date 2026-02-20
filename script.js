@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.66';
+var US_VERSION = '1.6.67';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -468,7 +468,7 @@ var Styles = (function () {
       '  cursor: pointer !important; padding: 6px 0 !important; overflow: visible !important;',
       '}',
       '#us-cc-tab .us-cc-tab-gear {',
-      '  color: rgba(0,0,0,0.55) !important; font-size: 22px !important; line-height: 1 !important;',
+      '  color: rgba(0,0,0,0.55) !important; font-size: 30px !important; line-height: 1 !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
       '}',
       '#us-cc-tab .us-cc-tab-icon:hover .us-cc-tab-gear { color: rgba(0,0,0,0.75) !important; }',
@@ -553,7 +553,11 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-screen.us-p-screen-visible { display: flex !important; }',
       '#us-cc-panel .us-p-list-header {',
+      '  display: flex !important; align-items: center !important; gap: 10px !important;',
       '  padding: 14px 16px 12px !important; border-bottom: 1px solid rgba(0,0,0,0.06) !important; flex-shrink: 0 !important;',
+      '}',
+      '#us-cc-panel .us-p-list-header .us-p-list-header-gear {',
+      '  font-size: 20px !important; line-height: 1 !important; color: rgba(0,0,0,0.5) !important;',
       '}',
       '#us-cc-panel .us-p-list-header .us-p-title { font-size: 17px !important; font-weight: 600 !important; }',
       '#us-cc-panel .us-p-feature-list { flex: 1 !important; overflow-y: auto !important; padding: 8px 0 !important; }',
@@ -1711,7 +1715,10 @@ var Panel = (function () {
     );
 
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
-      h('div.us-p-list-header', h('span.us-p-title', '設定')),
+      h('div.us-p-list-header',
+        h('span.us-p-list-header-gear', { 'aria-hidden': 'true' }, '\u2699'),
+        h('span.us-p-title', '設定')
+      ),
       h('div.us-p-feature-list', featureRow)
     );
 
