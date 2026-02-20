@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.2';
+var US_VERSION = '1.7.0-dev.3';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -712,6 +712,43 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-df-step-del:hover { background: rgba(0,0,0,0.06) !important; color: rgba(0,0,0,0.8) !important; }',
       '#us-cc-panel #us-p-df-empty { padding: 24px 16px !important; text-align: center !important; color: rgba(0,0,0,0.45) !important; font-size: 13px !important; }',
+
+      '/* DataFiller logical name prompt (Liquid Glass) */',
+      '.us-df-prompt-backdrop {',
+      '  position: fixed !important; inset: 0 !important; z-index: 2147483648 !important;',
+      '  display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  background: rgba(0,0,0,0.2) !important;',
+      '  backdrop-filter: blur(12px) saturate(120%) !important; -webkit-backdrop-filter: blur(12px) saturate(120%) !important;',
+      '  opacity: 0 !important; transition: opacity 0.2s ease !important;',
+      '}',
+      '.us-df-prompt-backdrop.us-df-prompt-visible { opacity: 1 !important; }',
+      '.us-df-prompt-box {',
+      '  min-width: 280px !important; max-width: 90vw !important; padding: 20px !important;',
+      '  background: rgba(255,255,255,0.92) !important;',
+      '  backdrop-filter: blur(24px) saturate(180%) !important; -webkit-backdrop-filter: blur(24px) saturate(180%) !important;',
+      '  border-radius: 14px !important; border: 1px solid rgba(255,255,255,0.5) !important;',
+      '  box-shadow: 0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8) !important;',
+      '  font-family: system-ui, -apple-system, sans-serif !important;',
+      '}',
+      '.us-df-prompt-title { font-size: 15px !important; font-weight: 600 !important; color: rgba(0,0,0,0.85) !important; margin-bottom: 12px !important; }',
+      '.us-df-prompt-input {',
+      '  display: block !important; width: 100% !important; box-sizing: border-box !important;',
+      '  padding: 10px 12px !important; margin-bottom: 16px !important;',
+      '  font-size: 15px !important; line-height: 1.4 !important; color: rgba(0,0,0,0.88) !important;',
+      '  border: 1px solid rgba(0,0,0,0.15) !important; border-radius: 8px !important;',
+      '  background: rgba(255,255,255,0.9) !important;',
+      '}',
+      '.us-df-prompt-input:focus { outline: none !important; border-color: rgba(59,130,246,0.5) !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important; }',
+      '.us-df-prompt-actions { display: flex !important; justify-content: flex-end !important; gap: 10px !important; }',
+      '.us-df-prompt-btn {',
+      '  padding: 8px 18px !important; font-size: 15px !important; font-weight: 500 !important;',
+      '  border-radius: 8px !important; border: none !important; cursor: pointer !important;',
+      '  font-family: inherit !important;',
+      '}',
+      '.us-df-prompt-cancel { background: rgba(0,0,0,0.06) !important; color: rgba(0,0,0,0.75) !important; }',
+      '.us-df-prompt-cancel:hover { background: rgba(0,0,0,0.1) !important; }',
+      '.us-df-prompt-ok { background: rgba(59,130,246,0.9) !important; color: #fff !important; }',
+      '.us-df-prompt-ok:hover { background: rgba(59,130,246,1) !important; }',
       '#us-cc-panel .us-p-empty {',
       '  all: initial !important; display: block !important; font-family: inherit !important;',
       '  text-align: center !important; color: rgba(0,0,0,0.45) !important;',
@@ -2453,6 +2490,46 @@ var DataFiller = (function () {
     return 'unknown';
   }
 
+  function getLabelNearElement(el) {
+    if (!el || !el.ownerDocument) return '';
+    var doc = el.ownerDocument;
+    var maxLen = 80;
+    function trim(s) {
+      if (typeof s !== 'string') return '';
+      return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
+    }
+    var id = el.id;
+    if (id) {
+      try {
+        var labelFor = doc.querySelector('label[for="' + id.replace(/"/g, '\\"') + '"]');
+        if (labelFor && labelFor.textContent) return trim(labelFor.textContent);
+      } catch (e) {}
+    }
+    var aria = el.getAttribute('aria-label');
+    if (aria) return trim(aria);
+    if (el.placeholder) return trim(el.placeholder);
+    if (el.title) return trim(el.title);
+    var parent = el.parentNode;
+    if (parent && parent.tagName && parent.tagName.toLowerCase() === 'label') {
+      var clone = parent.cloneNode(true);
+      var input = clone.querySelector('input, select, textarea');
+      if (input) input.remove();
+      if (clone.textContent) return trim(clone.textContent);
+    }
+    var prev = el.previousElementSibling;
+    if (prev) {
+      var prevTag = prev.tagName ? prev.tagName.toLowerCase() : '';
+      if (prevTag === 'label' && prev.textContent) return trim(prev.textContent);
+      if (prev.textContent && prev.textContent.length < maxLen) return trim(prev.textContent);
+    }
+    if (parent) {
+      var first = parent.firstChild;
+      while (first && first.nodeType !== Node.TEXT_NODE) first = first.nextSibling;
+      if (first && first.textContent) return trim(first.textContent);
+    }
+    return '';
+  }
+
   function _storageKey() {
     return 'userscripts:features:dataFiller:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
   }
@@ -2485,17 +2562,80 @@ var DataFiller = (function () {
       }
     },
 
+    _promptEl: null,
+
+    _showLogicalNamePrompt: function (suggested, onOk, onCancel) {
+      var self = this;
+      var backdrop = h('div', { class: 'us-df-prompt-backdrop', 'data-us-cc': 'df-prompt' });
+      var box = h('div', { class: 'us-df-prompt-box' },
+        h('div', { class: 'us-df-prompt-title' }, '論理名（CSVヘッダー）'),
+        h('input', { type: 'text', class: 'us-df-prompt-input', placeholder: '例: メールアドレス', value: suggested || '' }),
+        h('div', { class: 'us-df-prompt-actions' },
+          h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-cancel' }, 'キャンセル'),
+          h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-ok' }, 'OK')
+        )
+      );
+      backdrop.appendChild(box);
+      var input = box.querySelector('.us-df-prompt-input');
+      var okBtn = box.querySelector('.us-df-prompt-ok');
+      var cancelBtn = box.querySelector('.us-df-prompt-cancel');
+
+      function finish(confirmed, value) {
+        if (!backdrop.parentNode) return;
+        backdrop.removeEventListener('click', onBackdropClick);
+        okBtn.removeEventListener('click', onOkClick);
+        cancelBtn.removeEventListener('click', onCancelClick);
+        document.removeEventListener('keydown', onKeydown);
+        backdrop.classList.remove('us-df-prompt-visible');
+        setTimeout(function () {
+          if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        }, 200);
+        if (confirmed) onOk(value !== undefined ? value : '');
+        else onCancel();
+      }
+
+      function onBackdropClick(e) {
+        if (e.target === backdrop) finish(false);
+      }
+      function onOkClick() {
+        var val = (input.value || '').trim();
+        finish(true, val);
+      }
+      function onCancelClick() {
+        finish(false);
+      }
+      function onKeydown(e) {
+        if (e.key === 'Escape') finish(false);
+        if (e.key === 'Enter') onOkClick();
+      }
+
+      backdrop.addEventListener('click', onBackdropClick);
+      okBtn.addEventListener('click', onOkClick);
+      cancelBtn.addEventListener('click', onCancelClick);
+      document.addEventListener('keydown', onKeydown);
+      document.body.appendChild(backdrop);
+      requestAnimationFrame(function () {
+        backdrop.classList.add('us-df-prompt-visible');
+        input.focus();
+        input.select();
+      });
+      this._promptEl = backdrop;
+    },
+
     addStep: function (el) {
+      var self = this;
       var xpath = getXPath(el);
       var type = getElementType(el);
-      var logicalName = window.prompt('この要素の論理名（CSVヘッダー名）を入力:', type === 'text' ? 'テキスト' : type);
-      if (logicalName == null) return null;
-      logicalName = String(logicalName).trim() || type;
-      var step = { xpath: xpath, type: type, logicalName: logicalName };
-      this._steps = this._steps || [];
-      this._steps.push(step);
-      this.save(this._steps);
-      return step;
+      var suggested = getLabelNearElement(el) || (type === 'text' ? 'テキスト' : type);
+      this._showLogicalNamePrompt(suggested, function (logicalName) {
+        if (logicalName == null) return;
+        logicalName = String(logicalName).trim() || type;
+        var step = { xpath: xpath, type: type, logicalName: logicalName };
+        self._steps = self._steps || [];
+        self._steps.push(step);
+        self.save(self._steps);
+        if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+      }, function () {});
     },
 
     removeStep: function (index) {
