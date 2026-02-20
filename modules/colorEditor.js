@@ -568,23 +568,32 @@ const Panel = {
 
   _bindEvents() {
     // Toggle switch
-    this.el.querySelector('#us-p-edit-toggle').addEventListener('change', function() {
-      if (this.checked) {
-        EditMode.enable();
-      } else {
-        EditMode.disable();
-      }
-    });
+    const toggleEl = this.el.querySelector('#us-p-edit-toggle');
+    if (toggleEl) {
+      toggleEl.addEventListener('change', function() {
+        if (this.checked) {
+          EditMode.enable();
+        } else {
+          EditMode.disable();
+        }
+      });
+    }
 
     // Clear rules
-    this.el.querySelector('#us-p-clear').addEventListener('click', async () => {
+    const clearEl = this.el.querySelector('#us-p-clear');
+    if (clearEl) {
+      clearEl.addEventListener('click', async () => {
       await RulesManager.clearRules();
       StyleApplier.clearAll();
       this.refreshRules();
     });
 
+    }
+
     // Export
-    this.el.querySelector('#us-p-export').addEventListener('click', () => {
+    const exportEl = this.el.querySelector('#us-p-export');
+    if (exportEl) {
+      exportEl.addEventListener('click', () => {
       const data = {
         version: '2.0.8',
         exportedAt: new Date().toISOString(),
@@ -601,9 +610,12 @@ const Panel = {
       a.click();
       URL.revokeObjectURL(url);
     });
+    }
 
     // Import
-    this.el.querySelector('#us-p-import').addEventListener('click', () => {
+    const importEl = this.el.querySelector('#us-p-import');
+    if (importEl) {
+      importEl.addEventListener('click', () => {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.json';
@@ -652,8 +664,13 @@ const Panel = {
       input.click();
     });
 
+      });
+    }
+
     // Delete rules
-    this.el.querySelector('#us-p-rules').addEventListener('click', async (e) => {
+    const rulesEl = this.el.querySelector('#us-p-rules');
+    if (rulesEl) {
+      rulesEl.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-rule-idx]');
       if (!btn) return;
       const idx = parseInt(btn.getAttribute('data-rule-idx'), 10);
@@ -666,13 +683,17 @@ const Panel = {
         StyleApplier.applyAll(RulesManager.getRules());
         this.refreshRules();
       }
-    });
+      });
+    }
   },
 
   open() {
     this._create();
     this.refreshRules();
-    this.el.querySelector('#us-p-edit-toggle').checked = EditMode.active;
+    const toggleEl = this.el.querySelector('#us-p-edit-toggle');
+    if (toggleEl) {
+      toggleEl.checked = EditMode.active;
+    }
     
     this.backdrop.style.display = 'block';
     void this.backdrop.offsetWidth;

@@ -7,6 +7,8 @@
   if (window.location.hostname === '127.0.0.1') return;
 
 // Clear version hash to avoid jQuery selector errors on target pages
+// Disabled per user request
+/*
 if (window.location.hash && window.location.hash.includes('version=')) {
   var newHash = window.location.hash.replace(/[?&]?version=[^&]+/g, '').replace(/^#&/, '#');
   if (newHash === '#' || newHash === '') {
@@ -15,6 +17,7 @@ if (window.location.hash && window.location.hash.includes('version=')) {
     history.replaceState(null, null, window.location.pathname + window.location.search + newHash);
   }
 }
+*/
 
 var US_VERSION = '2.0.4';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
