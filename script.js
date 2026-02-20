@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.62';
+var US_VERSION = '1.6.63';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -574,10 +574,21 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-feature-row:hover { background: rgba(0,0,0,0.04) !important; }',
       '#us-cc-panel .us-p-feature-row:active { background: rgba(0,0,0,0.08) !important; }',
-      '#us-cc-panel .us-p-feature-row .us-p-feature-label { flex: 1 !important; }',
-      '#us-cc-panel .us-p-feature-row .us-p-feature-toggle { flex-shrink: 0 !important; margin-right: 4px !important; }',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-icon {',
+      '  flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important;',
+      '  font-size: 10px !important; font-weight: 600 !important; color: rgba(0,0,0,0.55) !important; margin-right: 12px !important;',
+      '}',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-icon-swatch {',
+      '  display: block !important; width: 24px !important; height: 3px !important; border-radius: 2px !important;',
+      '  background: linear-gradient(to right, #f44336 0%, #e91e63 12.5%, #9c27b0 25%, #2196f3 37.5%, #00bcd4 50%, #4caf50 62.5%, #ffeb3b 75%, #ff9800 87.5%, #f44336 100%) !important;',
+      '}',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-label { flex: 1 !important; min-width: 0 !important; }',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-label .us-title-editor { font-weight: 700 !important; }',
+      '#us-cc-panel .us-p-feature-row .us-p-feature-right {',
+      '  display: flex !important; align-items: center !important; gap: 6px !important; flex-shrink: 0 !important;',
+      '}',
       '#us-cc-panel .us-p-feature-row .us-p-feature-chevron {',
-      '  flex-shrink: 0 !important; color: rgba(0,0,0,0.35) !important; font-size: 14px !important;',
+      '  color: rgba(0,0,0,0.35) !important; font-size: 14px !important; line-height: 1 !important; display: flex !important; align-items: center !important;',
       '}',
       '#us-cc-panel .us-p-nav-back {',
       '  all: initial !important; display: flex !important; align-items: center !important; gap: 4px !important;',
@@ -1677,10 +1688,19 @@ var Panel = (function () {
     switchLabelList.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-colorEditor-toggle' }));
     switchLabelList.appendChild(h('span.us-slider'));
 
-    var featureRow = h('div', { class: 'us-p-feature-row', 'data-feature': 'colorEditor' },
-      h('span.us-p-feature-label', 'colorEditor'),
-      h('span.us-p-feature-toggle', switchLabelList),
+    var featureIcon = h('div.us-p-feature-icon',
+      document.createTextNode('あAa'),
+      h('div.us-p-feature-icon-swatch')
+    );
+    var featureLabel = h('span.us-p-feature-label', 'color', h('span.us-title-editor', 'Editor'));
+    var featureRight = h('div.us-p-feature-right',
+      switchLabelList,
       h('span.us-p-feature-chevron', '\u203A')
+    );
+    var featureRow = h('div', { class: 'us-p-feature-row', 'data-feature': 'colorEditor' },
+      featureIcon,
+      featureLabel,
+      featureRight
     );
 
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
