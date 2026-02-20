@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.15';
+var US_VERSION = '1.7.0-dev.16';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -706,6 +706,11 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-df-step-name { flex: 0 0 120px !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; }',
       '#us-cc-panel .us-p-df-step-xpath { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; color: rgba(0,0,0,0.5) !important; font-size: 11px !important; }',
+      '#us-cc-panel .us-p-df-step-copy {',
+      '  flex-shrink: 0 !important; min-width: 28px !important; height: 28px !important; padding: 0 6px !important; border: none !important; border-radius: 6px !important;',
+      '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 11px !important;',
+      '}',
+      '#us-cc-panel .us-p-df-step-copy:hover { background: rgba(59,130,246,0.12) !important; color: rgba(59,130,246,0.9) !important; }',
       '#us-cc-panel .us-p-df-step-del {',
       '  flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important;',
       '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 14px !important;',
@@ -1983,25 +1988,8 @@ var Panel = (function () {
       }
       return 0;
     }
-    /* 重複 XPath は「その XPath が最初に現れた位置」にまとめつつ、同じ XPath は隣同士にする（重複が最後に固まらない） */
+    /* キャプチャ順で表示（重複を固めず、追加した順のまま。重複はバッジのみで表示） */
     var thisPageSteps = (DataFiller.getSteps() || []).map(function (step, i) { return { step: step, originalIndex: i }; });
-    var xpathToIndices = {};
-    thisPageSteps.forEach(function (w) {
-      var x = w.step.xpath || '';
-      if (!xpathToIndices[x]) xpathToIndices[x] = [];
-      xpathToIndices[x].push(w.originalIndex);
-    });
-    thisPageSteps.forEach(function (w) {
-      var x = w.step.xpath || '';
-      var indices = xpathToIndices[x] || [];
-      w._groupPos = indices.length > 1 ? Math.min.apply(null, indices) : w.originalIndex;
-    });
-    thisPageSteps.sort(function (a, b) {
-      if (a._groupPos !== b._groupPos) return a._groupPos - b._groupPos;
-      var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
-      if (c !== 0) return c;
-      return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
-    });
 
     var otherPages = [];
     try {
@@ -2016,23 +2004,6 @@ var Panel = (function () {
           if (!val || !Array.isArray(val.steps)) return;
           var pagePath = decoded === hostname ? '/' : decoded.slice(hostname.length) || '/';
           var list = val.steps.map(function (s, idx) { return { step: s, originalIndex: idx }; });
-          var xpathToIdx = {};
-          list.forEach(function (w) {
-            var x = w.step.xpath || '';
-            if (!xpathToIdx[x]) xpathToIdx[x] = [];
-            xpathToIdx[x].push(w.originalIndex);
-          });
-          list.forEach(function (w) {
-            var x = w.step.xpath || '';
-            var indices = xpathToIdx[x] || [];
-            w._groupPos = indices.length > 1 ? Math.min.apply(null, indices) : w.originalIndex;
-          });
-          list.sort(function (a, b) {
-            if (a._groupPos !== b._groupPos) return a._groupPos - b._groupPos;
-            var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
-            if (c !== 0) return c;
-            return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
-          });
           otherPages.push({ pagePath: pagePath, steps: list });
         });
       }
@@ -2068,8 +2039,13 @@ var Panel = (function () {
           isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
           h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
           h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
+          h('button.us-p-df-step-copy', { type: 'button', title: 'XPathをコピー' }, 'コピー'),
           h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(w.originalIndex), title: '削除' }, '\u2715')
         );
+        var copyBtn = row.querySelector('.us-p-df-step-copy');
+        if (copyBtn) copyBtn.addEventListener('click', function () {
+          RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
+        });
         var delBtn = row.querySelector('.us-p-df-step-del');
         if (delBtn) delBtn.addEventListener('click', function () {
           DataFiller.removeStep(w.originalIndex);
@@ -2102,8 +2078,13 @@ var Panel = (function () {
             h('span.us-p-df-step-type', step.type),
             isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
             h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
-            h('span.us-p-df-step-xpath', { title: step.xpath }, shortX)
+            h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
+            h('button.us-p-df-step-copy', { type: 'button', title: 'XPathをコピー' }, '\u2398')
           );
+          var copyBtn = row.querySelector('.us-p-df-step-copy');
+          if (copyBtn) copyBtn.addEventListener('click', function () {
+            RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
+          });
           stepsEl.appendChild(row);
         });
       });
