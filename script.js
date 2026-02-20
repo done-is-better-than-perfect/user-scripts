@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.14';
+var US_VERSION = '1.7.0-dev.15';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -1983,9 +1983,21 @@ var Panel = (function () {
       }
       return 0;
     }
-    /* 重複も含め XPath 階層でソートする（重複を下に固めない＝同じ XPath が隣同士になりどこと重複か分かりやすい） */
+    /* 重複 XPath は「その XPath が最初に現れた位置」にまとめつつ、同じ XPath は隣同士にする（重複が最後に固まらない） */
     var thisPageSteps = (DataFiller.getSteps() || []).map(function (step, i) { return { step: step, originalIndex: i }; });
+    var xpathToIndices = {};
+    thisPageSteps.forEach(function (w) {
+      var x = w.step.xpath || '';
+      if (!xpathToIndices[x]) xpathToIndices[x] = [];
+      xpathToIndices[x].push(w.originalIndex);
+    });
+    thisPageSteps.forEach(function (w) {
+      var x = w.step.xpath || '';
+      var indices = xpathToIndices[x] || [];
+      w._groupPos = indices.length > 1 ? Math.min.apply(null, indices) : w.originalIndex;
+    });
     thisPageSteps.sort(function (a, b) {
+      if (a._groupPos !== b._groupPos) return a._groupPos - b._groupPos;
       var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
       if (c !== 0) return c;
       return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
@@ -2003,8 +2015,20 @@ var Panel = (function () {
           var val = byPrefix[k];
           if (!val || !Array.isArray(val.steps)) return;
           var pagePath = decoded === hostname ? '/' : decoded.slice(hostname.length) || '/';
-          var list = val.steps.map(function (s) { return { step: s }; });
+          var list = val.steps.map(function (s, idx) { return { step: s, originalIndex: idx }; });
+          var xpathToIdx = {};
+          list.forEach(function (w) {
+            var x = w.step.xpath || '';
+            if (!xpathToIdx[x]) xpathToIdx[x] = [];
+            xpathToIdx[x].push(w.originalIndex);
+          });
+          list.forEach(function (w) {
+            var x = w.step.xpath || '';
+            var indices = xpathToIdx[x] || [];
+            w._groupPos = indices.length > 1 ? Math.min.apply(null, indices) : w.originalIndex;
+          });
           list.sort(function (a, b) {
+            if (a._groupPos !== b._groupPos) return a._groupPos - b._groupPos;
             var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
             if (c !== 0) return c;
             return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
