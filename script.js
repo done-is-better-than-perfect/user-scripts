@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.73';
+var US_VERSION = '1.6.74';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -672,6 +672,8 @@ var Styles = (function () {
       '}',
       '.us-switch input:checked + .us-slider { background: #30d158 !important; }',
       '.us-switch input:checked + .us-slider::after { transform: translateX(20px) !important; }',
+      '.us-switch input:indeterminate + .us-slider { background: #ff9f0a !important; }',
+      '.us-switch input:indeterminate + .us-slider::after { transform: translateX(10px) !important; }',
 
       /* Rules list */
       '#us-cc-panel .us-p-rules {',
@@ -1105,7 +1107,7 @@ var EditMode = (function () {
       document.addEventListener('mouseover', this._boundHover, true);
       document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
       document.addEventListener('click', this._boundClick, true);
-      Tab.setActive(true);
+      Tab.setAggregate(true, false);
       this._persist(true);
     },
     disable: function () {
@@ -1116,7 +1118,7 @@ var EditMode = (function () {
       document.removeEventListener('click', this._boundClick, true);
       this._boundHover = null;
       this._boundClick = null;
-      Tab.setActive(false);
+      Tab.setAggregate(false, false);
       this._persist(false);
     },
     _isOurUI: function (el) {
@@ -1795,6 +1797,8 @@ var Panel = (function () {
   _showList: function () {
     if (this._screenList) this._screenList.classList.add('us-p-screen-visible');
     if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
+    var listToggle = this._screenList && this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
+    if (listToggle) listToggle.checked = EditMode.active;
   },
 
   _showColorEditor: function () {
@@ -1873,7 +1877,12 @@ var Panel = (function () {
       var listToggle = this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
       if (listToggle) {
         listToggle.addEventListener('click', function (e) { e.stopPropagation(); });
-        listToggle.checked = true;
+        listToggle.checked = EditMode.active;
+        listToggle.addEventListener('change', function () {
+          if (this.checked) EditMode.enable(); else EditMode.disable();
+          var editT = self._screenColorEditor && self._screenColorEditor.querySelector('#us-p-edit-toggle');
+          if (editT) editT.checked = EditMode.active;
+        });
       }
     }
 
@@ -1901,6 +1910,8 @@ var Panel = (function () {
       } else {
         EditMode.disable();
       }
+      var listT = self._screenList && self._screenList.querySelector('#us-p-feature-colorEditor-toggle');
+      if (listT) listT.checked = EditMode.active;
     });
 
     this.el.querySelector('#us-p-tab-exists').addEventListener('click', function () {
@@ -2321,7 +2332,27 @@ var Tab = (function () {
     } else {
       this.el.classList.remove('us-tab-active');
     }
-    if (this._tabEditCheck) this._tabEditCheck.checked = !!active;
+    if (this._tabEditCheck) {
+      this._tabEditCheck.checked = !!active;
+      this._tabEditCheck.indeterminate = false;
+    }
+  },
+  setAggregate: function (allOn, someOn) {
+    if (!this.el || !this._tabEditCheck) return;
+    if (someOn) {
+      this.el.classList.add('us-tab-active');
+      this._tabEditCheck.checked = true;
+      this._tabEditCheck.indeterminate = true;
+    } else {
+      this._tabEditCheck.indeterminate = false;
+      if (allOn) {
+        this.el.classList.add('us-tab-active');
+        this._tabEditCheck.checked = true;
+      } else {
+        this.el.classList.remove('us-tab-active');
+        this._tabEditCheck.checked = false;
+      }
+    }
   }
   };
 })();
@@ -2353,10 +2384,12 @@ var ColorCustomizerFeature = (function () {
       setTimeout(applyRules, 600);
       setTimeout(applyRules, 2000);
       Tab.create();
-      // Restore Edit Mode state
+      // Restore Edit Mode state (① aggregate = colorEditor for now)
       var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
       if (editState) {
         EditMode.enable();
+      } else {
+        Tab.setAggregate(false, false);
       }
       this._initialized = true;
       console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
