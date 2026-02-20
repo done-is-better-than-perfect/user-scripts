@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.10';
+var US_VERSION = '1.7.0-dev.11';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -740,7 +740,6 @@ var Styles = (function () {
       '}',
       '.us-df-prompt-input:focus { outline: none !important; border-color: rgba(59,130,246,0.5) !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important; }',
       '.us-df-prompt-actions { display: flex !important; justify-content: flex-end !important; gap: 10px !important; }',
-      '.us-df-prompt-actions.us-df-prompt-actions-center { justify-content: center !important; }',
       '.us-df-prompt-btn {',
       '  padding: 8px 18px !important; font-size: 15px !important; font-weight: 500 !important;',
       '  border-radius: 8px !important; border: none !important; cursor: pointer !important;',
@@ -752,7 +751,10 @@ var Styles = (function () {
       '.us-df-prompt-ok:hover { background: rgba(59,130,246,1) !important; }',
       '.us-df-dialog-message { font-size: 15px !important; color: rgba(0,0,0,0.85) !important; line-height: 1.45 !important; margin-bottom: 16px !important; }',
       '.us-df-dialog-message .us-df-dialog-line { margin-bottom: 6px !important; }',
-      '.us-df-dialog-message .us-df-dialog-value { margin-bottom: 10px !important; padding-left: 8px !important; font-weight: 500 !important; }',
+      '.us-df-dialog-message .us-df-dialog-intro { margin-bottom: 12px !important; }',
+      '.us-df-dialog-message .us-df-dialog-label { font-weight: bold !important; margin-top: 12px !important; margin-bottom: 6px !important; }',
+      '.us-df-dialog-message .us-df-dialog-value { margin-bottom: 12px !important; font-weight: 500 !important; }',
+      '.us-df-dialog-message .us-df-dialog-final { margin-top: 12px !important; }',
       '#us-cc-panel .us-p-empty {',
       '  all: initial !important; display: block !important; font-family: inherit !important;',
       '  text-align: center !important; color: rgba(0,0,0,0.45) !important;',
@@ -2645,7 +2647,7 @@ var DataFiller = (function () {
 
     _showAlert: function (message, onClose) {
       var backdrop = h('div', { class: 'us-df-prompt-backdrop', 'data-us-cc': 'df-prompt' });
-      var actions = h('div', { class: 'us-df-prompt-actions us-df-prompt-actions-center' },
+      var actions = h('div', { class: 'us-df-prompt-actions' },
         h('button', { type: 'button', class: 'us-df-prompt-btn us-df-prompt-ok' }, 'OK')
       );
       var box = h('div', { class: 'us-df-prompt-box' },
@@ -2677,12 +2679,12 @@ var DataFiller = (function () {
 
     _showConfirm: function (existingName, newName, onConfirm, onCancel) {
       var msg = h('div', { class: 'us-df-dialog-message' });
-      msg.appendChild(h('div', { class: 'us-df-dialog-line' }, 'すでに違う項目名で登録済みです。'));
-      msg.appendChild(h('div', { class: 'us-df-dialog-line' }, '登録済みの項目名'));
+      msg.appendChild(h('div', { class: 'us-df-dialog-line us-df-dialog-intro' }, 'すでに違う項目名で登録済みです。'));
+      msg.appendChild(h('div', { class: 'us-df-dialog-label' }, '登録済みの項目名'));
       msg.appendChild(h('div', { class: 'us-df-dialog-value' }, existingName || ''));
-      msg.appendChild(h('div', { class: 'us-df-dialog-line' }, '登録しようとしている項目名'));
+      msg.appendChild(h('div', { class: 'us-df-dialog-label' }, '登録しようとしている項目名'));
       msg.appendChild(h('div', { class: 'us-df-dialog-value' }, newName || ''));
-      msg.appendChild(h('div', { class: 'us-df-dialog-line' }, '上書きしますか？'));
+      msg.appendChild(h('div', { class: 'us-df-dialog-line us-df-dialog-final' }, '上書きしますか？'));
       var backdrop = h('div', { class: 'us-df-prompt-backdrop', 'data-us-cc': 'df-prompt' });
       var box = h('div', { class: 'us-df-prompt-box' },
         msg,
