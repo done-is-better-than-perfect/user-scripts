@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.17';
+var US_VERSION = '1.7.0-dev.18';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2040,10 +2040,13 @@ var Panel = (function () {
     if (self._activeDataFillerTab === 'page') {
       if (emptyEl) emptyEl.style.display = thisPageSteps.length ? 'none' : 'block';
       var counts = xpathCounts(thisPageSteps);
+      var seenXpath = {};
       thisPageSteps.forEach(function (w) {
         var step = w.step;
         var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
-        var isDup = (counts[step.xpath] || 0) > 1;
+        var isFirstOfXpath = !seenXpath[step.xpath];
+        seenXpath[step.xpath] = true;
+        var isDup = (counts[step.xpath] || 0) > 1 && !isFirstOfXpath;
         var row = h('div', { class: 'us-p-df-step' + (isDup ? ' us-p-df-step-duplicate' : '') },
           h('span.us-p-df-step-type', step.type),
           isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
@@ -2080,16 +2083,19 @@ var Panel = (function () {
       });
       otherPages.forEach(function (g) {
         stepsEl.appendChild(h('div.us-p-df-other-head', g.pagePath));
+        var seenOther = {};
         g.steps.forEach(function (w) {
           var step = w.step;
           var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
-          var isDup = (otherCounts[step.xpath] || 0) > 1;
+          var isFirstOfXpath = !seenOther[step.xpath];
+          seenOther[step.xpath] = true;
+          var isDup = (otherCounts[step.xpath] || 0) > 1 && !isFirstOfXpath;
           var row = h('div', { class: 'us-p-df-step us-p-df-step-other' + (isDup ? ' us-p-df-step-duplicate' : '') },
             h('span.us-p-df-step-type', step.type),
             isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
             h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
             h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
-            h('button.us-p-df-step-copy', { type: 'button', title: 'XPathをコピー' }, '\u2398')
+            h('button.us-p-df-step-copy', { type: 'button', title: 'XPathをコピー' }, 'コピー')
           );
           var copyBtn = row.querySelector('.us-p-df-step-copy');
           if (copyBtn) copyBtn.addEventListener('click', function () {
