@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.5';
+var US_VERSION = '1.7.0-dev.6';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2490,14 +2490,18 @@ var DataFiller = (function () {
     return 'unknown';
   }
 
-  /** フォーム要素に紐づく label 要素の textContent のみ取得。placeholder / title / aria-label は使わない。 */
+  /** フォーム要素に紐づく label の textContent のみ取得。最大10世代まで親を遡り、各世代の兄弟に label があれば採用。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
     var doc = el.ownerDocument;
     var maxLen = 80;
+    var maxAncestors = 10;
     function trim(s) {
       if (typeof s !== 'string') return '';
       return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
+    }
+    function isLabel(node) {
+      return node && node.tagName && node.tagName.toLowerCase() === 'label' && node.textContent;
     }
     var id = el.id;
     if (id) {
@@ -2506,17 +2510,20 @@ var DataFiller = (function () {
         if (labelFor && labelFor.textContent) return trim(labelFor.textContent);
       } catch (e) {}
     }
-    var parent = el.parentNode;
-    if (parent && parent.tagName && parent.tagName.toLowerCase() === 'label') {
-      var clone = parent.cloneNode(true);
-      var input = clone.querySelector('input, select, textarea');
-      if (input) input.remove();
-      if (clone.textContent) return trim(clone.textContent);
+    var node = el;
+    for (var gen = 0; gen < maxAncestors && node; gen++) {
+      if (node.tagName && node.tagName.toLowerCase() === 'label') {
+        var clone = node.cloneNode(true);
+        var input = clone.querySelector('input, select, textarea');
+        if (input) input.remove();
+        if (clone.textContent) return trim(clone.textContent);
+      }
+      var prev = node.previousElementSibling;
+      if (isLabel(prev)) return trim(prev.textContent);
+      var next = node.nextElementSibling;
+      if (isLabel(next)) return trim(next.textContent);
+      node = node.parentElement || node.parentNode;
     }
-    var prev = el.previousElementSibling;
-    if (prev && prev.tagName && prev.tagName.toLowerCase() === 'label' && prev.textContent) return trim(prev.textContent);
-    var next = el.nextElementSibling;
-    if (next && next.tagName && next.tagName.toLowerCase() === 'label' && next.textContent) return trim(next.textContent);
     return '';
   }
 
