@@ -732,10 +732,6 @@ export default {
   async init() {
     console.log('[ColorCustomizer] Module initialized');
     
-export default {
-  async init() {
-    console.log('[ColorCustomizer] Module initialized');
-    
     // Set global RPC reference from parent
     if (window.RPC) {
       RPC = window.RPC;
