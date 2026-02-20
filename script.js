@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.72';
+var US_VERSION = '1.6.73';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -618,7 +618,7 @@ var Styles = (function () {
       '  display: flex !important; align-items: center !important; gap: 8px !important; padding: 10px 16px !important; min-height: 0 !important;',
       '}',
       '#us-cc-panel .us-p-detail-header-row:first-child { padding-bottom: 6px !important; }',
-      '#us-cc-panel .us-p-detail-header-row:last-child { padding-top: 0 !important; padding-bottom: 12px !important; border-top: 1px solid rgba(0,0,0,0.06) !important; }',
+      '#us-cc-panel .us-p-detail-header-row:last-child { padding-top: 12px !important; padding-bottom: 12px !important; border-top: 1px solid rgba(0,0,0,0.06) !important; }',
       '#us-cc-panel .us-p-detail-header .us-p-detail-icon {',
       '  flex-shrink: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; gap: 2px !important;',
       '  font-size: 10px !important; font-weight: 600 !important; color: rgba(0,0,0,0.55) !important; margin-right: 4px !important;',
