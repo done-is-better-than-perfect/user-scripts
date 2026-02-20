@@ -1,5 +1,5 @@
 // Color Editor Module (Original v1.6.53 Liquid Glass UI)
-export const colorEditor = {
+export default {
   init() {
     console.log('[ColorCustomizer] Module initialized');
     
