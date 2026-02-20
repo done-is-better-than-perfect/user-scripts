@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.6.65';
+var US_VERSION = '1.6.66';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -459,13 +459,13 @@ var Styles = (function () {
       '  border-radius: 12px 0 0 12px !important;',
       '  border: 1px solid rgba(255,255,255,0.22) !important; border-right: none !important;',
       '  box-shadow: -4px 0 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.15) !important;',
-      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 1px !important;',
+      '  display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; gap: 10px !important;',
       '  transition: width 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;',
       '}',
       '#us-cc-tab:hover { width: 62px !important; background: rgba(255,255,255,0.16) !important; }',
       '#us-cc-tab .us-cc-tab-icon {',
-      '  flex: 1 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  min-height: 0 !important; cursor: pointer !important; padding: 4px 0 !important; overflow: visible !important;',
+      '  flex-shrink: 0 !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  cursor: pointer !important; padding: 6px 0 !important; overflow: visible !important;',
       '}',
       '#us-cc-tab .us-cc-tab-gear {',
       '  color: rgba(0,0,0,0.55) !important; font-size: 22px !important; line-height: 1 !important;',
@@ -480,9 +480,9 @@ var Styles = (function () {
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(0,0,0,0.55) !important; }',
       '.us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 1px 0 1px !important; min-height: 0 !important; overflow: visible !important;',
+      '  flex-shrink: 0 !important; padding: 4px 0 !important; overflow: visible !important;',
       '  display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  transform: translateY(47px) scale(0.7) !important; transform-origin: center center !important; }',
+      '  transform: scale(0.8) !important; transform-origin: center center !important; }',
 
       /* ── Edit-mode highlight (未定義: 青 / 定義済み: 緑) ── */
       '.us-cc-highlight {',
