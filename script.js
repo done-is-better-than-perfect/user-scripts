@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.6';
+var US_VERSION = '1.7.0-dev.7';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2490,7 +2490,7 @@ var DataFiller = (function () {
     return 'unknown';
   }
 
-  /** フォーム要素に紐づく label の textContent のみ取得。最大10世代まで親を遡り、各世代の兄弟に label があれば採用。 */
+  /** フォーム要素に紐づく label の textContent のみ取得。最大10世代親を遡り、各世代の兄弟および兄弟の子孫を querySelector('label') で検索。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
     var doc = el.ownerDocument;
@@ -2500,8 +2500,10 @@ var DataFiller = (function () {
       if (typeof s !== 'string') return '';
       return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
     }
-    function isLabel(node) {
-      return node && node.tagName && node.tagName.toLowerCase() === 'label' && node.textContent;
+    function labelTextFromNode(container) {
+      if (!container || !container.querySelector) return '';
+      var lb = container.querySelector('label');
+      return (lb && lb.textContent) ? trim(lb.textContent) : '';
     }
     var id = el.id;
     if (id) {
@@ -2519,9 +2521,15 @@ var DataFiller = (function () {
         if (clone.textContent) return trim(clone.textContent);
       }
       var prev = node.previousElementSibling;
-      if (isLabel(prev)) return trim(prev.textContent);
+      if (prev) {
+        var t = prev.tagName && prev.tagName.toLowerCase() === 'label' ? trim(prev.textContent) : labelTextFromNode(prev);
+        if (t) return t;
+      }
       var next = node.nextElementSibling;
-      if (isLabel(next)) return trim(next.textContent);
+      if (next) {
+        var t = next.tagName && next.tagName.toLowerCase() === 'label' ? trim(next.textContent) : labelTextFromNode(next);
+        if (t) return t;
+      }
       node = node.parentElement || node.parentNode;
     }
     return '';
