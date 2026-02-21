@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.30';
+var US_VERSION = '1.7.0-dev.31';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2659,9 +2659,9 @@ var DataFiller = (function () {
     }
     function isLabelRelevant(labelEl) {
       if (!labelEl || labelEl.tagName.toLowerCase() !== 'label') return true;
+      if (labelEl.contains && labelEl.contains(el)) return false;
       var forId = labelEl.getAttribute('for');
       if (isRadioOrCheckbox) {
-        if (labelEl.contains && labelEl.contains(el)) return false;
         if (forId != null && forId !== '') return false;
         if (labelEl.querySelector && labelEl.querySelector('input, select, textarea')) return false;
         return true;
@@ -3252,9 +3252,11 @@ var DataFiller = (function () {
         if (type === 'unknown' || type === 'button') return;
         if (!/^(input|select|textarea)$/i.test(el.tagName)) return;
         var labelPrefill = getLabelNearElement(el);
-        var suggested = (suggestedFromLabel !== '')
-          ? suggestedFromLabel
-          : (labelPrefill || (type === 'text' ? 'テキスト' : type));
+        var isRadioOrCheckbox = el.tagName && el.tagName.toLowerCase() === 'input' && (el.type === 'radio' || el.type === 'checkbox');
+        var suggested = isRadioOrCheckbox
+          ? (labelPrefill || (type === 'text' ? 'テキスト' : type))
+          : ((suggestedFromLabel !== '') ? suggestedFromLabel : (labelPrefill || (type === 'text' ? 'テキスト' : type)));
+        var includeLabelInCandidates = isRadioOrCheckbox ? true : (!labelPrefill && suggestedFromLabel === '');
         var xpath = getXPath(el);
         var existing = null;
         var steps = self._steps || [];
@@ -3265,7 +3267,7 @@ var DataFiller = (function () {
         self._hoverHideTimer = null;
         self._hoverEl = el;
         self._hoverSuggestedName = suggested;
-        self._hoverCandidates = getTextCandidatesFromForm(el, !labelPrefill && suggestedFromLabel === '');
+        self._hoverCandidates = getTextCandidatesFromForm(el, includeLabelInCandidates);
         self._hoverInput.value = existing ? (existing.logicalName || '') : (suggested || '');
         self._hoverInput.readOnly = !!existing;
         self._hoverInput.style.background = existing ? 'rgba(0,0,0,0.05)' : '#fff';
