@@ -14,8 +14,18 @@
       return;
     }
 
-var US_VERSION = '1.7.0-dev.44';
-console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
+    var US_VERSION = '1.7.0-dev.45';
+    console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
+
+    (function logContextCheck(label) {
+      var uw = typeof unsafeWindow !== 'undefined' ? unsafeWindow : null;
+      console.log('[UserScripts] ' + label + ': unsafeWindow=' + (uw ? 'defined' : 'undefined')
+        + ' | window.createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature)
+        + ' | window.createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature)
+        + (uw ? ' | unsafeWindow.createColorEditorPanelFeature=' + (typeof uw.createColorEditorPanelFeature) + ' | unsafeWindow.createDataFillerPanelFeature=' + (typeof uw.createDataFillerPanelFeature) : ''));
+    })('runMain');
+
+var US_VERSION = '1.7.0-dev.45';
 
 // =========================
 
@@ -39,6 +49,14 @@ var Panel = (function () {
     var bd = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop', onclick: function () { Panel.close(); } });
     document.body.appendChild(bd);
     this.backdrop = bd;
+
+    (function logContextCheck(label) {
+      var uw = typeof unsafeWindow !== 'undefined' ? unsafeWindow : null;
+      console.log('[UserScripts] ' + label + ': unsafeWindow=' + (uw ? 'defined' : 'undefined')
+        + ' | window.createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature)
+        + ' | window.createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature)
+        + (uw ? ' | unsafeWindow.createColorEditorPanelFeature=' + (typeof uw.createColorEditorPanelFeature) + ' | unsafeWindow.createDataFillerPanelFeature=' + (typeof uw.createDataFillerPanelFeature) : ''));
+    })('Panel._create');
 
     var features = [];
     if (typeof window.createColorEditorPanelFeature === 'function') {
