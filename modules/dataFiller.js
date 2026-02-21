@@ -293,6 +293,15 @@
     return 'userscripts:features:dataFiller:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
   }
 
+  /** select にラベルがないときの項目名フォールバック: 第一 option のテキスト、なければ 'select'。 */
+  function getSelectSuggestedFallback(selectEl) {
+    if (!selectEl || selectEl.tagName.toLowerCase() !== 'select') return 'select';
+    var first = selectEl.options && selectEl.options[0];
+    var t = first && (first.textContent || first.text);
+    if (typeof t === 'string' && t.trim()) return t.replace(/\s+/g, ' ').trim().slice(0, 80);
+    return 'select';
+  }
+
   function refreshPanel() {
     var panel = getPanel();
     if (panel && panel._screenDataFiller) panel.refreshDataFillerSteps();
@@ -466,7 +475,7 @@
       var type = getElementType(el);
       var suggested = (suggestedNameOverride != null && suggestedNameOverride !== '')
         ? String(suggestedNameOverride).replace(/\s+/g, ' ').trim().slice(0, 80)
-        : (getLabelNearElement(el) || (type === 'text' ? 'テキスト' : type));
+        : (getLabelNearElement(el) || (type === 'text' ? 'テキスト' : (type === 'select' ? getSelectSuggestedFallback(el) : type)));
       this._showLogicalNamePrompt(suggested, function (logicalName) {
         if (logicalName == null) return;
         logicalName = String(logicalName).trim() || type;
@@ -666,14 +675,20 @@
             el = control;
           }
         }
+        if (el.tagName && el.tagName.toLowerCase() === 'option') {
+          el = el.closest ? el.closest('select') : null;
+          if (!el && e.target.parentNode) el = e.target.parentNode;
+          if (!el || el.tagName.toLowerCase() !== 'select') return;
+        }
         var type = getElementType(el);
         if (type === 'unknown' || type === 'button') return;
         if (!/^(input|select|textarea)$/i.test(el.tagName)) return;
         var labelPrefill = getLabelNearElement(el);
         var isRadioOrCheckbox = el.tagName && el.tagName.toLowerCase() === 'input' && (el.type === 'radio' || el.type === 'checkbox');
+        var typeFallback = type === 'text' ? 'テキスト' : (type === 'select' ? getSelectSuggestedFallback(el) : type);
         var suggested = isRadioOrCheckbox
-          ? (labelPrefill || (type === 'text' ? 'テキスト' : type))
-          : ((suggestedFromLabel !== '') ? suggestedFromLabel : (labelPrefill || (type === 'text' ? 'テキスト' : type)));
+          ? (labelPrefill || typeFallback)
+          : ((suggestedFromLabel !== '') ? suggestedFromLabel : (labelPrefill || typeFallback));
         var includeLabelInCandidates = isRadioOrCheckbox ? true : (!labelPrefill && suggestedFromLabel === '');
         var xpath = getXPath(el);
         var existing = null;
