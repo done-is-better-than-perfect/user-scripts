@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.52';
+  var US_VERSION = '1.7.0-dev.53';
   var __US_panelFeatureFns = {};
   console.log('[UserScripts] IIFE start: __US_panelFeatureFns is closure, keys=', Object.keys(__US_panelFeatureFns));
   if (window.location.hostname === '127.0.0.1') return;
@@ -248,19 +248,21 @@ window.US.rpc = RPC;
     (document.head || document.documentElement).appendChild(util);
   }
 
-  var __US_registerPanelFeatureInjected = "var __US_registerPanelFeature = function(key, fn) { __US_panelFeatureFns[key] = fn; }; ";
+  var __US_wrapForEval = function (moduleText) {
+    return '(function(__US_panelFeatureFns){var __US_registerPanelFeature=function(key,fn){__US_panelFeatureFns[key]=fn;};' + moduleText + '})(__US_panelFeatureFns);';
+  };
   function loadByFetchEval(nextUrl, thenRun) {
     if (!nextUrl) { thenRun(); return; }
     var name = nextUrl.replace(/^.*\//, '');
     console.log('[UserScripts] loadByFetchEval: fetching', name);
     fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
-      var prepend = (name === 'colorEditor.js' || name === 'dataFiller.js');
-      if (prepend) {
-        text = __US_registerPanelFeatureInjected + text;
-        console.log('[UserScripts] loadByFetchEval: prepended registrar to', name);
+      var wrap = (name === 'colorEditor.js' || name === 'dataFiller.js');
+      if (wrap) {
+        text = __US_wrapForEval(text);
+        console.log('[UserScripts] loadByFetchEval: wrapped with IIFE(fns) for', name);
       }
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
-      if (prepend) console.log('[UserScripts] after eval(' + name + '): __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
+      if (wrap) console.log('[UserScripts] after eval(' + name + '): __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
       thenRun();
     }).catch(function (err) {
       console.warn('[UserScripts] fetch failed for ' + nextUrl + ', falling back to script tag', err);
