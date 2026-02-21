@@ -7,6 +7,7 @@
   'use strict';
   var RPC = window.RPC, h = window.h, createGearNode = window.createGearNode;
   if (!RPC || !h) { console.error('[UserScripts] colorEditor: RPC/h missing'); return; }
+  var _colorEditorScreenApi = null;
 
 // 1. SelectorEngine (module)
 // =========================
@@ -1377,7 +1378,7 @@ var PopoversModule = (function () {
     var selector = SelectorEngine.generate(this._currentTarget);
     if (selector) {
       await RulesManager.addRule(selector, prop, val, 'inline');
-      if (window.Panel && window.Panel.refreshRules) window.Panel.refreshRules();
+      if (_colorEditorScreenApi && _colorEditorScreenApi.refreshRules) _colorEditorScreenApi.refreshRules();
     }
   },
 
@@ -1402,7 +1403,7 @@ var PopoversModule = (function () {
     });
 
     await Promise.all(promises);
-    if (window.Panel && window.Panel.refreshRules) window.Panel.refreshRules();
+    if (_colorEditorScreenApi && _colorEditorScreenApi.refreshRules) _colorEditorScreenApi.refreshRules();
     this.hide();
   },
 
@@ -2602,8 +2603,12 @@ var ColorCustomizerFeature = (function () {
       }
       setTimeout(applyRulesIfEnabled, 600);
       setTimeout(applyRulesIfEnabled, 2000);
-      // If panel was already opened (e.g. before init completed), sync its colorEditor toggles to actual state
-      if (typeof window.Panel !== 'undefined' && window.Panel.syncColorEditorToggle) window.Panel.syncColorEditorToggle();
+      // If panel was already opened (e.g. before init completed), sync all feature toggles
+      if (typeof window.Panel !== 'undefined' && window.Panel._features) {
+        for (var k = 0; k < window.Panel._features.length; k++) {
+          if (window.Panel._features[k].onPanelOpen) window.Panel._features[k].onPanelOpen();
+        }
+      }
       // Restore dataFiller enabled state
       var dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]);
       if (dfEnabled && window.DataFiller) window.DataFiller.enableCapture(); else if (window.DataFiller) window.DataFiller.disableCapture();
@@ -2626,6 +2631,413 @@ var ColorCustomizerFeature = (function () {
   };
 })();
 
+  /**
+   * Build the ColorEditor panel screen DOM and logic.
+   * Returns { el, refreshRules, refreshProfiles, syncColorEditorToggle }.
+   * callbacks: { onBack, onEditToggleChange(checked) }
+   */
+  function createColorEditorScreen(h, createGearNode, US_VERSION, callbacks) {
+    var onBack = callbacks && callbacks.onBack;
+    var onEditToggleChange = callbacks && callbacks.onEditToggleChange;
+    var _activeRulesTab = 'exists';
+    var _editingProfileId = null;
+    var _importToastBackdrop = null;
+    var _importToastBox = null;
+    var _importToastTitle = null;
+    var _importToastBody = null;
+
+    var switchLabelEdit = document.createElement('label');
+    switchLabelEdit.className = 'us-switch';
+    switchLabelEdit.setAttribute('data-us-cc', 'switch');
+    switchLabelEdit.appendChild(h('input', { type: 'checkbox', id: 'us-p-edit-toggle' }));
+    switchLabelEdit.appendChild(h('span.us-slider'));
+
+    var tabExists = h('button.us-p-tab-btn', { id: 'us-p-tab-exists', type: 'button', 'data-tab': 'exists' }, 'このページに存在 (0)');
+    var tabOther = h('button.us-p-tab-btn', { id: 'us-p-tab-other', type: 'button', 'data-tab': 'other' }, 'その他 (0)');
+    var detailIcon = h('div.us-p-detail-icon',
+      document.createTextNode('あAa'),
+      h('div.us-p-detail-icon-swatch')
+    );
+    var screenEl = h('div', { class: 'us-p-screen', 'data-us-cc': 'screen-colorEditor' },
+      h('div.us-p-detail-header',
+        h('div.us-p-detail-header-row',
+          h('button.us-p-nav-back', { type: 'button' }, '\u2039 \u8a2d\u5b9a')
+        ),
+        h('div.us-p-detail-header-row',
+          detailIcon,
+          h('span.us-p-title', 'color', h('span.us-title-editor', 'Editor')),
+          h('span.us-p-version', 'v' + US_VERSION),
+          h('span.us-p-header-toggle', switchLabelEdit)
+        )
+      ),
+      h('div.us-p-tabs', tabExists, tabOther),
+      h('div.us-p-rules', { id: 'us-p-rules' }),
+      h('div.us-p-section-title', { 'data-us-cc': 'section' },
+        h('span', 'カラープロファイル'),
+        h('button', { id: 'us-p-prof-add', title: '新規追加' }, '+')
+      ),
+      h('div.us-prof-list', { id: 'us-p-prof-list' }),
+      h('div', { id: 'us-p-prof-editor-slot' }),
+      h('div.us-p-footer',
+        h('div.us-p-footer-row',
+          h('button.us-btn.us-btn-secondary', { id: 'us-p-export' }, 'エクスポート'),
+          h('button.us-btn.us-btn-secondary', { id: 'us-p-import' }, 'インポート')
+        ),
+        h('button.us-btn.us-btn-danger', { id: 'us-p-clear' }, '全ルールクリア')
+      )
+    );
+
+    function _ensureImportToast() {
+      if (_importToastBackdrop && _importToastBox) return;
+      var toastBackdrop = h('div', { id: 'us-cc-import-toast-backdrop', 'data-us-cc': 'import-toast' });
+      var toastTitle = h('div.us-import-toast-title', {}, '');
+      var toastBody = h('div.us-import-toast-body', {}, '');
+      var toastBox = h('div', { id: 'us-cc-import-toast-box' }, toastTitle, toastBody, h('button.us-import-toast-ok', {}, 'OK'));
+      toastBackdrop.appendChild(toastBox);
+      document.body.appendChild(toastBackdrop);
+      _importToastBackdrop = toastBackdrop;
+      _importToastBox = toastBox;
+      _importToastTitle = toastTitle;
+      _importToastBody = toastBody;
+    }
+
+    function _showImportResult(success, data) {
+      _ensureImportToast();
+      if (!_importToastBackdrop || !_importToastBox) return;
+      if (success) {
+        _importToastBox.classList.remove('us-error');
+        _importToastTitle.textContent = 'インポートが完了しました';
+        _importToastBody.textContent = 'ルール: ' + (data.rulesCount || 0) + '件\nプロファイル: ' + (data.profilesCount || 0) + '件';
+      } else {
+        _importToastBox.classList.add('us-error');
+        _importToastTitle.textContent = 'インポートに失敗しました';
+        _importToastBody.textContent = (data && data.error) ? String(data.error) : '不明なエラー';
+      }
+      document.body.appendChild(_importToastBackdrop);
+      requestAnimationFrame(function () { _importToastBackdrop.classList.add('us-visible'); });
+      var okBtn = _importToastBox.querySelector('.us-import-toast-ok');
+      function hide() {
+        _importToastBackdrop.classList.remove('us-visible');
+        _importToastBackdrop.removeEventListener('click', onBackdropClick);
+        if (okBtn) okBtn.removeEventListener('click', onOkClick);
+      }
+      function onBackdropClick(e) { if (e.target === _importToastBackdrop) hide(); }
+      function onOkClick() { hide(); }
+      _importToastBackdrop.addEventListener('click', onBackdropClick);
+      if (okBtn) okBtn.addEventListener('click', onOkClick);
+    }
+
+    function _makeColorRow(value, name) {
+      var hex = (value && value.indexOf('#') === 0) ? value : ('#' + (value || '000000').replace(/^#/, ''));
+      if (hex.length === 4) hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+      var hiddenColor = h('input', { type: 'hidden', 'data-role': 'prof-color', value: hex });
+      var swatch = h('span.us-prof-color-swatch', { 'data-role': 'prof-swatch', title: 'クリックで色を変更' });
+      swatch.style.setProperty('background', hex, 'important');
+      var nameInput = h('input', { type: 'text', 'data-role': 'prof-name', value: name || '', placeholder: '色名' });
+      var row = h('div.us-prof-color-item', hiddenColor, swatch, nameInput, h('button', { title: '削除' }, '\u2715'));
+      swatch.addEventListener('click', function () {
+        var currentHex = row.querySelector('[data-role="prof-color"]').value;
+        ProfileColorPopover.show(swatch, currentHex, function (newHex) {
+          if (!/^#[0-9a-fA-F]{6}$/.test(newHex)) return;
+          row.querySelector('[data-role="prof-color"]').value = newHex;
+          swatch.style.setProperty('background', newHex, 'important');
+        });
+      });
+      row.querySelector('button').addEventListener('click', function () { row.parentNode.removeChild(row); });
+      return row;
+    }
+
+    function _showProfileEditor(slot, name, colors) {
+      while (slot.firstChild) slot.removeChild(slot.firstChild);
+      var nameInput = h('input', { type: 'text', placeholder: 'プロファイル名', value: name });
+      var colorsList = h('div', { id: 'us-prof-colors-list' });
+      (colors || []).forEach(function (c, i) { colorsList.appendChild(_makeColorRow(c.value, c.name)); });
+      var addBtn = h('button.us-prof-btn-add-color', '+ 色を追加');
+      addBtn.addEventListener('click', function () { colorsList.appendChild(_makeColorRow('#888888', '')); });
+      var cancelBtn = h('button.us-prof-btn-cancel', 'キャンセル');
+      var saveBtn = h('button.us-prof-btn-save', '保存');
+      cancelBtn.addEventListener('click', function () { while (slot.firstChild) slot.removeChild(slot.firstChild); _editingProfileId = null; });
+      saveBtn.addEventListener('click', function () {
+        var n = nameInput.value.trim() || 'Untitled';
+        var rows = colorsList.querySelectorAll('.us-prof-color-item');
+        var cs = [];
+        for (var r = 0; r < rows.length; r++) {
+          var cv = rows[r].querySelector('[data-role="prof-color"]').value;
+          var cn = rows[r].querySelector('[data-role="prof-name"]').value.trim();
+          cs.push({ value: cv, name: cn });
+        }
+        var promise = _editingProfileId ? ProfileManager.updateProfile(_editingProfileId, n, cs) : ProfileManager.addProfile(n, cs);
+        promise.then(function () {
+          while (slot.firstChild) slot.removeChild(slot.firstChild);
+          _editingProfileId = null;
+          refreshProfiles();
+        });
+      });
+      var editor = h('div.us-prof-editor', { 'data-us-cc': 'prof-editor' },
+        nameInput, colorsList, addBtn, h('div.us-prof-editor-actions', cancelBtn, saveBtn)
+      );
+      slot.appendChild(editor);
+    }
+
+    async function refreshRules() {
+      var container = screenEl.querySelector('#us-p-rules');
+      if (!container) return;
+      var rules = RulesManager.getRules();
+      var currentPageKey = 'userscripts:features:colorCustomizer:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
+      var hostPrefix = 'userscripts:features:colorCustomizer:page:' + encodeURIComponent(window.location.hostname);
+      var otherPagesRules = [];
+      try {
+        var byPrefix = await RPC.call('storage.getAllByPrefix', [hostPrefix]);
+        if (byPrefix && typeof byPrefix === 'object') {
+          Object.keys(byPrefix).forEach(function (k) {
+            if (k === currentPageKey) return;
+            var val = byPrefix[k];
+            if (val && Array.isArray(val.rules)) {
+              val.rules.forEach(function (r) { otherPagesRules.push({ rule: r, idx: -1 }); });
+            }
+          });
+        }
+      } catch (e) { console.warn('[ColorCustomizer] getAllByPrefix failed:', e); }
+      while (container.firstChild) container.removeChild(container.firstChild);
+      if (rules.length === 0 && otherPagesRules.length === 0) {
+        screenEl.querySelector('#us-p-tab-exists').textContent = 'このページに存在 (0)';
+        screenEl.querySelector('#us-p-tab-other').textContent = 'その他 (0)';
+        screenEl.querySelector('#us-p-tab-exists').classList.add('active');
+        screenEl.querySelector('#us-p-tab-other').classList.remove('active');
+        container.appendChild(h('span.us-p-empty', 'ルールがありません'));
+        return;
+      }
+      var withIndex = rules.map(function (r, i) { return { rule: r, idx: i }; });
+      var matching = [];
+      var other = [];
+      withIndex.forEach(function (w) {
+        try {
+          var el = SelectorEngine.find(w.rule.selector);
+          if (el) matching.push(w); else other.push(w);
+        } catch (e) { other.push(w); }
+      });
+      matching.sort(function (a, b) { return b.idx - a.idx; });
+      other.sort(function (a, b) { return b.idx - a.idx; });
+      other = other.concat(otherPagesRules);
+      screenEl.querySelector('#us-p-tab-exists').textContent = 'このページに存在 (' + matching.length + ')';
+      screenEl.querySelector('#us-p-tab-other').textContent = 'その他 (' + other.length + ')';
+      screenEl.querySelector('#us-p-tab-exists').classList.toggle('active', _activeRulesTab === 'exists');
+      screenEl.querySelector('#us-p-tab-other').classList.toggle('active', _activeRulesTab === 'other');
+      var list = _activeRulesTab === 'exists' ? matching : other;
+      if (list.length === 0) {
+        container.appendChild(h('span.us-p-empty', _activeRulesTab === 'exists' ? 'このページに該当するルールはありません' : 'その他のルールはありません'));
+        return;
+      }
+      list.forEach(function (w) {
+        var r = w.rule;
+        var shortSel = r.selector.length > 28 ? '…' + r.selector.slice(-26) : r.selector;
+        var swatch = h('span.us-rule-swatch');
+        swatch.style.setProperty('background', r.value, 'important');
+        var canDelete = w.idx >= 0;
+        var item = h('div.us-rule-item',
+          swatch,
+          h('span.us-rule-info',
+            h('span.us-rule-selector', { title: r.selector }, shortSel),
+            h('span.us-rule-prop', r.property)
+          ),
+          canDelete ? h('button.us-rule-del', { 'data-rule-idx': String(w.idx), title: '削除' }, '\u2715') : null
+        );
+        if (_activeRulesTab === 'exists') item.classList.add('us-rule-item-exists');
+        container.appendChild(item);
+      });
+    }
+
+    function refreshProfiles() {
+      var container = screenEl.querySelector('#us-p-prof-list');
+      if (!container) return;
+      while (container.firstChild) container.removeChild(container.firstChild);
+      var profiles = ProfileManager.getProfiles();
+      if (profiles.length === 0) return;
+      profiles.forEach(function (prof) {
+        var swatches = h('span.us-prof-swatches');
+        prof.colors.forEach(function (c) {
+          var sw = h('span.us-prof-sw', { title: c.name || c.value });
+          sw.style.setProperty('background', c.value, 'important');
+          swatches.appendChild(sw);
+        });
+        container.appendChild(
+          h('div.us-prof-item',
+            h('div.us-prof-item-head',
+              h('span.us-prof-name', prof.name),
+              h('span.us-prof-actions',
+                h('button', { 'data-prof-edit': prof.id, title: '編集' }, '\u270E'),
+                h('button', { 'data-prof-del': prof.id, title: '削除' }, '\u2715')
+              )
+            ),
+            swatches
+          )
+        );
+      });
+    }
+
+    function syncColorEditorToggle(listToggleEl) {
+      var editToggle = screenEl.querySelector('#us-p-edit-toggle');
+      if (listToggleEl) listToggleEl.checked = EditMode.active;
+      if (editToggle) editToggle.checked = EditMode.active;
+      if (listToggleEl && !listToggleEl.checked && EditMode.active) EditMode.disable();
+    }
+
+    screenEl.querySelector('.us-p-nav-back').addEventListener('click', function () { if (onBack) onBack(); });
+    screenEl.querySelector('#us-p-tab-exists').addEventListener('click', function () {
+      _activeRulesTab = 'exists';
+      screenEl.querySelector('#us-p-tab-exists').classList.add('active');
+      screenEl.querySelector('#us-p-tab-other').classList.remove('active');
+      refreshRules();
+    });
+    screenEl.querySelector('#us-p-tab-other').addEventListener('click', function () {
+      _activeRulesTab = 'other';
+      screenEl.querySelector('#us-p-tab-other').classList.add('active');
+      screenEl.querySelector('#us-p-tab-exists').classList.remove('active');
+      refreshRules();
+    });
+    screenEl.querySelector('#us-p-clear').addEventListener('click', function () {
+      RulesManager.clearRules().then(function () {
+        StyleApplier.clearAll();
+        refreshRules();
+      });
+    });
+    screenEl.querySelector('#us-p-export').addEventListener('click', function () {
+      var data = {
+        version: US_VERSION,
+        exportedAt: new Date().toISOString(),
+        page: window.location.hostname + window.location.pathname,
+        rules: RulesManager.getRules(),
+        profiles: ProfileManager.getProfiles()
+      };
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var ts = new Date().toISOString().replace(/[:.]/g, '-');
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'color-customizer-' + window.location.hostname + '-' + ts + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    screenEl.querySelector('#us-p-import').addEventListener('click', function () {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.addEventListener('change', function () {
+        var file = input.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var data = JSON.parse(reader.result);
+            var promises = [];
+            if (Array.isArray(data.rules)) promises.push(RulesManager.importRules(data.rules));
+            if (Array.isArray(data.profiles)) promises.push(ProfileManager.importProfiles(data.profiles));
+            Promise.all(promises).then(function (results) {
+              var rulesCount = results[0] || 0;
+              var profilesCount = results[1] || 0;
+              StyleApplier.clearAll();
+              StyleApplier.applyAll(RulesManager.getRules());
+              refreshRules();
+              refreshProfiles();
+              _showImportResult(true, { rulesCount: rulesCount, profilesCount: profilesCount });
+            }).catch(function (e) {
+              _showImportResult(false, { error: e && e.message ? e.message : String(e) });
+            });
+          } catch (e) {
+            _showImportResult(false, { error: e && e.message ? e.message : String(e) });
+          }
+        };
+        reader.readAsText(file);
+      });
+      input.click();
+    });
+    screenEl.querySelector('#us-p-rules').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-rule-idx]');
+      if (!btn) return;
+      var idx = parseInt(btn.getAttribute('data-rule-idx'), 10);
+      var rules = RulesManager.getRules();
+      var rule = idx >= 0 && idx < rules.length ? rules[idx] : null;
+      RulesManager.removeRule(idx).then(function () {
+        if (rule) StyleApplier.removeRuleFromPage(rule.selector, rule.property);
+        StyleApplier.clearAll();
+        StyleApplier.applyAll(RulesManager.getRules());
+        refreshRules();
+      });
+    });
+    screenEl.querySelector('#us-p-prof-add').addEventListener('click', function () {
+      _editingProfileId = null;
+      _showProfileEditor(screenEl.querySelector('#us-p-prof-editor-slot'), '', [{ value: '#3b82f6', name: '' }]);
+    });
+    screenEl.querySelector('#us-p-prof-list').addEventListener('click', function (e) {
+      var editBtn = e.target.closest('[data-prof-edit]');
+      var delBtn = e.target.closest('[data-prof-del]');
+      if (editBtn) {
+        var id = editBtn.getAttribute('data-prof-edit');
+        var prof = ProfileManager.getProfiles().find(function (p) { return p.id === id; });
+        if (prof) {
+          _editingProfileId = id;
+          _showProfileEditor(screenEl.querySelector('#us-p-prof-editor-slot'), prof.name, prof.colors);
+        }
+      } else if (delBtn) {
+        var delId = delBtn.getAttribute('data-prof-del');
+        ProfileManager.deleteProfile(delId).then(function () { refreshProfiles(); });
+      }
+    });
+    switchLabelEdit.querySelector('input').addEventListener('change', function () {
+      if (this.checked) {
+        EditMode.enable();
+      } else {
+        EditMode.disable();
+        Tab.setAggregate(false, false);
+      }
+      if (onEditToggleChange) onEditToggleChange(this.checked);
+    });
+
+    _colorEditorScreenApi = { refreshRules: refreshRules, refreshProfiles: refreshProfiles };
+    return { el: screenEl, refreshRules: refreshRules, refreshProfiles: refreshProfiles, syncColorEditorToggle: syncColorEditorToggle };
+  }
+
+  /**
+   * Returns panel feature descriptor: { listRow, screen, onPanelOpen }.
+   * All colorEditor strings (labels, ids) live here. callbacks: { onBack, onEditToggleChange(checked) }
+   */
+  function createPanelFeature(h, createGearNode, US_VERSION, callbacks) {
+    var switchLabel = document.createElement('label');
+    switchLabel.className = 'us-switch';
+    switchLabel.setAttribute('data-us-cc', 'switch');
+    switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-ce-toggle' }));
+    switchLabel.appendChild(h('span.us-slider'));
+    var icon = h('div.us-p-feature-icon', document.createTextNode('あAa'), h('div.us-p-feature-icon-swatch'));
+    var label = h('span.us-p-feature-label', 'color', h('span.us-title-editor', 'Editor'));
+    var listRow = h('div', { class: 'us-p-feature-row' },
+      icon, label,
+      h('div.us-p-feature-right', switchLabel, h('span.us-p-feature-chevron', '\u203A'))
+    );
+    var toggleEl = listRow.querySelector('#us-p-feature-ce-toggle');
+    toggleEl.addEventListener('click', function (e) { e.stopPropagation(); });
+    toggleEl.addEventListener('change', function () {
+      if (this.checked) EditMode.enable();
+      else { EditMode.disable(); Tab.setAggregate(false, false); }
+      if (callbacks && callbacks.onEditToggleChange) callbacks.onEditToggleChange(this.checked);
+    });
+
+    var screenResult = createColorEditorScreen(h, createGearNode, US_VERSION, callbacks);
+    function onShow() {
+      screenResult.refreshRules();
+      screenResult.refreshProfiles();
+      if (toggleEl) screenResult.syncColorEditorToggle(toggleEl);
+    }
+    function onPanelOpen() {
+      if (toggleEl) toggleEl.checked = EditMode.active;
+      if (toggleEl && !toggleEl.checked && EditMode.active) EditMode.disable();
+    }
+    return {
+      listRow: listRow,
+      screen: { el: screenResult.el, onShow: onShow },
+      onPanelOpen: onPanelOpen
+    };
+  }
+
   window.SelectorEngine = SelectorEngine;
   window.RulesManager = RulesManager;
   window.ProfileManager = ProfileManager;
@@ -2637,4 +3049,6 @@ var ColorCustomizerFeature = (function () {
   window.ProfileColorPopover = ProfileColorPopover;
   window.Tab = Tab;
   window.ColorCustomizerFeature = ColorCustomizerFeature;
+  window.createColorEditorScreen = createColorEditorScreen;
+  window.createColorEditorPanelFeature = createPanelFeature;
 })();

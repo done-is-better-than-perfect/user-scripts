@@ -753,5 +753,259 @@
   };
   }
 
+  /**
+   * Build the DataFiller panel screen DOM and logic.
+   * Returns { el, refreshSteps }. Call refreshSteps() to update the steps list.
+   * callbacks: { onBack }
+   */
+  function createDataFillerScreen(h, dataFillerInstance, RPC, callbacks) {
+    var onBack = callbacks && callbacks.onBack;
+    var _activeTab = 'page';
+
+    var dfMainToggleLabel = document.createElement('label');
+    dfMainToggleLabel.className = 'us-switch';
+    dfMainToggleLabel.setAttribute('data-us-cc', 'switch');
+    dfMainToggleLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-main-toggle' }));
+    dfMainToggleLabel.appendChild(h('span.us-slider'));
+    var dfDetailIcon = h('div.us-p-detail-icon', document.createTextNode('CSV'));
+    var dfTabPage = h('button.us-p-tab-btn.active', { id: 'us-p-df-tab-page', type: 'button', 'data-df-tab': 'page' }, 'このページ (0)');
+    var dfTabOther = h('button.us-p-tab-btn', { id: 'us-p-df-tab-other', type: 'button', 'data-df-tab': 'other' }, 'その他 (0)');
+    var screenEl = h('div', { class: 'us-p-screen', 'data-us-cc': 'screen-dataFiller' },
+      h('div.us-p-detail-header',
+        h('div.us-p-detail-header-row',
+          h('button.us-p-nav-back', { type: 'button', 'data-df-back': '1' }, '\u2039 \u8a2d\u5b9a')
+        ),
+        h('div.us-p-detail-header-row',
+          dfDetailIcon,
+          h('span.us-p-title', 'data', h('span.us-title-editor', 'Filler')),
+          h('span.us-p-header-toggle', dfMainToggleLabel)
+        )
+      ),
+      h('div.us-p-tabs', dfTabPage, dfTabOther),
+      h('div.us-p-section-title', { 'data-us-cc': 'section' },
+        h('span', 'フォーム要素（クリックで追加）'),
+        h('button', { id: 'us-p-df-template-dl', title: 'CSVテンプレートをダウンロード', class: 'us-p-df-template-btn' }, '\u2B07')
+      ),
+      h('div.us-p-df-steps-wrap',
+        h('div.us-p-df-steps', { id: 'us-p-df-steps' }),
+        h('span.us-p-empty', { id: 'us-p-df-empty' }, 'dataFillerをONにしてフォーム要素をクリックすると追加されます')
+      )
+    );
+
+    async function refreshSteps() {
+      var emptyEl = screenEl.querySelector('#us-p-df-empty');
+      var stepsEl = screenEl.querySelector('#us-p-df-steps');
+      var tabPageEl = screenEl.querySelector('#us-p-df-tab-page');
+      var tabOtherEl = screenEl.querySelector('#us-p-df-tab-other');
+      if (!stepsEl) return;
+      var currentKey = 'userscripts:features:dataFiller:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
+      var hostname = window.location.hostname;
+      var prefix = 'userscripts:features:dataFiller:page:';
+
+      function compareXPathByHierarchy(a, b) {
+        var segA = (a || '').split('/');
+        var segB = (b || '').split('/');
+        for (var i = 0; i < Math.max(segA.length, segB.length); i++) {
+          var sa = segA[i] || '';
+          var sb = segB[i] || '';
+          var c = sa.localeCompare(sb);
+          if (c !== 0) return c;
+        }
+        return 0;
+      }
+      var thisPageSteps = (dataFillerInstance.getSteps() || []).map(function (step, i) { return { step: step, originalIndex: i }; });
+      thisPageSteps.sort(function (a, b) {
+        var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
+        if (c !== 0) return c;
+        return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
+      });
+
+      var otherPages = [];
+      try {
+        var byPrefix = await RPC.call('storage.getAllByPrefix', [prefix]);
+        if (byPrefix && typeof byPrefix === 'object') {
+          Object.keys(byPrefix).forEach(function (k) {
+            if (k === currentKey) return;
+            var decoded = '';
+            try { decoded = decodeURIComponent(k.slice(prefix.length)); } catch (e) { return; }
+            if (decoded !== hostname && decoded.indexOf(hostname + '/') !== 0) return;
+            var val = byPrefix[k];
+            if (!val || !Array.isArray(val.steps)) return;
+            var pagePath = decoded === hostname ? '/' : decoded.slice(hostname.length) || '/';
+            var list = val.steps.map(function (s, idx) { return { step: s, originalIndex: idx }; });
+            list.sort(function (a, b) {
+              var c = compareXPathByHierarchy(a.step.xpath, b.step.xpath);
+              if (c !== 0) return c;
+              return (a.step.logicalName || '').localeCompare(b.step.logicalName || '');
+            });
+            otherPages.push({ pagePath: pagePath, steps: list });
+          });
+        }
+      } catch (e) { console.warn('[DataFiller] getAllByPrefix failed:', e); }
+      otherPages.sort(function (a, b) { return (a.pagePath || '').localeCompare(b.pagePath || ''); });
+
+      function renderSteps() {
+        var otherCount = otherPages.reduce(function (sum, g) { return sum + g.steps.length; }, 0);
+        if (tabPageEl) tabPageEl.textContent = 'このページ (' + thisPageSteps.length + ')';
+        if (tabOtherEl) tabOtherEl.textContent = 'その他 (' + otherCount + ')';
+        if (tabPageEl) tabPageEl.classList.toggle('active', _activeTab === 'page');
+        if (tabOtherEl) tabOtherEl.classList.toggle('active', _activeTab === 'other');
+        while (stepsEl.firstChild) stepsEl.removeChild(stepsEl.firstChild);
+
+        function xpathCounts(list) {
+          var counts = {};
+          list.forEach(function (w) {
+            var x = (w.step && w.step.xpath) || '';
+            counts[x] = (counts[x] || 0) + 1;
+          });
+          return counts;
+        }
+
+        if (_activeTab === 'page') {
+          if (emptyEl) emptyEl.style.display = thisPageSteps.length ? 'none' : 'block';
+          var counts = xpathCounts(thisPageSteps);
+          var seenXpath = {};
+          thisPageSteps.forEach(function (w) {
+            var step = w.step;
+            var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
+            var isFirstOfXpath = !seenXpath[step.xpath];
+            seenXpath[step.xpath] = true;
+            var isDup = (counts[step.xpath] || 0) > 1 && !isFirstOfXpath;
+            var reqCls = step.required === false ? 'us-p-df-step-required.us-p-df-step-req-optional' : 'us-p-df-step-required.us-p-df-step-req-required';
+            var reqText = step.required === false ? '任意' : '必須';
+            var row = h('div', { class: 'us-p-df-step' + (isDup ? ' us-p-df-step-duplicate' : '') },
+              h('span.us-p-df-step-type', step.type),
+              isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
+              h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+              h('span.' + reqCls, reqText),
+              h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
+              h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(w.originalIndex), title: '削除' }, '\u2715')
+            );
+            row.addEventListener('click', function (e) {
+              if (e.target.closest('.us-p-df-step-del')) return;
+              RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
+            });
+            var delBtn = row.querySelector('.us-p-df-step-del');
+            if (delBtn) delBtn.addEventListener('click', function (e) { e.stopPropagation(); dataFillerInstance.removeStep(w.originalIndex); refreshSteps(); });
+            stepsEl.appendChild(row);
+          });
+        } else {
+          if (emptyEl) emptyEl.style.display = 'none';
+          if (otherCount === 0) {
+            stepsEl.appendChild(h('span.us-p-empty', '同じドメインの他ページの定義はありません'));
+            return;
+          }
+          var allOther = [];
+          otherPages.forEach(function (g) {
+            g.steps.forEach(function (w) { allOther.push({ step: w.step, pagePath: g.pagePath }); });
+          });
+          var otherCounts = {};
+          allOther.forEach(function (w) {
+            var x = (w.step && w.step.xpath) || '';
+            otherCounts[x] = (otherCounts[x] || 0) + 1;
+          });
+          otherPages.forEach(function (g) {
+            stepsEl.appendChild(h('div.us-p-df-other-head', g.pagePath));
+            var seenOther = {};
+            g.steps.forEach(function (w) {
+              var step = w.step;
+              var shortX = step.xpath.length > 36 ? '…' + step.xpath.slice(-34) : step.xpath;
+              var isFirstOfXpath = !seenOther[step.xpath];
+              seenOther[step.xpath] = true;
+              var isDup = (otherCounts[step.xpath] || 0) > 1 && !isFirstOfXpath;
+              var reqClsOther = step.required === false ? 'us-p-df-step-required.us-p-df-step-req-optional' : 'us-p-df-step-required.us-p-df-step-req-required';
+              var reqTextOther = step.required === false ? '任意' : '必須';
+              var row = h('div', { class: 'us-p-df-step us-p-df-step-other' + (isDup ? ' us-p-df-step-duplicate' : '') },
+                h('span.us-p-df-step-type', step.type),
+                isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
+                h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+                h('span.' + reqClsOther, reqTextOther),
+                h('span.us-p-df-step-xpath', { title: step.xpath }, shortX)
+              );
+              row.addEventListener('click', function (e) {
+                RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
+              });
+              stepsEl.appendChild(row);
+            });
+          });
+        }
+      }
+      renderSteps();
+    }
+
+    screenEl.querySelector('[data-df-back="1"]').addEventListener('click', function () { if (onBack) onBack(); });
+    var dfMainToggle = screenEl.querySelector('#us-p-df-main-toggle');
+    if (dfMainToggle) dfMainToggle.addEventListener('change', function () {
+      RPC.call('storage.set', ['userscripts:features:dataFiller:enabled', this.checked]).catch(function () {});
+      if (this.checked) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
+    });
+    screenEl.querySelector('#us-p-df-template-dl').addEventListener('click', function () { dataFillerInstance.exportCSVTemplate(); });
+    screenEl.querySelector('#us-p-df-tab-page').addEventListener('click', function () {
+      _activeTab = 'page';
+      dfTabPage.classList.add('active');
+      if (dfTabOther) dfTabOther.classList.remove('active');
+      refreshSteps();
+    });
+    screenEl.querySelector('#us-p-df-tab-other').addEventListener('click', function () {
+      _activeTab = 'other';
+      dfTabOther.classList.add('active');
+      if (dfTabPage) dfTabPage.classList.remove('active');
+      refreshSteps();
+    });
+
+    return { el: screenEl, refreshSteps: refreshSteps };
+  }
+
+  var STORAGE_KEY_ENABLED = 'userscripts:features:dataFiller:enabled';
+
+  /**
+   * Returns panel feature descriptor: { listRow, screen, onPanelOpen }.
+   * All dataFiller strings (labels, ids, storage keys) live here.
+   */
+  function createPanelFeature(h, dataFillerInstance, RPC, callbacks) {
+    var onBack = callbacks && callbacks.onBack;
+    var switchLabel = document.createElement('label');
+    switchLabel.className = 'us-switch';
+    switchLabel.setAttribute('data-us-cc', 'switch');
+    switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-df-toggle' }));
+    switchLabel.appendChild(h('span.us-slider'));
+    var icon = h('div.us-p-feature-icon', document.createTextNode('CSV'));
+    var label = h('span.us-p-feature-label', 'data', h('span.us-title-editor', 'Filler'));
+    var listRow = h('div', { class: 'us-p-feature-row' },
+      icon, label,
+      h('div.us-p-feature-right', switchLabel, h('span.us-p-feature-chevron', '\u203A'))
+    );
+    var toggleEl = listRow.querySelector('#us-p-feature-df-toggle');
+    toggleEl.addEventListener('click', function (e) { e.stopPropagation(); });
+    toggleEl.addEventListener('change', function () {
+      RPC.call('storage.set', [STORAGE_KEY_ENABLED, this.checked]).catch(function () {});
+      if (this.checked) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
+    });
+
+    var screenResult = createDataFillerScreen(h, dataFillerInstance, RPC, { onBack: onBack });
+    function onShow() {
+      var mainToggle = screenResult.el.querySelector('#us-p-df-main-toggle');
+      if (mainToggle && toggleEl) mainToggle.checked = toggleEl.checked;
+      dataFillerInstance.load().then(function () { screenResult.refreshSteps(); });
+    }
+    function onPanelOpen() {
+      RPC.call('storage.get', [STORAGE_KEY_ENABLED, false]).then(function (val) {
+        var enabled = !!val;
+        if (toggleEl) toggleEl.checked = enabled;
+        if (enabled) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
+      }).catch(function () {
+        if (toggleEl) toggleEl.checked = false;
+        dataFillerInstance.disableCapture();
+      });
+    }
+    return {
+      listRow: listRow,
+      screen: { el: screenResult.el, onShow: onShow },
+      onPanelOpen: onPanelOpen
+    };
+  }
+
   global.createDataFiller = createDataFiller;
+  global.createDataFillerScreen = createDataFillerScreen;
+  global.createDataFillerPanelFeature = createPanelFeature;
 })(typeof window !== 'undefined' ? window : this);
