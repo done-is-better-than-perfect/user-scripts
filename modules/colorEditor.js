@@ -3051,4 +3051,5 @@ var ColorCustomizerFeature = (function () {
   window.ColorCustomizerFeature = ColorCustomizerFeature;
   window.createColorEditorScreen = createColorEditorScreen;
   window.createColorEditorPanelFeature = createPanelFeature;
+  if (typeof window.__US_registerPanelFeature === 'function') window.__US_registerPanelFeature('colorEditor', createPanelFeature);
 })();

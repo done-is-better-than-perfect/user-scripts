@@ -5,11 +5,10 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.49';
+  var US_VERSION = '1.7.0-dev.50';
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
-    console.log('[UserScripts] runMain called: window.RPC=' + (typeof window.RPC) + ' createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature) + ' createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature));
     var RPC = window.RPC, h = window.h, makeSvg = window.makeSvg, createGearNode = window.createGearNode;
     if (!RPC || !h) {
       console.error('[UserScripts] util.js did not load (RPC/h missing). Aborting runMain.');
@@ -42,14 +41,18 @@ var Panel = (function () {
     this.backdrop = bd;
 
     var features = [];
-    if (typeof window.createColorEditorPanelFeature === 'function') {
-      features.push(window.createColorEditorPanelFeature(h, createGearNode, US_VERSION, {
-        onBack: function () { self._showList(); },
-        onEditToggleChange: function (checked) { if (checked) Panel.close(); }
-      }));
+    var ceCallbacks = { onBack: function () { self._showList(); }, onEditToggleChange: function (checked) { if (checked) Panel.close(); } };
+    var dfCallbacks = { onBack: function () { self._showList(); } };
+    var fns = window.__US_panelFeatureFns || {};
+    if (typeof fns.colorEditor === 'function') {
+      features.push(fns.colorEditor(h, createGearNode, US_VERSION, ceCallbacks));
+    } else if (typeof window.createColorEditorPanelFeature === 'function') {
+      features.push(window.createColorEditorPanelFeature(h, createGearNode, US_VERSION, ceCallbacks));
     }
-    if (typeof window.createDataFillerPanelFeature === 'function') {
-      features.push(window.createDataFillerPanelFeature(h, DataFiller, RPC, { onBack: function () { self._showList(); } }));
+    if (typeof fns.dataFiller === 'function') {
+      features.push(fns.dataFiller(h, DataFiller, RPC, dfCallbacks));
+    } else if (typeof window.createDataFillerPanelFeature === 'function') {
+      features.push(window.createDataFillerPanelFeature(h, DataFiller, RPC, dfCallbacks));
     }
 
     var listContainer = h('div', { class: 'us-p-feature-list' });
@@ -135,7 +138,9 @@ var Panel = (function () {
 
   open: async function () {
     if (this.el && this._features && this._features.length === 0) {
-      if (typeof window.createColorEditorPanelFeature === 'function' || typeof window.createDataFillerPanelFeature === 'function') {
+      var fns0 = window.__US_panelFeatureFns || {};
+      var hasFeature = (fns0.colorEditor || fns0.dataFiller || window.createColorEditorPanelFeature || window.createDataFillerPanelFeature);
+      if (hasFeature) {
         if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
         if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
         this.el = null;
@@ -222,7 +227,6 @@ window.US.rpc = RPC;
   var base = scriptSrc ? scriptSrc.replace(/#.*$/, '').replace(/\?.*$/, '').replace(/\/script\.js$/i, '') : 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@main';
 
   function loadByScriptTag() {
-    console.log('[UserScripts] loading modules by script tag (fetch failed or unavailable)');
     var util = document.createElement('script');
     util.src = base + '/modules/util.js';
     util.onload = function () {
@@ -246,10 +250,6 @@ window.US.rpc = RPC;
     if (!nextUrl) { thenRun(); return; }
     fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
-      var name = nextUrl.replace(/^.*\//, '');
-      if (name === 'util.js') console.log('[UserScripts] after eval(util): window.RPC=' + (typeof window.RPC) + ' window.h=' + (typeof window.h));
-      if (name === 'colorEditor.js') console.log('[UserScripts] after eval(colorEditor): window.createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature));
-      if (name === 'dataFiller.js') console.log('[UserScripts] after eval(dataFiller): window.createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature));
       thenRun();
     }).catch(function (err) {
       console.warn('[UserScripts] fetch failed for ' + nextUrl + ', falling back to script tag', err);
@@ -257,13 +257,13 @@ window.US.rpc = RPC;
     });
   }
 
-  console.log('[UserScripts] loading modules by fetch+eval, base=' + base);
+  window.__US_registerPanelFeature = function (key, createFn) {
+    window.__US_panelFeatureFns = window.__US_panelFeatureFns || {};
+    window.__US_panelFeatureFns[key] = createFn;
+  };
   loadByFetchEval(base + '/modules/util.js', function () {
     loadByFetchEval(base + '/modules/colorEditor.js', function () {
-      loadByFetchEval(base + '/modules/dataFiller.js', function () {
-        console.log('[UserScripts] before runMain: createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature) + ' createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature));
-        runMain();
-      });
+      loadByFetchEval(base + '/modules/dataFiller.js', runMain);
     });
   });
 })();

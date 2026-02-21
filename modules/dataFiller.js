@@ -1008,4 +1008,5 @@
   global.createDataFiller = createDataFiller;
   global.createDataFillerScreen = createDataFillerScreen;
   global.createDataFillerPanelFeature = createPanelFeature;
+  if (typeof global.__US_registerPanelFeature === 'function') global.__US_registerPanelFeature('dataFiller', createPanelFeature);
 })(typeof window !== 'undefined' ? window : this);
