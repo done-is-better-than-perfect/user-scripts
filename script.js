@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.37';
+var US_VERSION = '1.7.0-dev.38';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -1210,6 +1210,7 @@ var EditMode = (function () {
       document.addEventListener('click', this._boundClick, true);
       Tab.setAggregate(true, false);
       this._persist(true);
+      StyleApplier.applyAll(RulesManager.getRules());
     },
     disable: function () {
       if (!this.active) return;
@@ -1223,6 +1224,7 @@ var EditMode = (function () {
       this._boundClick = null;
       Tab.setAggregate(false, false);
       this._persist(false);
+      StyleApplier.clearAll();
     },
     _isOurUI: function (el) {
       return !!(el && el.closest && el.closest('[data-us-cc]'));
@@ -3445,18 +3447,10 @@ var ColorCustomizerFeature = (function () {
       await RPC.init();
       await RulesManager.load();
       await ProfileManager.load();
-      function applyRules() {
-        StyleApplier.applyAll(RulesManager.getRules());
+      function applyRulesIfEnabled() {
+        if (EditMode.active) StyleApplier.applyAll(RulesManager.getRules());
+        else StyleApplier.clearAll();
       }
-      applyRules();
-      if (document.readyState !== 'complete') {
-        window.addEventListener('load', function onLoad() {
-          window.removeEventListener('load', onLoad);
-          applyRules();
-        });
-      }
-      setTimeout(applyRules, 600);
-      setTimeout(applyRules, 2000);
       Tab.create();
       // Restore Edit Mode state (① aggregate = colorEditor for now)
       var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
@@ -3464,7 +3458,16 @@ var ColorCustomizerFeature = (function () {
         EditMode.enable();
       } else {
         Tab.setAggregate(false, false);
+        StyleApplier.clearAll();
       }
+      if (document.readyState !== 'complete') {
+        window.addEventListener('load', function onLoad() {
+          window.removeEventListener('load', onLoad);
+          applyRulesIfEnabled();
+        });
+      }
+      setTimeout(applyRulesIfEnabled, 600);
+      setTimeout(applyRulesIfEnabled, 2000);
       // If panel was already opened (e.g. before init completed), sync its colorEditor toggles to actual state
       if (typeof Panel !== 'undefined' && Panel.syncColorEditorToggle) Panel.syncColorEditorToggle();
       // Restore dataFiller enabled state
