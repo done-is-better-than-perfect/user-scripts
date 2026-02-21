@@ -46,9 +46,10 @@ var global = typeof window !== 'undefined' ? window : this;
     return 'unknown';
   }
 
-  /** プレフィル用: フォーム要素に紐づく <label> の textContent のみ取得。最大10世代親を遡り、兄弟および兄弟の子孫の label を検索。
-   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。span/div は対象にしない。
-   *  input type=radio / checkbox の場合は、「この input を包む label」と「for が el.id と一致する label」のみ対象外とし、それ以外の label（例: グループ見出し）はプレフィルに使用する。 */
+  /** プレフィル用: フォーム要素に紐づく <label> の textContent を優先取得。最大10世代親を遡り、兄弟および兄弟の子孫の label を検索。
+   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。
+   *  input type=radio / checkbox の場合は、「この input を包む label」と「for が el.id と一致する label」のみ対象外とし、それ以外の label（例: グループ見出し）はプレフィルに使用する。
+   *  <label> が見つからなかった場合は、同じ走査パターンで近傍の <span> テキスト（getDirectText）をフォールバックとして検索する。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
     var doc = el.ownerDocument;
@@ -117,6 +118,41 @@ var global = typeof window !== 'undefined' ? window : this;
           t = labelTextFromNode(next);
         }
         if (t) return t;
+      }
+      node = node.parentElement || node.parentNode;
+    }
+    // Fallback: <label> が見つからなかった場合、近傍の <span> テキストを検索
+    function spanTextFrom(nd) {
+      if (!nd || !nd.tagName) return '';
+      if (nd.closest && nd.closest('select')) return '';
+      if (nd.tagName.toLowerCase() === 'span') return trim(getDirectText(nd));
+      if (nd.querySelectorAll) {
+        var spans = nd.querySelectorAll('span');
+        for (var i = 0; i < spans.length; i++) {
+          if (spans[i].closest && spans[i].closest('select')) continue;
+          var st = trim(getDirectText(spans[i]));
+          if (st) return st;
+        }
+      }
+      return '';
+    }
+    node = el;
+    for (var gen2 = 0; gen2 < maxAncestors && node; gen2++) {
+      if (node.tagName && node.tagName.toLowerCase() === 'span') {
+        if (!(node.closest && node.closest('select'))) {
+          var st = trim(getDirectText(node));
+          if (st) return st;
+        }
+      }
+      var prev2 = node.previousElementSibling;
+      if (prev2) {
+        var st2 = spanTextFrom(prev2);
+        if (st2) return st2;
+      }
+      var next2 = node.nextElementSibling;
+      if (next2) {
+        var st3 = spanTextFrom(next2);
+        if (st3) return st3;
       }
       node = node.parentElement || node.parentNode;
     }

@@ -10,7 +10,7 @@ import { RPC, h, makeSvg, createGearNode } from './modules/util.js';
 import { ColorEditorFeature, ColorCustomizerFeature, ColorPopover } from './modules/colorEditor.js';
 import { DataFillerFeature } from './modules/dataFiller.js';
 
-var US_VERSION = '1.7.0';
+var US_VERSION = '1.7.1';
 
 if (window.location.hostname === '127.0.0.1') {
   throw new Error('[UserScripts] 127.0.0.1 is disabled');

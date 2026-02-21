@@ -68,7 +68,7 @@
 
 ### 4.1 プレフィルに使うもの（項目名の初期値）
 
-- **取得元は `<label>` の textContent のみ**。span/div はプレフィルには使わない。
+- **取得元は `<label>` の textContent を優先**。`<label>` が見つからなかった場合は、同じ走査パターンで近傍の `<span>` テキスト（直接の子テキストノードのみ）をフォールバックとして使用する。
 - **`<label>` の採用条件**
   - 次のいずれかに該当する label は**採用しない**:
     - 対象フォーム要素を**子に含む** label（`label.contains(el)`）
@@ -80,6 +80,7 @@
 - **id がある場合（radio/checkbox 以外）**: `document.querySelector('label[for="id"]')` で一致する label があれば、その textContent を最優先で使用。
 - **走査**: 対象要素から最大 10 世代親へ遡り、各階層で「自身が label」「前兄弟」「次兄弟」および兄弟の子孫内の label を上記条件で評価。最初に採用された label の text を返す。
 - **radio/checkbox**: 上記の除外を適用したうえで、**グループ見出し**のような「それ以外の label」だけをプレフィルに使用。選択肢の「なし」「あり」などの label は使わない。
+- **`<span>` フォールバック**: 上記の `<label>` 検索で何も見つからなかった場合のみ、同じ走査パターン（最大10世代、前後の兄弟とその子孫）で `<span>` の `getDirectText` を検索する。`<select>` 内の span は除外。
 
 ### 4.2 候補に使うもの（ドロップダウンで選べるテキスト）
 
@@ -99,7 +100,7 @@
 
 ### 4.3 ホバー時のプレフィル・候補の決定フロー
 
-1. `labelPrefill = getLabelNearElement(el)` でプレフィル用の label テキストを取得。
+1. `labelPrefill = getLabelNearElement(el)` でプレフィル用テキストを取得（label 優先、なければ span フォールバック）。
 2. **radio/checkbox**: `suggested = labelPrefill || (type のフォールバック)`。`suggestedFromLabel`（label クリックで得たテキスト）は使わない。
 3. **それ以外**: `suggested = suggestedFromLabel || labelPrefill || (type のフォールバック)`。
 4. `includeLabelInCandidates`: radio/checkbox のときは常に `true`。それ以外は `!labelPrefill && suggestedFromLabel === ''` のときのみ `true`。
@@ -136,6 +137,6 @@
 ## 8. 用語・補足
 
 - **項目名**: step の `logicalName`。ユーザーが編集可能で、CSV ヘッダや一覧の「項目名」列に使う。
-- **プレフィル**: ホバー時やプロンプト表示時の項目名入力欄の初期値。label からだけ取得（span/div は使わない）。
+- **プレフィル**: ホバー時やプロンプト表示時の項目名入力欄の初期値。label を優先し、見つからなければ span をフォールバックとして使用。
 - **候補**: ホバー時のドロップダウンに表示する選択肢。span / div を常に含め、条件を満たすとき label も含める。
 - **必須/任意**: step の `required`。ホバー時のみラジオで指定可能。未指定は「必須」表示。
