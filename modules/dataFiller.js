@@ -1008,6 +1008,7 @@
   global.createDataFiller = createDataFiller;
   global.createDataFillerScreen = createDataFillerScreen;
   global.createDataFillerPanelFeature = createPanelFeature;
-  if (typeof __US_registerPanelFeature === 'function') __US_registerPanelFeature('dataFiller', createPanelFeature);
-  else if (typeof global.__US_registerPanelFeature === 'function') global.__US_registerPanelFeature('dataFiller', createPanelFeature);
+  if (typeof __US_registerPanelFeature === 'function') { console.log('[UserScripts] dataFiller: calling __US_registerPanelFeature (injected)'); __US_registerPanelFeature('dataFiller', createPanelFeature); }
+  else if (typeof global.__US_registerPanelFeature === 'function') { console.log('[UserScripts] dataFiller: calling global.__US_registerPanelFeature'); global.__US_registerPanelFeature('dataFiller', createPanelFeature); }
+  else { console.log('[UserScripts] dataFiller: no registrar (__US_registerPanelFeature=', typeof __US_registerPanelFeature, 'global=', typeof (global && global.__US_registerPanelFeature), ')'); }
 })(typeof window !== 'undefined' ? window : this);

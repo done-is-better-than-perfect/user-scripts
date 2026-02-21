@@ -5,8 +5,9 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.51';
+  var US_VERSION = '1.7.0-dev.52';
   var __US_panelFeatureFns = {};
+  console.log('[UserScripts] IIFE start: __US_panelFeatureFns is closure, keys=', Object.keys(__US_panelFeatureFns));
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
@@ -36,6 +37,7 @@ var Panel = (function () {
   _create: function () {
     if (this.el) return;
     var self = this;
+    console.log('[UserScripts] Panel._create: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller, 'window.ce=', typeof window.createColorEditorPanelFeature, 'window.df=', typeof window.createDataFillerPanelFeature);
 
     var bd = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop', onclick: function () { Panel.close(); } });
     document.body.appendChild(bd);
@@ -249,10 +251,16 @@ window.US.rpc = RPC;
   var __US_registerPanelFeatureInjected = "var __US_registerPanelFeature = function(key, fn) { __US_panelFeatureFns[key] = fn; }; ";
   function loadByFetchEval(nextUrl, thenRun) {
     if (!nextUrl) { thenRun(); return; }
+    var name = nextUrl.replace(/^.*\//, '');
+    console.log('[UserScripts] loadByFetchEval: fetching', name);
     fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
-      var name = nextUrl.replace(/^.*\//, '');
-      if (name === 'colorEditor.js' || name === 'dataFiller.js') text = __US_registerPanelFeatureInjected + text;
+      var prepend = (name === 'colorEditor.js' || name === 'dataFiller.js');
+      if (prepend) {
+        text = __US_registerPanelFeatureInjected + text;
+        console.log('[UserScripts] loadByFetchEval: prepended registrar to', name);
+      }
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
+      if (prepend) console.log('[UserScripts] after eval(' + name + '): __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
       thenRun();
     }).catch(function (err) {
       console.warn('[UserScripts] fetch failed for ' + nextUrl + ', falling back to script tag', err);
@@ -265,7 +273,10 @@ window.US.rpc = RPC;
   };
   loadByFetchEval(base + '/modules/util.js', function () {
     loadByFetchEval(base + '/modules/colorEditor.js', function () {
-      loadByFetchEval(base + '/modules/dataFiller.js', runMain);
+      loadByFetchEval(base + '/modules/dataFiller.js', function () {
+        console.log('[UserScripts] before runMain: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
+        runMain();
+      });
     });
   });
 })();

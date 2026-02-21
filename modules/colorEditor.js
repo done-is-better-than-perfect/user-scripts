@@ -3051,6 +3051,7 @@ var ColorCustomizerFeature = (function () {
   window.ColorCustomizerFeature = ColorCustomizerFeature;
   window.createColorEditorScreen = createColorEditorScreen;
   window.createColorEditorPanelFeature = createPanelFeature;
-  if (typeof __US_registerPanelFeature === 'function') __US_registerPanelFeature('colorEditor', createPanelFeature);
-  else if (typeof window.__US_registerPanelFeature === 'function') window.__US_registerPanelFeature('colorEditor', createPanelFeature);
+  if (typeof __US_registerPanelFeature === 'function') { console.log('[UserScripts] colorEditor: calling __US_registerPanelFeature (injected)'); __US_registerPanelFeature('colorEditor', createPanelFeature); }
+  else if (typeof window.__US_registerPanelFeature === 'function') { console.log('[UserScripts] colorEditor: calling window.__US_registerPanelFeature'); window.__US_registerPanelFeature('colorEditor', createPanelFeature); }
+  else { console.log('[UserScripts] colorEditor: no registrar (__US_registerPanelFeature=', typeof __US_registerPanelFeature, 'window=', typeof window.__US_registerPanelFeature, ')'); }
 })();
