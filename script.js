@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.26';
+var US_VERSION = '1.7.0-dev.27';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2644,8 +2644,8 @@ var DataFiller = (function () {
     return 'unknown';
   }
 
-  /** フォーム要素に紐づく label の textContent のみ取得。最大10世代親を遡り、各世代の兄弟および兄弟の子孫を querySelector('label') で検索。
-   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。 */
+  /** プレフィル用: フォーム要素に紐づく <label> の textContent のみ取得。最大10世代親を遡り、兄弟および兄弟の子孫の label を検索。
+   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。span/div は対象にしない。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
     var doc = el.ownerDocument;
@@ -2668,10 +2668,6 @@ var DataFiller = (function () {
         var lb = labels[i];
         if (!isLabelRelevant(lb)) continue;
         if (lb.textContent) return trim(lb.textContent);
-      }
-      var spans = container.querySelectorAll('span');
-      for (var j = 0; j < spans.length; j++) {
-        if (spans[j].textContent) return trim(spans[j].textContent);
       }
       return '';
     }
@@ -2727,13 +2723,15 @@ var DataFiller = (function () {
     return parts.join('').replace(/\s+/g, ' ').trim().slice(0, 80);
   }
 
-  /** フォーム要素から最大10階層遡り、label / span / div からテキスト候補を収集。label を優先。select 内（option）は除外。span/div は直接のテキストのみ。
-   *  label に for がある場合は、その値が hover したフォームの id と一致するときのみ候補に含める。for が無い場合は従来どおり候補とする。
-   *  div の兄弟として見つかった div については、その子孫の span / label も候補に含める（同じブロック内の項目名を拾うため）。 */
-  function getTextCandidatesFromForm(formEl) {
+  /** フォーム要素から最大10階層遡り、span / div からテキスト候補を収集。select 内（option）は除外。span/div は直接のテキストのみ。
+   *  includeLabelInCandidates が true のときのみ label も候補に含める（プレフィル取得できなかった場合に呼び出し側で true を渡す）。
+   *  label に for がある場合は、その値が hover したフォームの id と一致するときのみ候補に含める。
+   *  div の兄弟として見つかった div については、その子孫の span（および includeLabel 時は label）も候補に含める。 */
+  function getTextCandidatesFromForm(formEl, includeLabelInCandidates) {
     if (!formEl || !formEl.ownerDocument) return [];
     var maxLen = 80;
     var maxAncestors = 10;
+    var includeLabel = !!includeLabelInCandidates;
     function trim(s) {
       if (typeof s !== 'string') return '';
       return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
@@ -2759,17 +2757,19 @@ var DataFiller = (function () {
       if (!container || container.tagName.toLowerCase() !== 'div') return;
       if (skipNode(container)) return;
       var spans = container.querySelectorAll('span');
-      var labels = container.querySelectorAll('label');
       var i;
       for (i = 0; i < spans.length; i++) {
         var st = trim((spans[i].textContent || '').slice(0, maxLen));
         if (st && !seen[st]) { seen[st] = true; withType.push({ text: st, type: 'span' }); }
       }
-      for (i = 0; i < labels.length; i++) {
-        var lb = labels[i];
-        if (!isLabelRelevant(lb)) continue;
-        var lt = trim((lb.textContent || '').slice(0, maxLen));
-        if (lt && !seen[lt]) { seen[lt] = true; withType.push({ text: lt, type: 'label' }); }
+      if (includeLabel) {
+        var labels = container.querySelectorAll('label');
+        for (i = 0; i < labels.length; i++) {
+          var lb = labels[i];
+          if (!isLabelRelevant(lb)) continue;
+          var lt = trim((lb.textContent || '').slice(0, maxLen));
+          if (lt && !seen[lt]) { seen[lt] = true; withType.push({ text: lt, type: 'label' }); }
+        }
       }
     }
     var seen = {};
@@ -2779,14 +2779,21 @@ var DataFiller = (function () {
       if (skipNode(node)) { node = node.parentElement || node.parentNode; continue; }
       var tag = node.tagName && node.tagName.toLowerCase();
       if (tag === 'label' || tag === 'span' || tag === 'div') {
-        if (tag === 'label' && !isLabelRelevant(node)) continue;
+        if (tag === 'label') {
+          if (!includeLabel || !isLabelRelevant(node)) continue;
+        }
         var t = getTextForNode(node, tag);
         if (t && !seen[t]) { seen[t] = true; withType.push({ text: t, type: tag }); }
         if (tag === 'div') addCandidatesFromDiv(node);
       }
       var prev = node.previousElementSibling;
       if (prev && !skipNode(prev) && prev.tagName && /^(label|span|div)$/i.test(prev.tagName)) {
-        if (prev.tagName.toLowerCase() === 'label' && !isLabelRelevant(prev)) { /* skip */ } else {
+        if (prev.tagName.toLowerCase() === 'label') {
+          if (includeLabel && isLabelRelevant(prev)) {
+            var tp = getTextForNode(prev, 'label');
+            if (tp && !seen[tp]) { seen[tp] = true; withType.push({ text: tp, type: 'label' }); }
+          }
+        } else {
           var tp = getTextForNode(prev, prev.tagName.toLowerCase());
           if (tp && !seen[tp]) { seen[tp] = true; withType.push({ text: tp, type: prev.tagName.toLowerCase() }); }
         }
@@ -2794,7 +2801,12 @@ var DataFiller = (function () {
       }
       var next = node.nextElementSibling;
       if (next && !skipNode(next) && next.tagName && /^(label|span|div)$/i.test(next.tagName)) {
-        if (next.tagName.toLowerCase() === 'label' && !isLabelRelevant(next)) { /* skip */ } else {
+        if (next.tagName.toLowerCase() === 'label') {
+          if (includeLabel && isLabelRelevant(next)) {
+            var tn = getTextForNode(next, 'label');
+            if (tn && !seen[tn]) { seen[tn] = true; withType.push({ text: tn, type: 'label' }); }
+          }
+        } else {
           var tn = getTextForNode(next, next.tagName.toLowerCase());
           if (tn && !seen[tn]) { seen[tn] = true; withType.push({ text: tn, type: next.tagName.toLowerCase() }); }
         }
@@ -3179,9 +3191,10 @@ var DataFiller = (function () {
         var type = getElementType(el);
         if (type === 'unknown' || type === 'button') return;
         if (!/^(input|select|textarea)$/i.test(el.tagName)) return;
+        var labelPrefill = getLabelNearElement(el);
         var suggested = (suggestedFromLabel !== '')
           ? suggestedFromLabel
-          : (getLabelNearElement(el) || (type === 'text' ? 'テキスト' : type));
+          : (labelPrefill || (type === 'text' ? 'テキスト' : type));
         var xpath = getXPath(el);
         var existing = null;
         var steps = self._steps || [];
@@ -3192,7 +3205,7 @@ var DataFiller = (function () {
         self._hoverHideTimer = null;
         self._hoverEl = el;
         self._hoverSuggestedName = suggested;
-        self._hoverCandidates = getTextCandidatesFromForm(el);
+        self._hoverCandidates = getTextCandidatesFromForm(el, !labelPrefill && suggestedFromLabel === '');
         self._hoverInput.value = existing ? (existing.logicalName || '') : (suggested || '');
         self._hoverInput.readOnly = !!existing;
         self._hoverInput.style.background = existing ? 'rgba(0,0,0,0.05)' : '#fff';
