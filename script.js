@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.19';
+var US_VERSION = '1.7.0-dev.20';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -756,6 +756,20 @@ var Styles = (function () {
       '.us-df-dialog-message .us-df-dialog-label { font-weight: bold !important; margin-top: 12px !important; margin-bottom: 6px !important; }',
       '.us-df-dialog-message .us-df-dialog-value { margin-bottom: 12px !important; font-weight: 500 !important; }',
       '.us-df-dialog-message .us-df-dialog-final { margin-top: 12px !important; }',
+      '/* DataFiller hover popover (below form element) */',
+      '.us-df-hover-box {',
+      '  position: fixed !important; z-index: 2147483647 !important; padding: 10px 14px !important;',
+      '  background: rgba(255,255,255,0.95) !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important;',
+      '  border-radius: 10px !important; border: 1px solid rgba(0,0,0,0.1) !important;',
+      '  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; font-family: system-ui, -apple-system, sans-serif !important;',
+      '  font-size: 13px !important; color: rgba(0,0,0,0.85) !important; min-width: 140px !important;',
+      '}',
+      '.us-df-hover-name { font-weight: 600 !important; margin-bottom: 4px !important; }',
+      '.us-df-hover-msg { font-size: 12px !important; color: rgba(0,0,0,0.55) !important; margin-bottom: 8px !important; }',
+      '.us-df-hover-actions { display: flex !important; gap: 8px !important; justify-content: flex-end !important; margin-top: 8px !important; }',
+      '.us-df-hover-btn { padding: 6px 14px !important; font-size: 12px !important; font-weight: 500 !important; border-radius: 6px !important; border: none !important; cursor: pointer !important; }',
+      '.us-df-hover-btn-add { background: rgba(59,130,246,0.9) !important; color: #fff !important; }',
+      '.us-df-hover-btn-cancel { background: rgba(0,0,0,0.08) !important; color: rgba(0,0,0,0.7) !important; }',
       '#us-cc-panel .us-p-empty {',
       '  all: initial !important; display: block !important; font-family: inherit !important;',
       '  text-align: center !important; color: rgba(0,0,0,0.45) !important;',
@@ -2892,16 +2906,97 @@ var DataFiller = (function () {
       this.save(this._steps);
     },
 
+    _hoverPopover: null,
+    _hoverEl: null,
+    _hoverHideTimer: null,
+    _hoverSuggestedName: '',
+
+    _createHoverPopover: function () {
+      if (this._hoverPopover) return this._hoverPopover;
+      var self = this;
+      var box = h('div', { class: 'us-df-hover-box', 'data-us-cc': 'df-hover' });
+      box.style.display = 'none';
+      var nameEl = h('div', { class: 'us-df-hover-name' }, '');
+      var msgEl = h('div', { class: 'us-df-hover-msg' }, '');
+      var actionsEl = h('div', { class: 'us-df-hover-actions' });
+      var addBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-add' }, '追加');
+      var cancelBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-cancel' }, 'キャンセル');
+      actionsEl.appendChild(addBtn);
+      actionsEl.appendChild(cancelBtn);
+      box.appendChild(nameEl);
+      box.appendChild(msgEl);
+      box.appendChild(actionsEl);
+      addBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var el = self._hoverEl;
+        var name = self._hoverSuggestedName;
+        if (el && name !== undefined) self._addStepWithName(el, name);
+        self._hideHoverPopover();
+      });
+      cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); self._hideHoverPopover(); });
+      box.addEventListener('mouseenter', function () {
+        if (self._hoverHideTimer) clearTimeout(self._hoverHideTimer);
+        self._hoverHideTimer = null;
+      });
+      box.addEventListener('mouseleave', function () {
+        self._scheduleHideHover();
+      });
+      document.body.appendChild(box);
+      this._hoverPopover = box;
+      this._hoverNameEl = nameEl;
+      this._hoverMsgEl = msgEl;
+      this._hoverActionsEl = actionsEl;
+      return box;
+    },
+
+    _scheduleHideHover: function () {
+      var self = this;
+      if (this._hoverHideTimer) clearTimeout(this._hoverHideTimer);
+      this._hoverHideTimer = setTimeout(function () { self._hideHoverPopover(); }, 150);
+    },
+
+    _hideHoverPopover: function () {
+      if (this._hoverHideTimer) { clearTimeout(this._hoverHideTimer); this._hoverHideTimer = null; }
+      if (this._hoverPopover) this._hoverPopover.style.display = 'none';
+      this._hoverEl = null;
+    },
+
+    _addStepWithName: function (el, logicalName) {
+      var self = this;
+      var xpath = getXPath(el);
+      var type = getElementType(el);
+      logicalName = String(logicalName || '').trim() || (type === 'text' ? 'テキスト' : type);
+      var step = { xpath: xpath, type: type, logicalName: logicalName };
+      this._steps = this._steps || [];
+      var existingIndex = -1;
+      for (var i = 0; i < this._steps.length; i++) {
+        if (this._steps[i].xpath === xpath) { existingIndex = i; break; }
+      }
+      if (existingIndex >= 0) {
+        var existing = this._steps[existingIndex];
+        if (existing.logicalName === logicalName) return;
+        this._showConfirm(existing.logicalName, logicalName, function () {
+          self._steps[existingIndex] = step;
+          self.save(self._steps);
+          if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+        }, function () {});
+        return;
+      }
+      this._steps.push(step);
+      this.save(this._steps);
+      if (Panel._screenDataFiller) Panel.refreshDataFillerSteps();
+    },
+
     enableCapture: function () {
       var self = this;
-      if (this._boundClick) return;
-      this._boundClick = function (e) {
+      if (this._boundMouseOver) return;
+      this._createHoverPopover();
+      this._boundMouseOver = function (e) {
         if (e.target.closest && e.target.closest('[data-us-cc]')) return;
         var el = e.target;
-        var control = null;
         var suggestedFromLabel = '';
         if (el.tagName && el.tagName.toLowerCase() === 'label') {
-          control = getControlFromLabel(el);
+          var control = getControlFromLabel(el);
           if (control) {
             suggestedFromLabel = (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
             el = control;
@@ -2909,17 +3004,47 @@ var DataFiller = (function () {
         }
         var type = getElementType(el);
         if (type === 'unknown' || type === 'button') return;
-        e.preventDefault();
-        e.stopPropagation();
-        self.addStep(el, suggestedFromLabel || undefined);
+        if (!/^(input|select|textarea)$/i.test(el.tagName)) return;
+        var suggested = (suggestedFromLabel !== '')
+          ? suggestedFromLabel
+          : (getLabelNearElement(el) || (type === 'text' ? 'テキスト' : type));
+        var xpath = getXPath(el);
+        var existing = null;
+        var steps = self._steps || [];
+        for (var i = 0; i < steps.length; i++) {
+          if (steps[i].xpath === xpath) { existing = steps[i]; break; }
+        }
+        if (self._hoverHideTimer) clearTimeout(self._hoverHideTimer);
+        self._hoverHideTimer = null;
+        self._hoverEl = el;
+        self._hoverSuggestedName = suggested;
+        self._hoverNameEl.textContent = existing ? '[登録済み] ' + (existing.logicalName || '') : (suggested || '');
+        self._hoverMsgEl.textContent = existing ? 'すでに登録済みです' : '';
+        self._hoverMsgEl.style.display = existing ? 'block' : 'none';
+        self._hoverActionsEl.style.display = existing ? 'none' : 'flex';
+        var rect = el.getBoundingClientRect();
+        self._hoverPopover.style.display = 'block';
+        self._hoverPopover.style.left = Math.max(4, rect.left) + 'px';
+        self._hoverPopover.style.top = (rect.bottom + 6) + 'px';
       };
-      document.addEventListener('click', this._boundClick, true);
+      this._boundMouseOut = function (e) {
+        if (e.relatedTarget && self._hoverPopover && self._hoverPopover.contains(e.relatedTarget)) return;
+        self._scheduleHideHover();
+      };
+      document.addEventListener('mouseover', this._boundMouseOver, true);
+      document.addEventListener('mouseout', this._boundMouseOut, true);
     },
 
     disableCapture: function () {
-      if (!this._boundClick) return;
-      document.removeEventListener('click', this._boundClick, true);
-      this._boundClick = null;
+      this._hideHoverPopover();
+      if (this._boundMouseOver) {
+        document.removeEventListener('mouseover', this._boundMouseOver, true);
+        this._boundMouseOver = null;
+      }
+      if (this._boundMouseOut) {
+        document.removeEventListener('mouseout', this._boundMouseOut, true);
+        this._boundMouseOut = null;
+      }
     },
 
     exportCSVTemplate: function () {
