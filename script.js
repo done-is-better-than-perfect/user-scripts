@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.24';
+var US_VERSION = '1.7.0-dev.25';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2644,7 +2644,8 @@ var DataFiller = (function () {
     return 'unknown';
   }
 
-  /** フォーム要素に紐づく label の textContent のみ取得。最大10世代親を遡り、各世代の兄弟および兄弟の子孫を querySelector('label') で検索。 */
+  /** フォーム要素に紐づく label の textContent のみ取得。最大10世代親を遡り、各世代の兄弟および兄弟の子孫を querySelector('label') で検索。
+   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
     var doc = el.ownerDocument;
@@ -2654,10 +2655,21 @@ var DataFiller = (function () {
       if (typeof s !== 'string') return '';
       return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
     }
+    function isLabelRelevant(labelEl) {
+      if (!labelEl || labelEl.tagName.toLowerCase() !== 'label') return true;
+      var forId = labelEl.getAttribute('for');
+      if (forId == null || forId === '') return true;
+      return el.id === forId;
+    }
     function labelTextFromNode(container) {
-      if (!container || !container.querySelector) return '';
-      var lb = container.querySelector('label');
-      return (lb && lb.textContent) ? trim(lb.textContent) : '';
+      if (!container || !container.querySelectorAll) return '';
+      var labels = container.querySelectorAll('label');
+      for (var i = 0; i < labels.length; i++) {
+        var lb = labels[i];
+        if (!isLabelRelevant(lb)) continue;
+        if (lb.textContent) return trim(lb.textContent);
+      }
+      return '';
     }
     var id = el.id;
     if (id) {
@@ -2669,6 +2681,7 @@ var DataFiller = (function () {
     var node = el;
     for (var gen = 0; gen < maxAncestors && node; gen++) {
       if (node.tagName && node.tagName.toLowerCase() === 'label') {
+        if (!isLabelRelevant(node)) { node = node.parentElement || node.parentNode; continue; }
         var clone = node.cloneNode(true);
         var input = clone.querySelector('input, select, textarea');
         if (input) input.remove();
@@ -2676,12 +2689,22 @@ var DataFiller = (function () {
       }
       var prev = node.previousElementSibling;
       if (prev) {
-        var t = prev.tagName && prev.tagName.toLowerCase() === 'label' ? trim(prev.textContent) : labelTextFromNode(prev);
+        var t = '';
+        if (prev.tagName && prev.tagName.toLowerCase() === 'label') {
+          if (isLabelRelevant(prev)) t = trim(prev.textContent);
+        } else {
+          t = labelTextFromNode(prev);
+        }
         if (t) return t;
       }
       var next = node.nextElementSibling;
       if (next) {
-        var t = next.tagName && next.tagName.toLowerCase() === 'label' ? trim(next.textContent) : labelTextFromNode(next);
+        var t = '';
+        if (next.tagName && next.tagName.toLowerCase() === 'label') {
+          if (isLabelRelevant(next)) t = trim(next.textContent);
+        } else {
+          t = labelTextFromNode(next);
+        }
         if (t) return t;
       }
       node = node.parentElement || node.parentNode;
