@@ -14,7 +14,6 @@
       return;
     }
 
-    var US_VERSION = '1.7.0-dev.45';
     console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
     (function logContextCheck(label) {
@@ -25,7 +24,7 @@
         + (uw ? ' | unsafeWindow.createColorEditorPanelFeature=' + (typeof uw.createColorEditorPanelFeature) + ' | unsafeWindow.createDataFillerPanelFeature=' + (typeof uw.createDataFillerPanelFeature) : ''));
     })('runMain');
 
-var US_VERSION = '1.7.0-dev.45';
+var US_VERSION = '1.7.0-dev.46';
 
 // =========================
 
