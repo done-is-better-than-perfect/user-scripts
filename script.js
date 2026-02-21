@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.34';
+var US_VERSION = '1.7.0-dev.35';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2193,6 +2193,7 @@ var Panel = (function () {
       if (dfListToggle) {
         dfListToggle.addEventListener('click', function (e) { e.stopPropagation(); });
         dfListToggle.addEventListener('change', function () {
+          RPC.call('storage.set', ['userscripts:features:dataFiller:enabled', this.checked]).catch(function () {});
           if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
         });
       }
@@ -2219,6 +2220,7 @@ var Panel = (function () {
       if (dfMainToggle) dfMainToggle.addEventListener('change', function () {
         var listT = self._screenList && self._screenList.querySelector('#us-p-feature-dataFiller-toggle');
         if (listT) listT.checked = this.checked;
+        RPC.call('storage.set', ['userscripts:features:dataFiller:enabled', this.checked]).catch(function () {});
         if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
       });
       var dfTemplateDl = this._screenDataFiller.querySelector('#us-p-df-template-dl');
@@ -2479,11 +2481,18 @@ var Panel = (function () {
     return row;
   },
 
-  open: function () {
+  open: async function () {
     this._create();
     this._showList();
+    var listToggle = this._screenList && this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
+    if (listToggle) listToggle.checked = EditMode.active;
+    var dfEnabled = false;
+    try { dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]); } catch (e) {}
     var dfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
-    if (dfToggle && dfToggle.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
+    var mainToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-main-toggle');
+    if (dfToggle) dfToggle.checked = !!dfEnabled;
+    if (mainToggle) mainToggle.checked = !!dfEnabled;
+    if (dfEnabled) DataFiller.enableCapture(); else DataFiller.disableCapture();
 
     this.backdrop.style.display = 'block';
     void this.backdrop.offsetWidth;
@@ -3473,6 +3482,9 @@ var ColorCustomizerFeature = (function () {
       } else {
         Tab.setAggregate(false, false);
       }
+      // Restore dataFiller enabled state
+      var dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]);
+      if (dfEnabled) DataFiller.enableCapture(); else DataFiller.disableCapture();
       this._initialized = true;
       console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
       return true;
