@@ -415,7 +415,6 @@
     if (exists) return;
 
     var s = document.createElement('script');
-
     s.src = SRC;
     // script.js uses ESM (export {} at end); must load as module in both Safari and Chrome.
     s.type = 'module';

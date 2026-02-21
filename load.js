@@ -404,7 +404,6 @@
     if (exists) return;
 
     var s = document.createElement('script');
-
     s.src = SRC;
     s.type = 'module';
     s.async = true;
@@ -412,9 +411,6 @@
     s.setAttribute('data-userscripts-loader', '1');
 
     s.onload = function () {
-      // NOTE: This callback runs in content world, so page world's
-      // window.UserScripts is not accessible here.
-      // script.js self-initializes as an ESM module.
       console.info('[UserScripts Loader] External script loaded:', SRC);
     };
 
