@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.18';
+var US_VERSION = '1.7.0-dev.19';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -682,9 +682,6 @@ var Styles = (function () {
       '#us-cc-panel .us-p-rules::-webkit-scrollbar { width: 3px !important; }',
       '#us-cc-panel .us-p-rules::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12) !important; border-radius: 3px !important; }',
       /* DataFiller screen */
-      '#us-cc-panel .us-p-df-capture-row { padding-top: 10px !important; padding-bottom: 12px !important; border-top: 1px solid rgba(0,0,0,0.06) !important; }',
-      '#us-cc-panel .us-p-df-capture-row .us-p-df-capture-label { font-size: 13px !important; color: rgba(0,0,0,0.6) !important; flex: 1 !important; }',
-      '#us-cc-panel .us-p-df-capture-row .us-switch { flex-shrink: 0 !important; }',
       '#us-cc-panel .us-p-df-steps-wrap { flex: 1 !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }',
       '#us-cc-panel .us-p-df-template-btn {',
       '  all: initial !important; font-family: inherit !important; width: 32px !important; height: 32px !important;',
@@ -706,11 +703,6 @@ var Styles = (function () {
       '}',
       '#us-cc-panel .us-p-df-step-name { flex: 0 0 120px !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; }',
       '#us-cc-panel .us-p-df-step-xpath { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; color: rgba(0,0,0,0.5) !important; font-size: 11px !important; }',
-      '#us-cc-panel .us-p-df-step-copy {',
-      '  flex-shrink: 0 !important; min-width: 28px !important; height: 28px !important; padding: 0 6px !important; border: none !important; border-radius: 6px !important;',
-      '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 11px !important;',
-      '}',
-      '#us-cc-panel .us-p-df-step-copy:hover { background: rgba(59,130,246,0.12) !important; color: rgba(59,130,246,0.9) !important; }',
       '#us-cc-panel .us-p-df-step-del {',
       '  flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important;',
       '  background: transparent !important; color: rgba(0,0,0,0.45) !important; cursor: pointer !important; font-size: 14px !important;',
@@ -1890,10 +1882,6 @@ var Panel = (function () {
     dfMainToggleLabel.setAttribute('data-us-cc', 'switch');
     dfMainToggleLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-main-toggle' }));
     dfMainToggleLabel.appendChild(h('span.us-slider'));
-    var dfCaptureLabel = document.createElement('label');
-    dfCaptureLabel.className = 'us-switch';
-    dfCaptureLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-df-capture-toggle' }));
-    dfCaptureLabel.appendChild(h('span.us-slider'));
     var dfDetailIcon = h('div.us-p-detail-icon', document.createTextNode('CSV'));
     var dfTabPage = h('button.us-p-tab-btn.active', { id: 'us-p-df-tab-page', type: 'button', 'data-df-tab': 'page' }, 'このページ (0)');
     var dfTabOther = h('button.us-p-tab-btn', { id: 'us-p-df-tab-other', type: 'button', 'data-df-tab': 'other' }, 'その他 (0)');
@@ -1906,10 +1894,6 @@ var Panel = (function () {
           dfDetailIcon,
           h('span.us-p-title', 'data', h('span.us-title-editor', 'Filler')),
           h('span.us-p-header-toggle', dfMainToggleLabel)
-        ),
-        h('div.us-p-detail-header-row.us-p-df-capture-row',
-          h('span.us-p-df-capture-label', 'キャプチャモード'),
-          dfCaptureLabel
         )
       ),
       h('div.us-p-tabs', dfTabPage, dfTabOther),
@@ -1919,7 +1903,7 @@ var Panel = (function () {
       ),
       h('div.us-p-df-steps-wrap',
         h('div.us-p-df-steps', { id: 'us-p-df-steps' }),
-        h('span.us-p-empty', { id: 'us-p-df-empty' }, 'キャプチャモードをONにしてフォーム要素をクリックすると追加されます')
+        h('span.us-p-empty', { id: 'us-p-df-empty' }, 'dataFillerをONにしてフォーム要素をクリックすると追加されます')
       )
     );
 
@@ -1961,8 +1945,7 @@ var Panel = (function () {
     var listDfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
     var mainToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-main-toggle');
     if (mainToggle && listDfToggle) mainToggle.checked = listDfToggle.checked;
-    var capToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-capture-toggle');
-    if (capToggle) capToggle.checked = DataFiller.captureMode;
+    if (mainToggle && mainToggle.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
   },
 
   refreshDataFillerSteps: async function () {
@@ -2052,13 +2035,8 @@ var Panel = (function () {
           isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
           h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
           h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
-          h('button.us-p-df-step-copy', { type: 'button', title: 'XPathをコピー' }, 'コピー'),
           h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(w.originalIndex), title: '削除' }, '\u2715')
         );
-        var copyBtn = row.querySelector('.us-p-df-step-copy');
-        if (copyBtn) copyBtn.addEventListener('click', function () {
-          RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
-        });
         var delBtn = row.querySelector('.us-p-df-step-del');
         if (delBtn) delBtn.addEventListener('click', function () {
           DataFiller.removeStep(w.originalIndex);
@@ -2094,13 +2072,8 @@ var Panel = (function () {
             h('span.us-p-df-step-type', step.type),
             isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
             h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
-            h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
-            h('button.us-p-df-step-copy', { type: 'button', title: 'XPathをコピー' }, 'コピー')
+            h('span.us-p-df-step-xpath', { title: step.xpath }, shortX)
           );
-          var copyBtn = row.querySelector('.us-p-df-step-copy');
-          if (copyBtn) copyBtn.addEventListener('click', function () {
-            RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
-          });
           stepsEl.appendChild(row);
         });
       });
@@ -2179,7 +2152,12 @@ var Panel = (function () {
         });
       }
       var dfListToggle = this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
-      if (dfListToggle) dfListToggle.addEventListener('click', function (e) { e.stopPropagation(); });
+      if (dfListToggle) {
+        dfListToggle.addEventListener('click', function (e) { e.stopPropagation(); });
+        dfListToggle.addEventListener('change', function () {
+          if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
+        });
+      }
       var listToggle = this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
       if (listToggle) {
         listToggle.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -2203,9 +2181,6 @@ var Panel = (function () {
       if (dfMainToggle) dfMainToggle.addEventListener('change', function () {
         var listT = self._screenList && self._screenList.querySelector('#us-p-feature-dataFiller-toggle');
         if (listT) listT.checked = this.checked;
-      });
-      var dfCaptureToggle = this._screenDataFiller.querySelector('#us-p-df-capture-toggle');
-      if (dfCaptureToggle) dfCaptureToggle.addEventListener('change', function () {
         if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
       });
       var dfTemplateDl = this._screenDataFiller.querySelector('#us-p-df-template-dl');
@@ -2469,6 +2444,8 @@ var Panel = (function () {
   open: function () {
     this._create();
     this._showList();
+    var dfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
+    if (dfToggle && dfToggle.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
 
     this.backdrop.style.display = 'block';
     void this.backdrop.offsetWidth;
@@ -2703,7 +2680,6 @@ var DataFiller = (function () {
   }
 
   return {
-    captureMode: false,
     _boundClick: null,
 
     getSteps: function () { return this._steps || []; },
@@ -2918,8 +2894,7 @@ var DataFiller = (function () {
 
     enableCapture: function () {
       var self = this;
-      if (this.captureMode) return;
-      this.captureMode = true;
+      if (this._boundClick) return;
       this._boundClick = function (e) {
         if (e.target.closest && e.target.closest('[data-us-cc]')) return;
         var el = e.target;
@@ -2942,12 +2917,9 @@ var DataFiller = (function () {
     },
 
     disableCapture: function () {
-      if (!this.captureMode) return;
-      this.captureMode = false;
-      if (this._boundClick) {
-        document.removeEventListener('click', this._boundClick, true);
-        this._boundClick = null;
-      }
+      if (!this._boundClick) return;
+      document.removeEventListener('click', this._boundClick, true);
+      this._boundClick = null;
     },
 
     exportCSVTemplate: function () {
