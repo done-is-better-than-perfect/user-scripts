@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.25';
+var US_VERSION = '1.7.0-dev.26';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2669,6 +2669,10 @@ var DataFiller = (function () {
         if (!isLabelRelevant(lb)) continue;
         if (lb.textContent) return trim(lb.textContent);
       }
+      var spans = container.querySelectorAll('span');
+      for (var j = 0; j < spans.length; j++) {
+        if (spans[j].textContent) return trim(spans[j].textContent);
+      }
       return '';
     }
     var id = el.id;
@@ -2724,7 +2728,8 @@ var DataFiller = (function () {
   }
 
   /** フォーム要素から最大10階層遡り、label / span / div からテキスト候補を収集。label を優先。select 内（option）は除外。span/div は直接のテキストのみ。
-   *  label に for がある場合は、その値が hover したフォームの id と一致するときのみ候補に含める。for が無い場合は従来どおり候補とする。 */
+   *  label に for がある場合は、その値が hover したフォームの id と一致するときのみ候補に含める。for が無い場合は従来どおり候補とする。
+   *  div の兄弟として見つかった div については、その子孫の span / label も候補に含める（同じブロック内の項目名を拾うため）。 */
   function getTextCandidatesFromForm(formEl) {
     if (!formEl || !formEl.ownerDocument) return [];
     var maxLen = 80;
@@ -2750,6 +2755,23 @@ var DataFiller = (function () {
       if (tag === 'label') return trim((nd.textContent || '').slice(0, maxLen));
       return trim(getDirectText(nd));
     }
+    function addCandidatesFromDiv(container) {
+      if (!container || container.tagName.toLowerCase() !== 'div') return;
+      if (skipNode(container)) return;
+      var spans = container.querySelectorAll('span');
+      var labels = container.querySelectorAll('label');
+      var i;
+      for (i = 0; i < spans.length; i++) {
+        var st = trim((spans[i].textContent || '').slice(0, maxLen));
+        if (st && !seen[st]) { seen[st] = true; withType.push({ text: st, type: 'span' }); }
+      }
+      for (i = 0; i < labels.length; i++) {
+        var lb = labels[i];
+        if (!isLabelRelevant(lb)) continue;
+        var lt = trim((lb.textContent || '').slice(0, maxLen));
+        if (lt && !seen[lt]) { seen[lt] = true; withType.push({ text: lt, type: 'label' }); }
+      }
+    }
     var seen = {};
     var withType = [];
     var node = formEl;
@@ -2760,6 +2782,7 @@ var DataFiller = (function () {
         if (tag === 'label' && !isLabelRelevant(node)) continue;
         var t = getTextForNode(node, tag);
         if (t && !seen[t]) { seen[t] = true; withType.push({ text: t, type: tag }); }
+        if (tag === 'div') addCandidatesFromDiv(node);
       }
       var prev = node.previousElementSibling;
       if (prev && !skipNode(prev) && prev.tagName && /^(label|span|div)$/i.test(prev.tagName)) {
@@ -2767,6 +2790,7 @@ var DataFiller = (function () {
           var tp = getTextForNode(prev, prev.tagName.toLowerCase());
           if (tp && !seen[tp]) { seen[tp] = true; withType.push({ text: tp, type: prev.tagName.toLowerCase() }); }
         }
+        if (prev.tagName && prev.tagName.toLowerCase() === 'div') addCandidatesFromDiv(prev);
       }
       var next = node.nextElementSibling;
       if (next && !skipNode(next) && next.tagName && /^(label|span|div)$/i.test(next.tagName)) {
@@ -2774,6 +2798,7 @@ var DataFiller = (function () {
           var tn = getTextForNode(next, next.tagName.toLowerCase());
           if (tn && !seen[tn]) { seen[tn] = true; withType.push({ text: tn, type: next.tagName.toLowerCase() }); }
         }
+        if (next.tagName && next.tagName.toLowerCase() === 'div') addCandidatesFromDiv(next);
       }
       node = node.parentElement || node.parentNode;
     }
