@@ -5,7 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.55';
+  var US_VERSION = '1.7.0-dev.56';
   var __US_panelFeatureFns = {};
   if (typeof document !== 'undefined' && !document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef = __US_panelFeatureFns;
   else if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) __US_panelFeatureFns = document.__US_panelFeatureFnsRef;
@@ -283,14 +283,25 @@ window.US.rpc = RPC;
   window.__US_registerPanelFeature = function (key, createFn) {
     __US_panelFeatureFns[key] = createFn;
   };
-  loadByFetchEval(base + '/modules/util.js', function () {
-    loadByFetchEval(base + '/modules/colorEditor.js', function () {
-      loadByFetchEval(base + '/modules/dataFiller.js', function () {
-        console.log('[UserScripts] before runMain: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
-        runMain();
+  function startLoading() {
+    var ref = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : null;
+    var hasFromRef = ref && (ref.colorEditor || ref.dataFiller);
+    var hasFromWindow = typeof window.createColorEditorPanelFeature === 'function' || typeof window.createDataFillerPanelFeature === 'function';
+    if (hasFromRef || (hasFromWindow && typeof window.RPC !== 'undefined')) {
+      console.log('[UserScripts] using preloaded features (ref=', !!hasFromRef, 'window=', !!hasFromWindow, ')');
+      runMain();
+      return;
+    }
+    loadByFetchEval(base + '/modules/util.js', function () {
+      loadByFetchEval(base + '/modules/colorEditor.js', function () {
+        loadByFetchEval(base + '/modules/dataFiller.js', function () {
+          console.log('[UserScripts] before runMain: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
+          runMain();
+        });
       });
     });
-  });
+  }
+  setTimeout(startLoading, 0);
 })();
 
 // ESM export (keeps module semantics for jsDelivr)
