@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.32';
+var US_VERSION = '1.7.0-dev.33';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -702,6 +702,9 @@ var Styles = (function () {
       '  background: rgba(0,0,0,0.06) !important; font-size: 11px !important; color: rgba(0,0,0,0.7) !important;',
       '}',
       '#us-cc-panel .us-p-df-step-name { flex: 0 0 120px !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; }',
+      '#us-cc-panel .us-p-df-step-required { flex-shrink: 0 !important; font-size: 10px !important; font-weight: 600 !important; padding: 2px 6px !important; border-radius: 4px !important; }',
+      '#us-cc-panel .us-p-df-step-required.us-p-df-step-req-required { background: rgba(59,130,246,0.15) !important; color: rgba(30,80,180,1) !important; }',
+      '#us-cc-panel .us-p-df-step-required.us-p-df-step-req-optional { background: rgba(0,0,0,0.08) !important; color: rgba(0,0,0,0.55) !important; }',
       '#us-cc-panel .us-p-df-step-xpath { flex: 1 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis !important; color: rgba(0,0,0,0.5) !important; font-size: 11px !important; }',
       '#us-cc-panel .us-p-df-step-del {',
       '  flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important;',
@@ -773,6 +776,9 @@ var Styles = (function () {
       '.us-df-hover-dropdown { position: absolute !important; left: 0 !important; right: 0 !important; top: 100% !important; margin-top: 4px !important; max-height: 160px !important; overflow-y: auto !important; background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; border-radius: 8px !important; box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important; z-index: 1 !important; }',
       '.us-df-hover-dropdown-item { display: block !important; width: 100% !important; padding: 8px 12px !important; font-size: 13px !important; text-align: left !important; border: none !important; background: transparent !important; cursor: pointer !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }',
       '.us-df-hover-dropdown-item:hover { background: rgba(59,130,246,0.1) !important; }',
+      '.us-df-hover-required-wrap { display: flex !important; align-items: center !important; gap: 12px !important; margin-bottom: 8px !important; }',
+      '.us-df-hover-required-wrap label { display: inline-flex !important; align-items: center !important; gap: 4px !important; cursor: pointer !important; font-size: 12px !important; color: rgba(0,0,0,0.75) !important; }',
+      '.us-df-hover-required-wrap input[type="radio"] { margin: 0 !important; cursor: pointer !important; }',
       '.us-df-hover-msg { font-size: 12px !important; color: rgba(0,0,0,0.55) !important; margin-bottom: 8px !important; }',
       '.us-df-hover-actions { display: flex !important; gap: 8px !important; justify-content: flex-end !important; margin-top: 8px !important; }',
       '.us-df-hover-btn { padding: 6px 14px !important; font-size: 12px !important; font-weight: 500 !important; border-radius: 6px !important; border: none !important; cursor: pointer !important; }',
@@ -2052,10 +2058,13 @@ var Panel = (function () {
         var isFirstOfXpath = !seenXpath[step.xpath];
         seenXpath[step.xpath] = true;
         var isDup = (counts[step.xpath] || 0) > 1 && !isFirstOfXpath;
+        var reqCls = step.required === false ? 'us-p-df-step-required.us-p-df-step-req-optional' : 'us-p-df-step-required.us-p-df-step-req-required';
+        var reqText = step.required === false ? '任意' : '必須';
         var row = h('div', { class: 'us-p-df-step' + (isDup ? ' us-p-df-step-duplicate' : '') },
           h('span.us-p-df-step-type', step.type),
           isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
           h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+          h('span.' + reqCls, reqText),
           h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
           h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(w.originalIndex), title: '削除' }, '\u2715')
         );
@@ -2091,10 +2100,13 @@ var Panel = (function () {
           var isFirstOfXpath = !seenOther[step.xpath];
           seenOther[step.xpath] = true;
           var isDup = (otherCounts[step.xpath] || 0) > 1 && !isFirstOfXpath;
+          var reqClsOther = step.required === false ? 'us-p-df-step-required.us-p-df-step-req-optional' : 'us-p-df-step-required.us-p-df-step-req-required';
+          var reqTextOther = step.required === false ? '任意' : '必須';
           var row = h('div', { class: 'us-p-df-step us-p-df-step-other' + (isDup ? ' us-p-df-step-duplicate' : '') },
             h('span.us-p-df-step-type', step.type),
             isDup ? h('span.us-p-df-step-dup-badge', '重複') : null,
             h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
+            h('span.' + reqClsOther, reqTextOther),
             h('span.us-p-df-step-xpath', { title: step.xpath }, shortX)
           );
           row.addEventListener('click', function (e) {
@@ -3128,6 +3140,12 @@ var DataFiller = (function () {
       inputWrap.appendChild(inputEl);
       inputWrap.appendChild(dropdownBtn);
       inputWrap.appendChild(dropdownEl);
+      var requiredWrap = h('div', { class: 'us-df-hover-required-wrap' });
+      var requiredRadio = h('input', { type: 'radio', name: 'us-df-hover-required', value: 'required', id: 'us-df-hover-required' });
+      var optionalRadio = h('input', { type: 'radio', name: 'us-df-hover-required', value: 'optional', id: 'us-df-hover-optional' });
+      requiredRadio.checked = true;
+      requiredWrap.appendChild(h('label', { for: 'us-df-hover-required' }, requiredRadio, document.createTextNode('必須')));
+      requiredWrap.appendChild(h('label', { for: 'us-df-hover-optional' }, optionalRadio, document.createTextNode('任意')));
       var msgEl = h('div', { class: 'us-df-hover-msg' }, '');
       var actionsEl = h('div', { class: 'us-df-hover-actions' });
       var addBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-add' }, '追加');
@@ -3136,13 +3154,15 @@ var DataFiller = (function () {
       actionsEl.appendChild(cancelBtn);
       box.appendChild(labelEl);
       box.appendChild(inputWrap);
+      box.appendChild(requiredWrap);
       box.appendChild(msgEl);
       box.appendChild(actionsEl);
       addBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         var el = self._hoverEl;
         var name = (self._hoverInput && self._hoverInput.value) ? self._hoverInput.value.trim() : '';
-        if (el) self._addStepWithName(el, name || self._hoverSuggestedName);
+        var required = !optionalRadio.checked;
+        if (el) self._addStepWithName(el, name || self._hoverSuggestedName, required);
         self._hideHoverPopover();
       });
       cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); self._hideHoverPopover(); });
@@ -3161,6 +3181,8 @@ var DataFiller = (function () {
       document.body.appendChild(box);
       this._hoverPopover = box;
       this._hoverInput = inputEl;
+      this._hoverRequiredRadio = requiredRadio;
+      this._hoverOptionalRadio = optionalRadio;
       this._hoverMsgEl = msgEl;
       this._hoverActionsEl = actionsEl;
       this._hoverDropdownEl = dropdownEl;
@@ -3208,12 +3230,13 @@ var DataFiller = (function () {
       this._hoverEl = null;
     },
 
-    _addStepWithName: function (el, logicalName) {
+    _addStepWithName: function (el, logicalName, required) {
       var self = this;
       var xpath = getXPath(el);
       var type = getElementType(el);
       logicalName = String(logicalName || '').trim() || (type === 'text' ? 'テキスト' : type);
       var step = { xpath: xpath, type: type, logicalName: logicalName };
+      if (required !== undefined) step.required = required !== false;
       var options = getRadioCheckboxOptions(el);
       if (options.length) step.options = options;
       this._steps = this._steps || [];
@@ -3274,6 +3297,11 @@ var DataFiller = (function () {
         self._hoverInput.value = existing ? (existing.logicalName || '') : (suggested || '');
         self._hoverInput.readOnly = !!existing;
         self._hoverInput.style.background = existing ? 'rgba(0,0,0,0.05)' : '#fff';
+        if (self._hoverRequiredRadio && self._hoverOptionalRadio) {
+          var req = existing ? (existing.required !== false) : true;
+          self._hoverRequiredRadio.checked = req;
+          self._hoverOptionalRadio.checked = !req;
+        }
         self._hoverMsgEl.textContent = existing ? 'すでに登録済みです' : '';
         self._hoverMsgEl.style.display = existing ? 'block' : 'none';
         self._hoverMsgEl.style.visibility = existing ? 'visible' : 'hidden';
