@@ -14,7 +14,7 @@
       return;
     }
 
-var US_VERSION = '1.7.0-dev.43';
+var US_VERSION = '1.7.0-dev.44';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -59,6 +59,13 @@ var Panel = (function () {
         self._showScreen(parseInt(e.currentTarget.dataset.featureIndex, 10));
       });
       listContainer.appendChild(features[i].listRow);
+    }
+    if (features.length === 0) {
+      var emptyMsg = document.createElement('div');
+      emptyMsg.className = 'us-p-empty';
+      emptyMsg.style.cssText = 'padding:24px 16px;text-align:center;color:rgba(0,0,0,0.45);font-size:13px;';
+      emptyMsg.textContent = '設定項目を読み込めませんでした。ページを再読み込みしてください。';
+      listContainer.appendChild(emptyMsg);
     }
 
     var screenList = h('div', { class: 'us-p-screen us-p-screen-visible', 'data-us-cc': 'screen-list' },
@@ -126,6 +133,17 @@ var Panel = (function () {
   },
 
   open: async function () {
+    if (this.el && this._features && this._features.length === 0) {
+      if (typeof window.createColorEditorPanelFeature === 'function' || typeof window.createDataFillerPanelFeature === 'function') {
+        if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
+        if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+        this.el = null;
+        this.backdrop = null;
+        this._screenList = null;
+        this._features = null;
+        this._screens = null;
+      }
+    }
     this._create();
     this._showList();
     var i;
