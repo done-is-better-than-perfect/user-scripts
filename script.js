@@ -5,11 +5,14 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.56';
+  var US_VERSION = '1.7.0-dev.57';
   var __US_panelFeatureFns = {};
   if (typeof document !== 'undefined' && !document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef = __US_panelFeatureFns;
   else if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) __US_panelFeatureFns = document.__US_panelFeatureFnsRef;
-  console.log('[UserScripts] IIFE start: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'refAlreadySet=', !!(typeof document !== 'undefined' && document.__US_panelFeatureFnsRef));
+  var __US_scriptId = 's' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  if (typeof window !== 'undefined') window.__US_scriptId = __US_scriptId;
+  if (typeof document !== 'undefined') document.__US_docId = __US_scriptId;
+  console.log('[UserScripts] IIFE start: __US_scriptId=', __US_scriptId, 'window===globalThis=', typeof window !== 'undefined' && window === (typeof globalThis !== "undefined" ? globalThis : window), 'document.defaultView===window=', typeof document !== 'undefined' && typeof window !== 'undefined' && document.defaultView === window, 'ref keys=', Object.keys(__US_panelFeatureFns), 'refAlreadySet=', !!(typeof document !== 'undefined' && document.__US_panelFeatureFnsRef));
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
@@ -256,7 +259,8 @@ window.US.rpc = RPC;
     if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef[key] = fn;
   };
   var __US_wrapForEval = function (moduleText) {
-    return '(function(){var __US_panelFeatureFns=(typeof document!=="undefined"&&document.__US_panelFeatureFnsRef)?document.__US_panelFeatureFnsRef:{};var __US_registerPanelFeature=function(key,fn){if(typeof window.__US_onRegisterPanelFeature==="function")try{window.__US_onRegisterPanelFeature(key,fn);}catch(e){}__US_panelFeatureFns[key]=fn;};' + moduleText + '})();';
+    var diag = "console.log('[UserScripts] eval context: window.__US_scriptId=',typeof window!=='undefined'?window.__US_scriptId:'no window','document.__US_docId=',typeof document!=='undefined'?document.__US_docId:'no document','document.__US_panelFeatureFnsRef=',typeof document!=='undefined'&&document.__US_panelFeatureFnsRef?'set':'unset');";
+    return '(function(){' + diag + 'var __US_panelFeatureFns=(typeof document!=="undefined"&&document.__US_panelFeatureFnsRef)?document.__US_panelFeatureFnsRef:{};var __US_registerPanelFeature=function(key,fn){if(typeof window.__US_onRegisterPanelFeature==="function")try{window.__US_onRegisterPanelFeature(key,fn);}catch(e){}__US_panelFeatureFns[key]=fn;};' + moduleText + '})();';
   };
   function loadByFetchEval(nextUrl, thenRun) {
     if (!nextUrl) { thenRun(); return; }
@@ -265,13 +269,18 @@ window.US.rpc = RPC;
     fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
       var wrap = (name === 'colorEditor.js' || name === 'dataFiller.js');
       if (wrap) {
+        var docBefore = typeof document !== 'undefined' ? document : null;
+        var docIdBefore = docBefore ? docBefore.__US_docId : void 0;
+        var refBefore = (docBefore && docBefore.__US_panelFeatureFnsRef) ? docBefore.__US_panelFeatureFnsRef : null;
+        console.log('[UserScripts] before eval(' + name + '): document.__US_docId=', docIdBefore, 'ref===closure=', refBefore === __US_panelFeatureFns);
         text = __US_wrapForEval(text);
         console.log('[UserScripts] loadByFetchEval: wrapped with IIFE(fns) for', name);
       }
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
       if (wrap) {
-        var ref = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : null;
-        console.log('[UserScripts] after eval(' + name + '): ref keys=', ref ? Object.keys(ref) : 'no ref', 'closure keys=', Object.keys(__US_panelFeatureFns));
+        var docAfter = typeof document !== 'undefined' ? document : null;
+        var ref = docAfter && docAfter.__US_panelFeatureFnsRef ? docAfter.__US_panelFeatureFnsRef : null;
+        console.log('[UserScripts] after eval(' + name + '): document.__US_docId=', docAfter ? docAfter.__US_docId : void 0, 'ref===closure=', ref === __US_panelFeatureFns, 'ref keys=', ref ? Object.keys(ref) : 'no ref', 'closure keys=', Object.keys(__US_panelFeatureFns));
       }
       thenRun();
     }).catch(function (err) {
