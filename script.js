@@ -5,6 +5,7 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
+  var US_VERSION = '1.7.0-dev.47';
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
@@ -18,13 +19,16 @@
 
     (function logContextCheck(label) {
       var uw = typeof unsafeWindow !== 'undefined' ? unsafeWindow : null;
+      var dv = (typeof document !== 'undefined' && document.defaultView && document.defaultView !== window) ? document.defaultView : null;
+      var wp = (typeof window.parent !== 'undefined' && window.parent !== window) ? window.parent : null;
+      var wt = (typeof window.top !== 'undefined' && window.top !== window) ? window.top : null;
       console.log('[UserScripts] ' + label + ': unsafeWindow=' + (uw ? 'defined' : 'undefined')
-        + ' | window.createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature)
-        + ' | window.createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature)
-        + (uw ? ' | unsafeWindow.createColorEditorPanelFeature=' + (typeof uw.createColorEditorPanelFeature) + ' | unsafeWindow.createDataFillerPanelFeature=' + (typeof uw.createDataFillerPanelFeature) : ''));
+        + ' | window.ce=' + (typeof window.createColorEditorPanelFeature) + ' df=' + (typeof window.createDataFillerPanelFeature)
+        + (uw ? ' | unsafeWindow.ce=' + (typeof uw.createColorEditorPanelFeature) + ' df=' + (typeof uw.createDataFillerPanelFeature) : '')
+        + (dv ? ' | defaultView.ce=' + (typeof dv.createColorEditorPanelFeature) + ' df=' + (typeof dv.createDataFillerPanelFeature) : '')
+        + (wp ? ' | parent.ce=' + (typeof wp.createColorEditorPanelFeature) + ' df=' + (typeof wp.createDataFillerPanelFeature) : '')
+        + (wt ? ' | top.ce=' + (typeof wt.createColorEditorPanelFeature) + ' df=' + (typeof wt.createDataFillerPanelFeature) : ''));
     })('runMain');
-
-var US_VERSION = '1.7.0-dev.46';
 
 // =========================
 
@@ -51,21 +55,35 @@ var Panel = (function () {
 
     (function logContextCheck(label) {
       var uw = typeof unsafeWindow !== 'undefined' ? unsafeWindow : null;
+      var dv = (typeof document !== 'undefined' && document.defaultView && document.defaultView !== window) ? document.defaultView : null;
+      var wp = (typeof window.parent !== 'undefined' && window.parent !== window) ? window.parent : null;
+      var wt = (typeof window.top !== 'undefined' && window.top !== window) ? window.top : null;
       console.log('[UserScripts] ' + label + ': unsafeWindow=' + (uw ? 'defined' : 'undefined')
         + ' | window.createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature)
         + ' | window.createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature)
-        + (uw ? ' | unsafeWindow.createColorEditorPanelFeature=' + (typeof uw.createColorEditorPanelFeature) + ' | unsafeWindow.createDataFillerPanelFeature=' + (typeof uw.createDataFillerPanelFeature) : ''));
+        + (uw ? ' | unsafeWindow.ce=' + (typeof uw.createColorEditorPanelFeature) + ' df=' + (typeof uw.createDataFillerPanelFeature) : '')
+        + (dv ? ' | defaultView.ce=' + (typeof dv.createColorEditorPanelFeature) + ' df=' + (typeof dv.createDataFillerPanelFeature) : '')
+        + (wp ? ' | parent.ce=' + (typeof wp.createColorEditorPanelFeature) + ' df=' + (typeof wp.createDataFillerPanelFeature) : '')
+        + (wt ? ' | top.ce=' + (typeof wt.createColorEditorPanelFeature) + ' df=' + (typeof wt.createDataFillerPanelFeature) : ''));
     })('Panel._create');
 
+    function windowWithFeatures() {
+      var cand = (typeof unsafeWindow !== 'undefined' ? unsafeWindow : null) || (document.defaultView && document.defaultView !== window ? document.defaultView : null);
+      if (cand && typeof cand.createColorEditorPanelFeature === 'function') return cand;
+      if (window.parent && window.parent !== window && typeof window.parent.createColorEditorPanelFeature === 'function') return window.parent;
+      if (window.top && window.top !== window && typeof window.top.createColorEditorPanelFeature === 'function') return window.top;
+      return window;
+    }
+    var W = windowWithFeatures();
     var features = [];
-    if (typeof window.createColorEditorPanelFeature === 'function') {
-      features.push(window.createColorEditorPanelFeature(h, createGearNode, US_VERSION, {
+    if (typeof W.createColorEditorPanelFeature === 'function') {
+      features.push(W.createColorEditorPanelFeature(h, createGearNode, US_VERSION, {
         onBack: function () { self._showList(); },
         onEditToggleChange: function (checked) { if (checked) Panel.close(); }
       }));
     }
-    if (typeof window.createDataFillerPanelFeature === 'function') {
-      features.push(window.createDataFillerPanelFeature(h, DataFiller, RPC, { onBack: function () { self._showList(); } }));
+    if (typeof W.createDataFillerPanelFeature === 'function') {
+      features.push(W.createDataFillerPanelFeature(h, DataFiller, RPC, { onBack: function () { self._showList(); } }));
     }
 
     var listContainer = h('div', { class: 'us-p-feature-list' });
@@ -151,7 +169,8 @@ var Panel = (function () {
 
   open: async function () {
     if (this.el && this._features && this._features.length === 0) {
-      if (typeof window.createColorEditorPanelFeature === 'function' || typeof window.createDataFillerPanelFeature === 'function') {
+      var Wretry = (typeof unsafeWindow !== 'undefined' ? unsafeWindow : null) || (document.defaultView && document.defaultView !== window ? document.defaultView : null) || window;
+      if (typeof Wretry.createColorEditorPanelFeature === 'function' || typeof Wretry.createDataFillerPanelFeature === 'function') {
         if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
         if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
         this.el = null;
