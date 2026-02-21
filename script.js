@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.21';
+var US_VERSION = '1.7.0-dev.22';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -766,7 +766,11 @@ var Styles = (function () {
       '}',
       '.us-df-hover-label { font-size: 11px !important; font-weight: 600 !important; color: rgba(0,0,0,0.5) !important; margin-bottom: 4px !important; }',
       '.us-df-hover-name { font-weight: 600 !important; margin-bottom: 4px !important; }',
-      '.us-df-hover-input { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 6px 10px !important; margin-bottom: 8px !important; font-size: 13px !important; border: 1px solid rgba(0,0,0,0.15) !important; border-radius: 6px !important; background: #fff !important; }',
+      '.us-df-hover-input-wrap { display: flex !important; align-items: center !important; gap: 6px !important; margin-bottom: 8px !important; }',
+      '.us-df-hover-input { flex: 1 !important; min-width: 0 !important; box-sizing: border-box !important; padding: 6px 10px !important; font-size: 13px !important; border: 1px solid rgba(0,0,0,0.15) !important; border-radius: 6px !important; background: #fff !important; }',
+      '.us-df-hover-textpick { flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important; background: rgba(0,0,0,0.08) !important; color: rgba(0,0,0,0.6) !important; cursor: pointer !important; font-size: 14px !important; font-weight: bold !important; line-height: 1 !important; }',
+      '.us-df-hover-textpick:hover { background: rgba(59,130,246,0.2) !important; color: rgba(59,130,246,0.95) !important; }',
+      '.us-df-text-pick-highlight { filter: invert(1) !important; }',
       '.us-df-hover-msg { font-size: 12px !important; color: rgba(0,0,0,0.55) !important; margin-bottom: 8px !important; }',
       '.us-df-hover-actions { display: flex !important; gap: 8px !important; justify-content: flex-end !important; margin-top: 8px !important; }',
       '.us-df-hover-btn { padding: 6px 14px !important; font-size: 12px !important; font-weight: 500 !important; border-radius: 6px !important; border: none !important; cursor: pointer !important; }',
@@ -2053,11 +2057,12 @@ var Panel = (function () {
           h('span.us-p-df-step-xpath', { title: step.xpath }, shortX),
           h('button.us-p-df-step-del', { type: 'button', 'data-df-index': String(w.originalIndex), title: '削除' }, '\u2715')
         );
-        var delBtn = row.querySelector('.us-p-df-step-del');
-        if (delBtn) delBtn.addEventListener('click', function () {
-          DataFiller.removeStep(w.originalIndex);
-          self.refreshDataFillerSteps();
+        row.addEventListener('click', function (e) {
+          if (e.target.closest('.us-p-df-step-del')) return;
+          RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
         });
+        var delBtn = row.querySelector('.us-p-df-step-del');
+        if (delBtn) delBtn.addEventListener('click', function (e) { e.stopPropagation(); DataFiller.removeStep(w.originalIndex); self.refreshDataFillerSteps(); });
         stepsEl.appendChild(row);
       });
     } else {
@@ -2090,6 +2095,9 @@ var Panel = (function () {
             h('span.us-p-df-step-name', { title: step.logicalName }, step.logicalName),
             h('span.us-p-df-step-xpath', { title: step.xpath }, shortX)
           );
+          row.addEventListener('click', function (e) {
+            RPC.call('clipboard.setText', [step.xpath]).catch(function () {});
+          });
           stepsEl.appendChild(row);
         });
       });
@@ -2919,7 +2927,11 @@ var DataFiller = (function () {
       var box = h('div', { class: 'us-df-hover-box', 'data-us-cc': 'df-hover' });
       box.style.display = 'none';
       var labelEl = h('div', { class: 'us-df-hover-label' }, '項目名');
+      var inputWrap = h('div', { class: 'us-df-hover-input-wrap' });
       var inputEl = h('input', { type: 'text', class: 'us-df-hover-input', placeholder: '例: メールアドレス' });
+      var textPickBtn = h('button', { type: 'button', class: 'us-df-hover-textpick', title: 'ページからテキストを取得' }, 'T');
+      inputWrap.appendChild(inputEl);
+      inputWrap.appendChild(textPickBtn);
       var msgEl = h('div', { class: 'us-df-hover-msg' }, '');
       var actionsEl = h('div', { class: 'us-df-hover-actions' });
       var addBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-add' }, '追加');
@@ -2927,7 +2939,7 @@ var DataFiller = (function () {
       actionsEl.appendChild(addBtn);
       actionsEl.appendChild(cancelBtn);
       box.appendChild(labelEl);
-      box.appendChild(inputEl);
+      box.appendChild(inputWrap);
       box.appendChild(msgEl);
       box.appendChild(actionsEl);
       addBtn.addEventListener('click', function (e) {
@@ -2938,6 +2950,11 @@ var DataFiller = (function () {
         self._hideHoverPopover();
       });
       cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); self._hideHoverPopover(); });
+      textPickBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (self._hoverInput.readOnly) return;
+        self._startTextPickMode();
+      });
       box.addEventListener('mouseenter', function () {
         if (self._hoverHideTimer) clearTimeout(self._hoverHideTimer);
         self._hoverHideTimer = null;
@@ -2961,8 +2978,68 @@ var DataFiller = (function () {
 
     _hideHoverPopover: function () {
       if (this._hoverHideTimer) { clearTimeout(this._hoverHideTimer); this._hoverHideTimer = null; }
+      this._exitTextPickMode();
       if (this._hoverPopover) this._hoverPopover.style.display = 'none';
       this._hoverEl = null;
+    },
+
+    _textPickHighlightEl: null,
+    _textPickOver: null,
+    _textPickOut: null,
+    _textPickClick: null,
+
+    _startTextPickMode: function () {
+      var self = this;
+      if (this._textPickOver) return;
+      this._textPickOver = function (e) {
+        if (e.target.closest && e.target.closest('[data-us-cc]')) return;
+        var el = e.target;
+        if (self._textPickHighlightEl) {
+          self._textPickHighlightEl.classList.remove('us-df-text-pick-highlight');
+          self._textPickHighlightEl = null;
+        }
+        if (el && el.nodeType === Node.ELEMENT_NODE) {
+          el.classList.add('us-df-text-pick-highlight');
+          self._textPickHighlightEl = el;
+        }
+      };
+      this._textPickOut = function (e) {
+        if (self._textPickHighlightEl) {
+          self._textPickHighlightEl.classList.remove('us-df-text-pick-highlight');
+          self._textPickHighlightEl = null;
+        }
+      };
+      this._textPickClick = function (e) {
+        if (e.target.closest && e.target.closest('[data-us-cc]')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var el = e.target;
+        var text = (el && (el.textContent || el.innerText)) ? String(el.textContent || el.innerText).replace(/\s+/g, ' ').trim().slice(0, 80) : '';
+        if (self._hoverInput) self._hoverInput.value = text;
+        self._exitTextPickMode();
+      };
+      document.addEventListener('mouseover', this._textPickOver, true);
+      document.addEventListener('mouseout', this._textPickOut, true);
+      document.addEventListener('click', this._textPickClick, true);
+    },
+
+    _exitTextPickMode: function () {
+      if (this._textPickHighlightEl) {
+        this._textPickHighlightEl.classList.remove('us-df-text-pick-highlight');
+        this._textPickHighlightEl = null;
+      }
+      if (this._textPickOver) {
+        document.removeEventListener('mouseover', this._textPickOver, true);
+        this._textPickOver = null;
+      }
+      if (this._textPickOut) {
+        document.removeEventListener('mouseout', this._textPickOut, true);
+        this._textPickOut = null;
+      }
+      if (this._textPickClick) {
+        document.removeEventListener('click', this._textPickClick, true);
+        this._textPickClick = null;
+      }
     },
 
     _addStepWithName: function (el, logicalName) {
