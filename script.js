@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.20';
+var US_VERSION = '1.7.0-dev.21';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -764,7 +764,9 @@ var Styles = (function () {
       '  box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important; font-family: system-ui, -apple-system, sans-serif !important;',
       '  font-size: 13px !important; color: rgba(0,0,0,0.85) !important; min-width: 140px !important;',
       '}',
+      '.us-df-hover-label { font-size: 11px !important; font-weight: 600 !important; color: rgba(0,0,0,0.5) !important; margin-bottom: 4px !important; }',
       '.us-df-hover-name { font-weight: 600 !important; margin-bottom: 4px !important; }',
+      '.us-df-hover-input { display: block !important; width: 100% !important; box-sizing: border-box !important; padding: 6px 10px !important; margin-bottom: 8px !important; font-size: 13px !important; border: 1px solid rgba(0,0,0,0.15) !important; border-radius: 6px !important; background: #fff !important; }',
       '.us-df-hover-msg { font-size: 12px !important; color: rgba(0,0,0,0.55) !important; margin-bottom: 8px !important; }',
       '.us-df-hover-actions { display: flex !important; gap: 8px !important; justify-content: flex-end !important; margin-top: 8px !important; }',
       '.us-df-hover-btn { padding: 6px 14px !important; font-size: 12px !important; font-weight: 500 !important; border-radius: 6px !important; border: none !important; cursor: pointer !important; }',
@@ -2916,21 +2918,23 @@ var DataFiller = (function () {
       var self = this;
       var box = h('div', { class: 'us-df-hover-box', 'data-us-cc': 'df-hover' });
       box.style.display = 'none';
-      var nameEl = h('div', { class: 'us-df-hover-name' }, '');
+      var labelEl = h('div', { class: 'us-df-hover-label' }, '項目名');
+      var inputEl = h('input', { type: 'text', class: 'us-df-hover-input', placeholder: '例: メールアドレス' });
       var msgEl = h('div', { class: 'us-df-hover-msg' }, '');
       var actionsEl = h('div', { class: 'us-df-hover-actions' });
       var addBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-add' }, '追加');
       var cancelBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-cancel' }, 'キャンセル');
       actionsEl.appendChild(addBtn);
       actionsEl.appendChild(cancelBtn);
-      box.appendChild(nameEl);
+      box.appendChild(labelEl);
+      box.appendChild(inputEl);
       box.appendChild(msgEl);
       box.appendChild(actionsEl);
       addBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         var el = self._hoverEl;
-        var name = self._hoverSuggestedName;
-        if (el && name !== undefined) self._addStepWithName(el, name);
+        var name = (self._hoverInput && self._hoverInput.value) ? self._hoverInput.value.trim() : '';
+        if (el) self._addStepWithName(el, name || self._hoverSuggestedName);
         self._hideHoverPopover();
       });
       cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); self._hideHoverPopover(); });
@@ -2943,7 +2947,7 @@ var DataFiller = (function () {
       });
       document.body.appendChild(box);
       this._hoverPopover = box;
-      this._hoverNameEl = nameEl;
+      this._hoverInput = inputEl;
       this._hoverMsgEl = msgEl;
       this._hoverActionsEl = actionsEl;
       return box;
@@ -3018,9 +3022,12 @@ var DataFiller = (function () {
         self._hoverHideTimer = null;
         self._hoverEl = el;
         self._hoverSuggestedName = suggested;
-        self._hoverNameEl.textContent = existing ? '[登録済み] ' + (existing.logicalName || '') : (suggested || '');
+        self._hoverInput.value = existing ? (existing.logicalName || '') : (suggested || '');
+        self._hoverInput.readOnly = !!existing;
+        self._hoverInput.style.background = existing ? 'rgba(0,0,0,0.05)' : '#fff';
         self._hoverMsgEl.textContent = existing ? 'すでに登録済みです' : '';
         self._hoverMsgEl.style.display = existing ? 'block' : 'none';
+        self._hoverMsgEl.style.visibility = existing ? 'visible' : 'hidden';
         self._hoverActionsEl.style.display = existing ? 'none' : 'flex';
         var rect = el.getBoundingClientRect();
         self._hoverPopover.style.display = 'block';
