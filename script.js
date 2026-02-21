@@ -14,7 +14,7 @@
       return;
     }
 
-var US_VERSION = '1.7.0-dev.42';
+var US_VERSION = '1.7.0-dev.43';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // =========================
@@ -71,7 +71,7 @@ var Panel = (function () {
 
     var panelChildren = [screenList];
     for (var j = 0; j < features.length; j++) panelChildren.push(features[j].screen.el);
-    var p = h('div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }, panelChildren);
+    var p = h.apply(null, ['div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }].concat(panelChildren));
     document.body.appendChild(p);
     this.el = p;
     this._screenList = screenList;
