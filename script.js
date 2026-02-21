@@ -5,9 +5,10 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.53';
+  var US_VERSION = '1.7.0-dev.54';
   var __US_panelFeatureFns = {};
-  console.log('[UserScripts] IIFE start: __US_panelFeatureFns is closure, keys=', Object.keys(__US_panelFeatureFns));
+  if (typeof document !== 'undefined') document.__US_panelFeatureFnsRef = __US_panelFeatureFns;
+  console.log('[UserScripts] IIFE start: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns));
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
@@ -37,7 +38,8 @@ var Panel = (function () {
   _create: function () {
     if (this.el) return;
     var self = this;
-    console.log('[UserScripts] Panel._create: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller, 'window.ce=', typeof window.createColorEditorPanelFeature, 'window.df=', typeof window.createDataFillerPanelFeature);
+    var fns = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : __US_panelFeatureFns;
+    console.log('[UserScripts] Panel._create: fns keys=', Object.keys(fns), 'colorEditor=', typeof fns.colorEditor, 'dataFiller=', typeof fns.dataFiller);
 
     var bd = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop', onclick: function () { Panel.close(); } });
     document.body.appendChild(bd);
@@ -46,7 +48,6 @@ var Panel = (function () {
     var features = [];
     var ceCallbacks = { onBack: function () { self._showList(); }, onEditToggleChange: function (checked) { if (checked) Panel.close(); } };
     var dfCallbacks = { onBack: function () { self._showList(); } };
-    var fns = __US_panelFeatureFns;
     if (typeof fns.colorEditor === 'function') {
       features.push(fns.colorEditor(h, createGearNode, US_VERSION, ceCallbacks));
     } else if (typeof window.createColorEditorPanelFeature === 'function') {
@@ -141,7 +142,8 @@ var Panel = (function () {
 
   open: async function () {
     if (this.el && this._features && this._features.length === 0) {
-      var hasFeature = (__US_panelFeatureFns.colorEditor || __US_panelFeatureFns.dataFiller || window.createColorEditorPanelFeature || window.createDataFillerPanelFeature);
+      var ref = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : __US_panelFeatureFns;
+      var hasFeature = (ref.colorEditor || ref.dataFiller || window.createColorEditorPanelFeature || window.createDataFillerPanelFeature);
       if (hasFeature) {
         if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
         if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
@@ -249,7 +251,7 @@ window.US.rpc = RPC;
   }
 
   var __US_wrapForEval = function (moduleText) {
-    return '(function(__US_panelFeatureFns){var __US_registerPanelFeature=function(key,fn){__US_panelFeatureFns[key]=fn;};' + moduleText + '})(__US_panelFeatureFns);';
+    return '(function(){var __US_panelFeatureFns=(typeof document!=="undefined"&&document.__US_panelFeatureFnsRef)?document.__US_panelFeatureFnsRef:{};var __US_registerPanelFeature=function(key,fn){__US_panelFeatureFns[key]=fn;};' + moduleText + '})();';
   };
   function loadByFetchEval(nextUrl, thenRun) {
     if (!nextUrl) { thenRun(); return; }
@@ -262,7 +264,10 @@ window.US.rpc = RPC;
         console.log('[UserScripts] loadByFetchEval: wrapped with IIFE(fns) for', name);
       }
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
-      if (wrap) console.log('[UserScripts] after eval(' + name + '): __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
+      if (wrap) {
+        var ref = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : null;
+        console.log('[UserScripts] after eval(' + name + '): ref keys=', ref ? Object.keys(ref) : 'no ref', 'closure keys=', Object.keys(__US_panelFeatureFns));
+      }
       thenRun();
     }).catch(function (err) {
       console.warn('[UserScripts] fetch failed for ' + nextUrl + ', falling back to script tag', err);
