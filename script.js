@@ -5,10 +5,11 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.54';
+  var US_VERSION = '1.7.0-dev.55';
   var __US_panelFeatureFns = {};
-  if (typeof document !== 'undefined') document.__US_panelFeatureFnsRef = __US_panelFeatureFns;
-  console.log('[UserScripts] IIFE start: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns));
+  if (typeof document !== 'undefined' && !document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef = __US_panelFeatureFns;
+  else if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) __US_panelFeatureFns = document.__US_panelFeatureFnsRef;
+  console.log('[UserScripts] IIFE start: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'refAlreadySet=', !!(typeof document !== 'undefined' && document.__US_panelFeatureFnsRef));
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
@@ -250,8 +251,12 @@ window.US.rpc = RPC;
     (document.head || document.documentElement).appendChild(util);
   }
 
+  window.__US_onRegisterPanelFeature = function (key, fn) {
+    __US_panelFeatureFns[key] = fn;
+    if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef[key] = fn;
+  };
   var __US_wrapForEval = function (moduleText) {
-    return '(function(){var __US_panelFeatureFns=(typeof document!=="undefined"&&document.__US_panelFeatureFnsRef)?document.__US_panelFeatureFnsRef:{};var __US_registerPanelFeature=function(key,fn){__US_panelFeatureFns[key]=fn;};' + moduleText + '})();';
+    return '(function(){var __US_panelFeatureFns=(typeof document!=="undefined"&&document.__US_panelFeatureFnsRef)?document.__US_panelFeatureFnsRef:{};var __US_registerPanelFeature=function(key,fn){if(typeof window.__US_onRegisterPanelFeature==="function")try{window.__US_onRegisterPanelFeature(key,fn);}catch(e){}__US_panelFeatureFns[key]=fn;};' + moduleText + '})();';
   };
   function loadByFetchEval(nextUrl, thenRun) {
     if (!nextUrl) { thenRun(); return; }
