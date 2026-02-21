@@ -1,9 +1,12 @@
 /**
  * DataFiller module – CSV auto-filler (form field capture + template export).
- * Factory: createDataFiller(RPC, h, getPanel) where getPanel() returns Panel.
+ * Exports: DataFillerFeature (extends BasePanelFeature). script.js calls init(deps) then getListRow() / getScreen() / onPanelOpen().
  */
-(function (global) {
-  'use strict';
+import { BasePanelFeature } from './base.js';
+
+'use strict';
+
+var global = typeof window !== 'undefined' ? window : this;
 
   function createDataFiller(RPC, h, getPanel) {
 
@@ -959,56 +962,57 @@
   var STORAGE_KEY_ENABLED = 'userscripts:features:dataFiller:enabled';
 
   /**
-   * Returns panel feature descriptor: { listRow, screen, onPanelOpen }.
-   * All dataFiller strings (labels, ids, storage keys) live here.
+   * Panel feature: base class instance. script.js calls init(deps) then getListRow() / getScreen() / onPanelOpen().
    */
-  function createPanelFeature(h, dataFillerInstance, RPC, callbacks) {
-    var onBack = callbacks && callbacks.onBack;
-    var switchLabel = document.createElement('label');
-    switchLabel.className = 'us-switch';
-    switchLabel.setAttribute('data-us-cc', 'switch');
-    switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-df-toggle' }));
-    switchLabel.appendChild(h('span.us-slider'));
-    var icon = h('div.us-p-feature-icon', document.createTextNode('CSV'));
-    var label = h('span.us-p-feature-label', 'data', h('span.us-title-editor', 'Filler'));
-    var listRow = h('div', { class: 'us-p-feature-row' },
-      icon, label,
-      h('div.us-p-feature-right', switchLabel, h('span.us-p-feature-chevron', '\u203A'))
-    );
-    var toggleEl = listRow.querySelector('#us-p-feature-df-toggle');
-    toggleEl.addEventListener('click', function (e) { e.stopPropagation(); });
-    toggleEl.addEventListener('change', function () {
-      RPC.call('storage.set', [STORAGE_KEY_ENABLED, this.checked]).catch(function () {});
-      if (this.checked) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
-    });
-
-    var screenResult = createDataFillerScreen(h, dataFillerInstance, RPC, { onBack: onBack });
-    function onShow() {
-      var mainToggle = screenResult.el.querySelector('#us-p-df-main-toggle');
-      if (mainToggle && toggleEl) mainToggle.checked = toggleEl.checked;
-      dataFillerInstance.load().then(function () { screenResult.refreshSteps(); });
-    }
-    function onPanelOpen() {
-      RPC.call('storage.get', [STORAGE_KEY_ENABLED, false]).then(function (val) {
-        var enabled = !!val;
-        if (toggleEl) toggleEl.checked = enabled;
-        if (enabled) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
-      }).catch(function () {
-        if (toggleEl) toggleEl.checked = false;
-        dataFillerInstance.disableCapture();
+  class DataFillerFeature extends BasePanelFeature {
+    init(deps) {
+      var h = deps.h, RPC = deps.RPC, getPanel = deps.getPanel, callbacks = deps.callbacks || {};
+      var dataFillerInstance = createDataFiller(RPC, h, getPanel);
+      var onBack = callbacks.onBack;
+      var switchLabel = document.createElement('label');
+      switchLabel.className = 'us-switch';
+      switchLabel.setAttribute('data-us-cc', 'switch');
+      switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-df-toggle' }));
+      switchLabel.appendChild(h('span.us-slider'));
+      var icon = h('div.us-p-feature-icon', document.createTextNode('CSV'));
+      var label = h('span.us-p-feature-label', 'data', h('span.us-title-editor', 'Filler'));
+      var listRow = h('div', { class: 'us-p-feature-row' },
+        icon, label,
+        h('div.us-p-feature-right', switchLabel, h('span.us-p-feature-chevron', '\u203A'))
+      );
+      var toggleEl = listRow.querySelector('#us-p-feature-df-toggle');
+      toggleEl.addEventListener('click', function (e) { e.stopPropagation(); });
+      toggleEl.addEventListener('change', function () {
+        RPC.call('storage.set', [STORAGE_KEY_ENABLED, this.checked]).catch(function () {});
+        if (this.checked) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
       });
+
+      var screenResult = createDataFillerScreen(h, dataFillerInstance, RPC, { onBack: onBack });
+      function onShow() {
+        var mainToggle = screenResult.el.querySelector('#us-p-df-main-toggle');
+        if (mainToggle && toggleEl) mainToggle.checked = toggleEl.checked;
+        dataFillerInstance.load().then(function () { screenResult.refreshSteps(); });
+      }
+      function onPanelOpenFn() {
+        RPC.call('storage.get', [STORAGE_KEY_ENABLED, false]).then(function (val) {
+          var enabled = !!val;
+          if (toggleEl) toggleEl.checked = enabled;
+          if (enabled) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
+        }).catch(function () {
+          if (toggleEl) toggleEl.checked = false;
+          dataFillerInstance.disableCapture();
+        });
+      }
+      this._listRow = listRow;
+      this._screen = { el: screenResult.el, onShow: onShow };
+      this._onPanelOpenFn = onPanelOpenFn;
     }
-    return {
-      listRow: listRow,
-      screen: { el: screenResult.el, onShow: onShow },
-      onPanelOpen: onPanelOpen
-    };
+    onPanelOpen() {
+      if (this._onPanelOpenFn) this._onPanelOpenFn();
+    }
   }
 
   global.createDataFiller = createDataFiller;
   global.createDataFillerScreen = createDataFillerScreen;
-  global.createDataFillerPanelFeature = createPanelFeature;
-  if (typeof __US_registerPanelFeature === 'function') { console.log('[UserScripts] dataFiller: calling __US_registerPanelFeature (injected)'); __US_registerPanelFeature('dataFiller', createPanelFeature); }
-  else if (typeof global.__US_registerPanelFeature === 'function') { console.log('[UserScripts] dataFiller: calling global.__US_registerPanelFeature'); global.__US_registerPanelFeature('dataFiller', createPanelFeature); }
-  else { console.log('[UserScripts] dataFiller: no registrar (__US_registerPanelFeature=', typeof __US_registerPanelFeature, 'global=', typeof (global && global.__US_registerPanelFeature), ')'); }
-})(typeof window !== 'undefined' ? window : this);
+
+  export { DataFillerFeature };

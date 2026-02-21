@@ -1,13 +1,13 @@
 /**
- * colorEditor module – depends on window.RPC, window.h, window.createGearNode (from util.js).
- * Exposes: SelectorEngine, RulesManager, ProfileManager, StyleApplier, Styles,
- * EditMode, ColorPopover, ChipColorPopover, ProfileColorPopover, Tab, ColorCustomizerFeature.
+ * colorEditor module – depends on window.RPC, window.h, window.createGearNode (set by script.js from util).
+ * Exports: ColorEditorFeature, ColorCustomizerFeature, ColorPopover.
  */
-(function () {
-  'use strict';
-  var RPC = window.RPC, h = window.h, createGearNode = window.createGearNode;
-  if (!RPC || !h) { console.error('[UserScripts] colorEditor: RPC/h missing'); return; }
-  var _colorEditorScreenApi = null;
+import { BasePanelFeature } from './base.js';
+
+'use strict';
+var RPC = window.RPC, h = window.h, createGearNode = window.createGearNode;
+if (!RPC || !h) { console.error('[UserScripts] colorEditor: RPC/h missing'); }
+var _colorEditorScreenApi = null;
 
 // 1. SelectorEngine (module)
 // =========================
@@ -2998,44 +2998,48 @@ var ColorCustomizerFeature = (function () {
   }
 
   /**
-   * Returns panel feature descriptor: { listRow, screen, onPanelOpen }.
-   * All colorEditor strings (labels, ids) live here. callbacks: { onBack, onEditToggleChange(checked) }
+   * Panel feature: base class instance. script.js calls init(deps) then getListRow() / getScreen() / onPanelOpen().
+   * callbacks: { onBack, onEditToggleChange(checked) }
    */
-  function createPanelFeature(h, createGearNode, US_VERSION, callbacks) {
-    var switchLabel = document.createElement('label');
-    switchLabel.className = 'us-switch';
-    switchLabel.setAttribute('data-us-cc', 'switch');
-    switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-ce-toggle' }));
-    switchLabel.appendChild(h('span.us-slider'));
-    var icon = h('div.us-p-feature-icon', document.createTextNode('あAa'), h('div.us-p-feature-icon-swatch'));
-    var label = h('span.us-p-feature-label', 'color', h('span.us-title-editor', 'Editor'));
-    var listRow = h('div', { class: 'us-p-feature-row' },
-      icon, label,
-      h('div.us-p-feature-right', switchLabel, h('span.us-p-feature-chevron', '\u203A'))
-    );
-    var toggleEl = listRow.querySelector('#us-p-feature-ce-toggle');
-    toggleEl.addEventListener('click', function (e) { e.stopPropagation(); });
-    toggleEl.addEventListener('change', function () {
-      if (this.checked) EditMode.enable();
-      else { EditMode.disable(); Tab.setAggregate(false, false); }
-      if (callbacks && callbacks.onEditToggleChange) callbacks.onEditToggleChange(this.checked);
-    });
+  class ColorEditorFeature extends BasePanelFeature {
+    init(deps) {
+      var h = deps.h, createGearNode = deps.createGearNode, US_VERSION = deps.version, callbacks = deps.callbacks || {};
+      var switchLabel = document.createElement('label');
+      switchLabel.className = 'us-switch';
+      switchLabel.setAttribute('data-us-cc', 'switch');
+      switchLabel.appendChild(h('input', { type: 'checkbox', id: 'us-p-feature-ce-toggle' }));
+      switchLabel.appendChild(h('span.us-slider'));
+      var icon = h('div.us-p-feature-icon', document.createTextNode('あAa'), h('div.us-p-feature-icon-swatch'));
+      var label = h('span.us-p-feature-label', 'color', h('span.us-title-editor', 'Editor'));
+      var listRow = h('div', { class: 'us-p-feature-row' },
+        icon, label,
+        h('div.us-p-feature-right', switchLabel, h('span.us-p-feature-chevron', '\u203A'))
+      );
+      var toggleEl = listRow.querySelector('#us-p-feature-ce-toggle');
+      toggleEl.addEventListener('click', function (e) { e.stopPropagation(); });
+      toggleEl.addEventListener('change', function () {
+        if (this.checked) EditMode.enable();
+        else { EditMode.disable(); Tab.setAggregate(false, false); }
+        if (callbacks && callbacks.onEditToggleChange) callbacks.onEditToggleChange(this.checked);
+      });
 
-    var screenResult = createColorEditorScreen(h, createGearNode, US_VERSION, callbacks);
-    function onShow() {
-      screenResult.refreshRules();
-      screenResult.refreshProfiles();
-      if (toggleEl) screenResult.syncColorEditorToggle(toggleEl);
+      var screenResult = createColorEditorScreen(h, createGearNode, US_VERSION, callbacks);
+      function onShow() {
+        screenResult.refreshRules();
+        screenResult.refreshProfiles();
+        if (toggleEl) screenResult.syncColorEditorToggle(toggleEl);
+      }
+      function onPanelOpenFn() {
+        if (toggleEl) toggleEl.checked = EditMode.active;
+        if (toggleEl && !toggleEl.checked && EditMode.active) EditMode.disable();
+      }
+      this._listRow = listRow;
+      this._screen = { el: screenResult.el, onShow: onShow };
+      this._onPanelOpenFn = onPanelOpenFn;
     }
-    function onPanelOpen() {
-      if (toggleEl) toggleEl.checked = EditMode.active;
-      if (toggleEl && !toggleEl.checked && EditMode.active) EditMode.disable();
+    onPanelOpen() {
+      if (this._onPanelOpenFn) this._onPanelOpenFn();
     }
-    return {
-      listRow: listRow,
-      screen: { el: screenResult.el, onShow: onShow },
-      onPanelOpen: onPanelOpen
-    };
   }
 
   window.SelectorEngine = SelectorEngine;
@@ -3050,8 +3054,5 @@ var ColorCustomizerFeature = (function () {
   window.Tab = Tab;
   window.ColorCustomizerFeature = ColorCustomizerFeature;
   window.createColorEditorScreen = createColorEditorScreen;
-  window.createColorEditorPanelFeature = createPanelFeature;
-  if (typeof __US_registerPanelFeature === 'function') { console.log('[UserScripts] colorEditor: calling __US_registerPanelFeature (injected)'); __US_registerPanelFeature('colorEditor', createPanelFeature); }
-  else if (typeof window.__US_registerPanelFeature === 'function') { console.log('[UserScripts] colorEditor: calling window.__US_registerPanelFeature'); window.__US_registerPanelFeature('colorEditor', createPanelFeature); }
-  else { console.log('[UserScripts] colorEditor: no registrar (__US_registerPanelFeature=', typeof __US_registerPanelFeature, 'window=', typeof window.__US_registerPanelFeature, ')'); }
-})();
+
+  export { ColorEditorFeature, ColorCustomizerFeature, ColorPopover };

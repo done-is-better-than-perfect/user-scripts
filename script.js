@@ -3,32 +3,35 @@
  *
  * Lets users click individual page elements and change their colors.
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
+ *
+ * ES module: loaded with type="module". Imports util, colorEditor, dataFiller; no eval.
  */
-(function () {
-  var US_VERSION = '1.7.0-dev.57';
-  var __US_panelFeatureFns = {};
-  if (typeof document !== 'undefined' && !document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef = __US_panelFeatureFns;
-  else if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) __US_panelFeatureFns = document.__US_panelFeatureFnsRef;
-  var __US_scriptId = 's' + Date.now() + '_' + Math.random().toString(36).slice(2);
-  if (typeof window !== 'undefined') window.__US_scriptId = __US_scriptId;
-  if (typeof document !== 'undefined') document.__US_docId = __US_scriptId;
-  console.log('[UserScripts] IIFE start: __US_scriptId=', __US_scriptId, 'window===globalThis=', typeof window !== 'undefined' && window === (typeof globalThis !== "undefined" ? globalThis : window), 'document.defaultView===window=', typeof document !== 'undefined' && typeof window !== 'undefined' && document.defaultView === window, 'ref keys=', Object.keys(__US_panelFeatureFns), 'refAlreadySet=', !!(typeof document !== 'undefined' && document.__US_panelFeatureFnsRef));
-  if (window.location.hostname === '127.0.0.1') return;
+import { RPC, h, makeSvg, createGearNode } from './modules/util.js';
+import { ColorEditorFeature, ColorCustomizerFeature, ColorPopover } from './modules/colorEditor.js';
+import { DataFillerFeature } from './modules/dataFiller.js';
 
-  function runMain() {
-    var RPC = window.RPC, h = window.h, makeSvg = window.makeSvg, createGearNode = window.createGearNode;
-    if (!RPC || !h) {
-      console.error('[UserScripts] util.js did not load (RPC/h missing). Aborting runMain.');
-      return;
-    }
+var US_VERSION = '1.7.0-dev.58';
 
-    console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
+if (window.location.hostname === '127.0.0.1') {
+  throw new Error('[UserScripts] 127.0.0.1 is disabled');
+}
 
-// =========================
+function runMain() {
+  console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
-// =========================
-// 10. Panel (composer: list + feature screens by index only)
-// =========================
+  var ceCallbacks = { onBack: function () { Panel._showList(); }, onEditToggleChange: function (checked) { if (checked) Panel.close(); } };
+  var dfCallbacks = { onBack: function () { Panel._showList(); } };
+
+  var ceFeature = new ColorEditorFeature();
+  ceFeature.init({ h: h, createGearNode: createGearNode, version: US_VERSION, callbacks: ceCallbacks });
+
+  var dfFeature = new DataFillerFeature();
+  dfFeature.init({ h: h, RPC: RPC, getPanel: function () { return Panel; }, callbacks: dfCallbacks });
+
+  var featureInstances = [ceFeature, dfFeature];
+  Panel._create(featureInstances);
+}
+
 var Panel = (function () {
   'use strict';
   return {
@@ -39,38 +42,26 @@ var Panel = (function () {
   _features: null,
   _screens: null,
 
-  _create: function () {
+  _create: function (featureInstances) {
     if (this.el) return;
     var self = this;
-    var fns = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : __US_panelFeatureFns;
-    console.log('[UserScripts] Panel._create: fns keys=', Object.keys(fns), 'colorEditor=', typeof fns.colorEditor, 'dataFiller=', typeof fns.dataFiller);
+    var features = featureInstances || [];
+    this._features = features;
 
     var bd = h('div', { id: 'us-cc-backdrop', 'data-us-cc': 'backdrop', onclick: function () { Panel.close(); } });
     document.body.appendChild(bd);
     this.backdrop = bd;
 
-    var features = [];
-    var ceCallbacks = { onBack: function () { self._showList(); }, onEditToggleChange: function (checked) { if (checked) Panel.close(); } };
-    var dfCallbacks = { onBack: function () { self._showList(); } };
-    if (typeof fns.colorEditor === 'function') {
-      features.push(fns.colorEditor(h, createGearNode, US_VERSION, ceCallbacks));
-    } else if (typeof window.createColorEditorPanelFeature === 'function') {
-      features.push(window.createColorEditorPanelFeature(h, createGearNode, US_VERSION, ceCallbacks));
-    }
-    if (typeof fns.dataFiller === 'function') {
-      features.push(fns.dataFiller(h, DataFiller, RPC, dfCallbacks));
-    } else if (typeof window.createDataFillerPanelFeature === 'function') {
-      features.push(window.createDataFillerPanelFeature(h, DataFiller, RPC, dfCallbacks));
-    }
-
     var listContainer = h('div', { class: 'us-p-feature-list' });
     for (var i = 0; i < features.length; i++) {
-      features[i].listRow.dataset.featureIndex = String(i);
-      features[i].listRow.addEventListener('click', function (e) {
+      var listRow = features[i].getListRow();
+      if (!listRow) continue;
+      listRow.dataset.featureIndex = String(i);
+      listRow.addEventListener('click', function (e) {
         if (e.target.closest('.us-switch')) return;
         self._showScreen(parseInt(e.currentTarget.dataset.featureIndex, 10));
       });
-      listContainer.appendChild(features[i].listRow);
+      listContainer.appendChild(listRow);
     }
     if (features.length === 0) {
       var emptyMsg = document.createElement('div');
@@ -89,13 +80,16 @@ var Panel = (function () {
     );
 
     var panelChildren = [screenList];
-    for (var j = 0; j < features.length; j++) panelChildren.push(features[j].screen.el);
+    for (var j = 0; j < features.length; j++) {
+      var screen = features[j].getScreen();
+      if (screen && screen.el) panelChildren.push(screen.el);
+    }
     var p = h.apply(null, ['div', { id: 'us-cc-panel', 'data-us-cc': 'panel' }].concat(panelChildren));
     document.body.appendChild(p);
     this.el = p;
     this._screenList = screenList;
     this._features = features;
-    this._screens = features.map(function (f) { return f.screen; });
+    this._screens = features.map(function (f) { return f.getScreen(); });
 
     this._bindEvents();
   },
@@ -115,8 +109,8 @@ var Panel = (function () {
         this._screens[i].el.classList.toggle('us-p-screen-visible', i === index);
       }
     }
-    if (this._features[index] && this._features[index].screen && this._features[index].screen.onShow) {
-      this._features[index].screen.onShow();
+    if (this._features[index] && this._features[index].getScreen && this._features[index].getScreen().onShow) {
+      this._features[index].getScreen().onShow();
     }
   },
 
@@ -125,8 +119,8 @@ var Panel = (function () {
     var closeTimer = null;
     this.el.addEventListener('mouseleave', function () {
       closeTimer = setTimeout(function () {
-        if (ProfileColorPopover.backdrop && ProfileColorPopover.backdrop.classList.contains('us-visible')) return;
-        if (ChipColorPopover.backdrop && ChipColorPopover.backdrop.classList.contains('us-visible')) return;
+        if (window.ProfileColorPopover && window.ProfileColorPopover.backdrop && window.ProfileColorPopover.backdrop.classList.contains('us-visible')) return;
+        if (window.ChipColorPopover && window.ChipColorPopover.backdrop && window.ChipColorPopover.backdrop.classList.contains('us-visible')) return;
         Panel.close();
       }, 500);
     });
@@ -146,23 +140,19 @@ var Panel = (function () {
 
   open: async function () {
     if (this.el && this._features && this._features.length === 0) {
-      var ref = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : __US_panelFeatureFns;
-      var hasFeature = (ref.colorEditor || ref.dataFiller || window.createColorEditorPanelFeature || window.createDataFillerPanelFeature);
-      if (hasFeature) {
-        if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
-        if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
-        this.el = null;
-        this.backdrop = null;
-        this._screenList = null;
-        this._features = null;
-        this._screens = null;
-      }
+      if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
+      if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+      this.el = null;
+      this.backdrop = null;
+      this._screenList = null;
+      this._features = null;
+      this._screens = null;
     }
-    this._create();
+    if (!this.el || !this._features || this._features.length === 0) runMain();
     this._showList();
     var i;
     for (i = 0; i < (this._features || []).length; i++) {
-      if (this._features[i] && this._features[i].onPanelOpen) this._features[i].onPanelOpen();
+      if (this._features[i] && typeof this._features[i].onPanelOpen === 'function') this._features[i].onPanelOpen();
     }
     this.backdrop.style.display = 'block';
     void this.backdrop.offsetWidth;
@@ -183,43 +173,17 @@ var Panel = (function () {
   };
 })();
 
-// =========================
-// 10b. createDataFiller / panel feature
-// =========================
-var DataFiller = (typeof window.createDataFiller === 'function')
-  ? window.createDataFiller(RPC, h, function () { return Panel; })
-  : (function () {
-      'use strict';
-      return {
-        getSteps: function () { return []; },
-        load: function () { return Promise.resolve([]); },
-        save: function () {},
-        enableCapture: function () {},
-        disableCapture: function () {},
-        exportCSVTemplate: function () {},
-        addStep: function () {},
-        removeStep: function () {},
-        moveStep: function () {}
-      };
-    })();
+window.Panel = Panel;
 
-    window.Panel = Panel;
-    window.DataFiller = DataFiller;
-
-// Global API
 window.UserScripts = window.UserScripts || {};
 window.UserScripts.version = US_VERSION;
 window.UserScripts.init = function () { console.log('[UserScripts] Core initialized'); };
 window.UserScripts.features = window.UserScripts.features || {};
 window.UserScripts.features.colorCustomizer = ColorCustomizerFeature;
 
-// RPC is also exposed for extensibility
 window.US = window.US || {};
 window.US.rpc = RPC;
 
-// =========================
-// Auto-initialize
-// =========================
 (async function () {
   try {
     await ColorCustomizerFeature.init();
@@ -227,91 +191,7 @@ window.US.rpc = RPC;
   } catch (e) {
     console.error('[UserScripts] Auto-init failed:', e);
   }
+  runMain();
 })();
 
-  }
-
-  var scriptSrc = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) ? document.currentScript.src : '';
-  var base = scriptSrc ? scriptSrc.replace(/#.*$/, '').replace(/\?.*$/, '').replace(/\/script\.js$/i, '') : 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@main';
-
-  function loadByScriptTag() {
-    var util = document.createElement('script');
-    util.src = base + '/modules/util.js';
-    util.onload = function () {
-      var ce = document.createElement('script');
-      ce.src = base + '/modules/colorEditor.js';
-      ce.onload = function () {
-        var df = document.createElement('script');
-        df.src = base + '/modules/dataFiller.js';
-        df.onload = runMain;
-        df.onerror = runMain;
-        (document.head || document.documentElement).appendChild(df);
-      };
-      ce.onerror = runMain;
-      (document.head || document.documentElement).appendChild(ce);
-    };
-    util.onerror = runMain;
-    (document.head || document.documentElement).appendChild(util);
-  }
-
-  window.__US_onRegisterPanelFeature = function (key, fn) {
-    __US_panelFeatureFns[key] = fn;
-    if (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) document.__US_panelFeatureFnsRef[key] = fn;
-  };
-  var __US_wrapForEval = function (moduleText) {
-    var diag = "console.log('[UserScripts] eval context: window.__US_scriptId=',typeof window!=='undefined'?window.__US_scriptId:'no window','document.__US_docId=',typeof document!=='undefined'?document.__US_docId:'no document','document.__US_panelFeatureFnsRef=',typeof document!=='undefined'&&document.__US_panelFeatureFnsRef?'set':'unset');";
-    return '(function(){' + diag + 'var __US_panelFeatureFns=(typeof document!=="undefined"&&document.__US_panelFeatureFnsRef)?document.__US_panelFeatureFnsRef:{};var __US_registerPanelFeature=function(key,fn){if(typeof window.__US_onRegisterPanelFeature==="function")try{window.__US_onRegisterPanelFeature(key,fn);}catch(e){}__US_panelFeatureFns[key]=fn;};' + moduleText + '})();';
-  };
-  function loadByFetchEval(nextUrl, thenRun) {
-    if (!nextUrl) { thenRun(); return; }
-    var name = nextUrl.replace(/^.*\//, '');
-    console.log('[UserScripts] loadByFetchEval: fetching', name);
-    fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
-      var wrap = (name === 'colorEditor.js' || name === 'dataFiller.js');
-      if (wrap) {
-        var docBefore = typeof document !== 'undefined' ? document : null;
-        var docIdBefore = docBefore ? docBefore.__US_docId : void 0;
-        var refBefore = (docBefore && docBefore.__US_panelFeatureFnsRef) ? docBefore.__US_panelFeatureFnsRef : null;
-        console.log('[UserScripts] before eval(' + name + '): document.__US_docId=', docIdBefore, 'ref===closure=', refBefore === __US_panelFeatureFns);
-        text = __US_wrapForEval(text);
-        console.log('[UserScripts] loadByFetchEval: wrapped with IIFE(fns) for', name);
-      }
-      try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
-      if (wrap) {
-        var docAfter = typeof document !== 'undefined' ? document : null;
-        var ref = docAfter && docAfter.__US_panelFeatureFnsRef ? docAfter.__US_panelFeatureFnsRef : null;
-        console.log('[UserScripts] after eval(' + name + '): document.__US_docId=', docAfter ? docAfter.__US_docId : void 0, 'ref===closure=', ref === __US_panelFeatureFns, 'ref keys=', ref ? Object.keys(ref) : 'no ref', 'closure keys=', Object.keys(__US_panelFeatureFns));
-      }
-      thenRun();
-    }).catch(function (err) {
-      console.warn('[UserScripts] fetch failed for ' + nextUrl + ', falling back to script tag', err);
-      loadByScriptTag();
-    });
-  }
-
-  window.__US_registerPanelFeature = function (key, createFn) {
-    __US_panelFeatureFns[key] = createFn;
-  };
-  function startLoading() {
-    var ref = (typeof document !== 'undefined' && document.__US_panelFeatureFnsRef) ? document.__US_panelFeatureFnsRef : null;
-    var hasFromRef = ref && (ref.colorEditor || ref.dataFiller);
-    var hasFromWindow = typeof window.createColorEditorPanelFeature === 'function' || typeof window.createDataFillerPanelFeature === 'function';
-    if (hasFromRef || (hasFromWindow && typeof window.RPC !== 'undefined')) {
-      console.log('[UserScripts] using preloaded features (ref=', !!hasFromRef, 'window=', !!hasFromWindow, ')');
-      runMain();
-      return;
-    }
-    loadByFetchEval(base + '/modules/util.js', function () {
-      loadByFetchEval(base + '/modules/colorEditor.js', function () {
-        loadByFetchEval(base + '/modules/dataFiller.js', function () {
-          console.log('[UserScripts] before runMain: __US_panelFeatureFns keys=', Object.keys(__US_panelFeatureFns), 'colorEditor=', typeof __US_panelFeatureFns.colorEditor, 'dataFiller=', typeof __US_panelFeatureFns.dataFiller);
-          runMain();
-        });
-      });
-    });
-  }
-  setTimeout(startLoading, 0);
-})();
-
-// ESM export (keeps module semantics for jsDelivr)
-export { };
+export { RPC, h, createGearNode, Panel, US_VERSION };
