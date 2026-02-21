@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.35';
+var US_VERSION = '1.7.0-dev.36';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -1950,8 +1950,7 @@ var Panel = (function () {
     if (this._screenList) this._screenList.classList.add('us-p-screen-visible');
     if (this._screenColorEditor) this._screenColorEditor.classList.remove('us-p-screen-visible');
     if (this._screenDataFiller) this._screenDataFiller.classList.remove('us-p-screen-visible');
-    var listToggle = this._screenList && this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
-    if (listToggle) listToggle.checked = EditMode.active;
+    this.syncColorEditorToggle();
   },
 
   _showColorEditor: function () {
@@ -2481,11 +2480,17 @@ var Panel = (function () {
     return row;
   },
 
+  syncColorEditorToggle: function () {
+    var listToggle = this._screenList && this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
+    var editToggle = this._screenColorEditor && this._screenColorEditor.querySelector('#us-p-edit-toggle');
+    if (listToggle) listToggle.checked = EditMode.active;
+    if (editToggle) editToggle.checked = EditMode.active;
+  },
+
   open: async function () {
     this._create();
     this._showList();
-    var listToggle = this._screenList && this._screenList.querySelector('#us-p-feature-colorEditor-toggle');
-    if (listToggle) listToggle.checked = EditMode.active;
+    this.syncColorEditorToggle();
     var dfEnabled = false;
     try { dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]); } catch (e) {}
     var dfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
@@ -3482,6 +3487,8 @@ var ColorCustomizerFeature = (function () {
       } else {
         Tab.setAggregate(false, false);
       }
+      // If panel was already opened (e.g. before init completed), sync its colorEditor toggles to actual state
+      if (typeof Panel !== 'undefined' && Panel.syncColorEditorToggle) Panel.syncColorEditorToggle();
       // Restore dataFiller enabled state
       var dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]);
       if (dfEnabled) DataFiller.enableCapture(); else DataFiller.disableCapture();
