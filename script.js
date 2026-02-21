@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.29';
+var US_VERSION = '1.7.0-dev.30';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2663,6 +2663,7 @@ var DataFiller = (function () {
       if (isRadioOrCheckbox) {
         if (labelEl.contains && labelEl.contains(el)) return false;
         if (forId != null && forId !== '') return false;
+        if (labelEl.querySelector && labelEl.querySelector('input, select, textarea')) return false;
         return true;
       }
       if (forId == null || forId === '') return true;
@@ -2844,6 +2845,48 @@ var DataFiller = (function () {
     return labelEl.querySelector('input, select, textarea') || null;
   }
 
+  /** radio / checkbox の同一グループ内の取り得る値（各選択肢のラベル文字列）を配列で返す。 */
+  function getRadioCheckboxOptions(el) {
+    if (!el || !el.ownerDocument) return [];
+    var tag = el.tagName && el.tagName.toLowerCase();
+    var type = (el.type || '').toLowerCase();
+    if (tag !== 'input' || (type !== 'radio' && type !== 'checkbox')) return [];
+    var name = el.name;
+    if (name == null || name === '') return [];
+    var doc = el.ownerDocument;
+    var all = doc.querySelectorAll('input[type="' + type + '"]');
+    var inputs = [];
+    for (var k = 0; k < all.length; k++) { if (all[k].name === name) inputs.push(all[k]); }
+    var maxLen = 80;
+    function trim(s) {
+      if (typeof s !== 'string') return '';
+      return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
+    }
+    var seen = {};
+    var options = [];
+    for (var i = 0; i < inputs.length; i++) {
+      var inp = inputs[i];
+      var text = '';
+      var labelEl = null;
+      if (inp.id) {
+        try {
+          labelEl = doc.querySelector('label[for="' + inp.id.replace(/"/g, '\\"') + '"]');
+        } catch (e) {}
+      }
+      if (labelEl && labelEl.textContent) {
+        text = trim(labelEl.textContent);
+      } else if (inp.parentElement && inp.parentElement.tagName && inp.parentElement.tagName.toLowerCase() === 'label') {
+        var clone = inp.parentElement.cloneNode(true);
+        var ctrl = clone.querySelector('input, select, textarea');
+        if (ctrl) ctrl.remove();
+        if (clone.textContent) text = trim(clone.textContent);
+      }
+      if (text === '') text = (inp.value != null && inp.value !== '') ? trim(String(inp.value)) : '';
+      if (text !== '' && !seen[text]) { seen[text] = true; options.push(text); }
+    }
+    return options;
+  }
+
   function _storageKey() {
     return 'userscripts:features:dataFiller:page:' + encodeURIComponent(window.location.hostname + window.location.pathname);
   }
@@ -3021,6 +3064,8 @@ var DataFiller = (function () {
         if (logicalName == null) return;
         logicalName = String(logicalName).trim() || type;
         var step = { xpath: xpath, type: type, logicalName: logicalName };
+        var options = getRadioCheckboxOptions(el);
+        if (options.length) step.options = options;
         self._steps = self._steps || [];
         var existingIndex = -1;
         for (var i = 0; i < self._steps.length; i++) {
@@ -3166,6 +3211,8 @@ var DataFiller = (function () {
       var type = getElementType(el);
       logicalName = String(logicalName || '').trim() || (type === 'text' ? 'テキスト' : type);
       var step = { xpath: xpath, type: type, logicalName: logicalName };
+      var options = getRadioCheckboxOptions(el);
+      if (options.length) step.options = options;
       this._steps = this._steps || [];
       var existingIndex = -1;
       for (var i = 0; i < this._steps.length; i++) {
