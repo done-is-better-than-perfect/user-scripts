@@ -5,10 +5,11 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.48';
+  var US_VERSION = '1.7.0-dev.49';
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
+    console.log('[UserScripts] runMain called: window.RPC=' + (typeof window.RPC) + ' createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature) + ' createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature));
     var RPC = window.RPC, h = window.h, makeSvg = window.makeSvg, createGearNode = window.createGearNode;
     if (!RPC || !h) {
       console.error('[UserScripts] util.js did not load (RPC/h missing). Aborting runMain.');
@@ -221,6 +222,7 @@ window.US.rpc = RPC;
   var base = scriptSrc ? scriptSrc.replace(/#.*$/, '').replace(/\?.*$/, '').replace(/\/script\.js$/i, '') : 'https://cdn.jsdelivr.net/gh/done-is-better-than-perfect/userScripts@main';
 
   function loadByScriptTag() {
+    console.log('[UserScripts] loading modules by script tag (fetch failed or unavailable)');
     var util = document.createElement('script');
     util.src = base + '/modules/util.js';
     util.onload = function () {
@@ -244,6 +246,10 @@ window.US.rpc = RPC;
     if (!nextUrl) { thenRun(); return; }
     fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
+      var name = nextUrl.replace(/^.*\//, '');
+      if (name === 'util.js') console.log('[UserScripts] after eval(util): window.RPC=' + (typeof window.RPC) + ' window.h=' + (typeof window.h));
+      if (name === 'colorEditor.js') console.log('[UserScripts] after eval(colorEditor): window.createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature));
+      if (name === 'dataFiller.js') console.log('[UserScripts] after eval(dataFiller): window.createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature));
       thenRun();
     }).catch(function (err) {
       console.warn('[UserScripts] fetch failed for ' + nextUrl + ', falling back to script tag', err);
@@ -251,9 +257,13 @@ window.US.rpc = RPC;
     });
   }
 
+  console.log('[UserScripts] loading modules by fetch+eval, base=' + base);
   loadByFetchEval(base + '/modules/util.js', function () {
     loadByFetchEval(base + '/modules/colorEditor.js', function () {
-      loadByFetchEval(base + '/modules/dataFiller.js', runMain);
+      loadByFetchEval(base + '/modules/dataFiller.js', function () {
+        console.log('[UserScripts] before runMain: createColorEditorPanelFeature=' + (typeof window.createColorEditorPanelFeature) + ' createDataFillerPanelFeature=' + (typeof window.createDataFillerPanelFeature));
+        runMain();
+      });
     });
   });
 })();
