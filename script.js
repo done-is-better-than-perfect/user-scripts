@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.23';
+var US_VERSION = '1.7.0-dev.24';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2689,7 +2689,19 @@ var DataFiller = (function () {
     return '';
   }
 
-  /** フォーム要素から最大10階層遡り、label / span / div からテキスト候補を収集。label を優先した順で返す。 */
+  /** 要素の直接の子であるテキストノードのみを連結（子要素の textContent は含めない）。 */
+  function getDirectText(el) {
+    if (!el || !el.childNodes || !el.childNodes.length) return '';
+    var parts = [];
+    for (var i = 0; i < el.childNodes.length; i++) {
+      var n = el.childNodes[i];
+      if (n && n.nodeType === Node.TEXT_NODE && n.textContent) parts.push(n.textContent);
+    }
+    return parts.join('').replace(/\s+/g, ' ').trim().slice(0, 80);
+  }
+
+  /** フォーム要素から最大10階層遡り、label / span / div からテキスト候補を収集。label を優先。select 内（option）は除外。span/div は直接のテキストのみ。
+   *  label に for がある場合は、その値が hover したフォームの id と一致するときのみ候補に含める。for が無い場合は従来どおり候補とする。 */
   function getTextCandidatesFromForm(formEl) {
     if (!formEl || !formEl.ownerDocument) return [];
     var maxLen = 80;
@@ -2698,31 +2710,47 @@ var DataFiller = (function () {
       if (typeof s !== 'string') return '';
       return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
     }
-    function getText(node, tag) {
-      if (!node || !node.tagName) return '';
-      var tagName = node.tagName.toLowerCase();
+    function skipNode(node) {
+      return node.closest && node.closest('select');
+    }
+    function isLabelRelevant(labelEl) {
+      if (!labelEl || labelEl.tagName.toLowerCase() !== 'label') return true;
+      var forId = labelEl.getAttribute('for');
+      if (forId == null || forId === '') return true;
+      return formEl.id === forId;
+    }
+    function getTextForNode(nd, tag) {
+      if (!nd || !nd.tagName) return '';
+      var tagName = nd.tagName.toLowerCase();
       if (tagName !== tag) return '';
-      var text = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
-      return text;
+      if (skipNode(nd)) return '';
+      if (tag === 'label') return trim((nd.textContent || '').slice(0, maxLen));
+      return trim(getDirectText(nd));
     }
     var seen = {};
     var withType = [];
     var node = formEl;
     for (var level = 0; level <= maxAncestors && node; level++) {
+      if (skipNode(node)) { node = node.parentElement || node.parentNode; continue; }
       var tag = node.tagName && node.tagName.toLowerCase();
       if (tag === 'label' || tag === 'span' || tag === 'div') {
-        var t = getText(node, tag);
+        if (tag === 'label' && !isLabelRelevant(node)) continue;
+        var t = getTextForNode(node, tag);
         if (t && !seen[t]) { seen[t] = true; withType.push({ text: t, type: tag }); }
       }
       var prev = node.previousElementSibling;
-      if (prev && (prev.tagName && /^(label|span|div)$/i.test(prev.tagName))) {
-        var tp = getText(prev, prev.tagName.toLowerCase());
-        if (tp && !seen[tp]) { seen[tp] = true; withType.push({ text: tp, type: prev.tagName.toLowerCase() }); }
+      if (prev && !skipNode(prev) && prev.tagName && /^(label|span|div)$/i.test(prev.tagName)) {
+        if (prev.tagName.toLowerCase() === 'label' && !isLabelRelevant(prev)) { /* skip */ } else {
+          var tp = getTextForNode(prev, prev.tagName.toLowerCase());
+          if (tp && !seen[tp]) { seen[tp] = true; withType.push({ text: tp, type: prev.tagName.toLowerCase() }); }
+        }
       }
       var next = node.nextElementSibling;
-      if (next && (next.tagName && /^(label|span|div)$/i.test(next.tagName))) {
-        var tn = getText(next, next.tagName.toLowerCase());
-        if (tn && !seen[tn]) { seen[tn] = true; withType.push({ text: tn, type: next.tagName.toLowerCase() }); }
+      if (next && !skipNode(next) && next.tagName && /^(label|span|div)$/i.test(next.tagName)) {
+        if (next.tagName.toLowerCase() === 'label' && !isLabelRelevant(next)) { /* skip */ } else {
+          var tn = getTextForNode(next, next.tagName.toLowerCase());
+          if (tn && !seen[tn]) { seen[tn] = true; withType.push({ text: tn, type: next.tagName.toLowerCase() }); }
+        }
       }
       node = node.parentElement || node.parentNode;
     }
