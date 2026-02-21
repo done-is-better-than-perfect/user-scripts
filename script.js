@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.27';
+var US_VERSION = '1.7.0-dev.28';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2645,9 +2645,11 @@ var DataFiller = (function () {
   }
 
   /** プレフィル用: フォーム要素に紐づく <label> の textContent のみ取得。最大10世代親を遡り、兄弟および兄弟の子孫の label を検索。
-   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。span/div は対象にしない。 */
+   *  label に for がある場合は、その値が el.id と一致するときのみ採用。for が無い場合は従来どおり。span/div は対象にしない。
+   *  input type=radio / checkbox の場合は、for 一致・近接 label は使わずプレフィルには何も返さない（それ以外の label は候補で取得）。 */
   function getLabelNearElement(el) {
     if (!el || !el.ownerDocument) return '';
+    if (el.tagName && el.tagName.toLowerCase() === 'input' && (el.type === 'radio' || el.type === 'checkbox')) return '';
     var doc = el.ownerDocument;
     var maxLen = 80;
     var maxAncestors = 10;
@@ -2743,6 +2745,8 @@ var DataFiller = (function () {
       if (!labelEl || labelEl.tagName.toLowerCase() !== 'label') return true;
       var forId = labelEl.getAttribute('for');
       if (forId == null || forId === '') return true;
+      var isRadioOrCheckbox = formEl.tagName && formEl.tagName.toLowerCase() === 'input' && (formEl.type === 'radio' || formEl.type === 'checkbox');
+      if (isRadioOrCheckbox && formEl.id === forId) return false;
       return formEl.id === forId;
     }
     function getTextForNode(nd, tag) {
