@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.22';
+var US_VERSION = '1.7.0-dev.23';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -766,11 +766,13 @@ var Styles = (function () {
       '}',
       '.us-df-hover-label { font-size: 11px !important; font-weight: 600 !important; color: rgba(0,0,0,0.5) !important; margin-bottom: 4px !important; }',
       '.us-df-hover-name { font-weight: 600 !important; margin-bottom: 4px !important; }',
-      '.us-df-hover-input-wrap { display: flex !important; align-items: center !important; gap: 6px !important; margin-bottom: 8px !important; }',
+      '.us-df-hover-input-wrap { position: relative !important; display: flex !important; align-items: center !important; gap: 6px !important; margin-bottom: 8px !important; }',
       '.us-df-hover-input { flex: 1 !important; min-width: 0 !important; box-sizing: border-box !important; padding: 6px 10px !important; font-size: 13px !important; border: 1px solid rgba(0,0,0,0.15) !important; border-radius: 6px !important; background: #fff !important; }',
-      '.us-df-hover-textpick { flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important; background: rgba(0,0,0,0.08) !important; color: rgba(0,0,0,0.6) !important; cursor: pointer !important; font-size: 14px !important; font-weight: bold !important; line-height: 1 !important; }',
-      '.us-df-hover-textpick:hover { background: rgba(59,130,246,0.2) !important; color: rgba(59,130,246,0.95) !important; }',
-      '.us-df-text-pick-highlight { filter: invert(1) !important; }',
+      '.us-df-hover-dropdown-btn { flex-shrink: 0 !important; width: 28px !important; height: 28px !important; padding: 0 !important; border: none !important; border-radius: 6px !important; background: rgba(0,0,0,0.08) !important; color: rgba(0,0,0,0.6) !important; cursor: pointer !important; font-size: 12px !important; line-height: 1 !important; }',
+      '.us-df-hover-dropdown-btn:hover { background: rgba(59,130,246,0.2) !important; color: rgba(59,130,246,0.95) !important; }',
+      '.us-df-hover-dropdown { position: absolute !important; left: 0 !important; right: 0 !important; top: 100% !important; margin-top: 4px !important; max-height: 160px !important; overflow-y: auto !important; background: #fff !important; border: 1px solid rgba(0,0,0,0.12) !important; border-radius: 8px !important; box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important; z-index: 1 !important; }',
+      '.us-df-hover-dropdown-item { display: block !important; width: 100% !important; padding: 8px 12px !important; font-size: 13px !important; text-align: left !important; border: none !important; background: transparent !important; cursor: pointer !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }',
+      '.us-df-hover-dropdown-item:hover { background: rgba(59,130,246,0.1) !important; }',
       '.us-df-hover-msg { font-size: 12px !important; color: rgba(0,0,0,0.55) !important; margin-bottom: 8px !important; }',
       '.us-df-hover-actions { display: flex !important; gap: 8px !important; justify-content: flex-end !important; margin-top: 8px !important; }',
       '.us-df-hover-btn { padding: 6px 14px !important; font-size: 12px !important; font-weight: 500 !important; border-radius: 6px !important; border: none !important; cursor: pointer !important; }',
@@ -2687,6 +2689,48 @@ var DataFiller = (function () {
     return '';
   }
 
+  /** フォーム要素から最大10階層遡り、label / span / div からテキスト候補を収集。label を優先した順で返す。 */
+  function getTextCandidatesFromForm(formEl) {
+    if (!formEl || !formEl.ownerDocument) return [];
+    var maxLen = 80;
+    var maxAncestors = 10;
+    function trim(s) {
+      if (typeof s !== 'string') return '';
+      return s.replace(/\s+/g, ' ').trim().slice(0, maxLen);
+    }
+    function getText(node, tag) {
+      if (!node || !node.tagName) return '';
+      var tagName = node.tagName.toLowerCase();
+      if (tagName !== tag) return '';
+      var text = (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+      return text;
+    }
+    var seen = {};
+    var withType = [];
+    var node = formEl;
+    for (var level = 0; level <= maxAncestors && node; level++) {
+      var tag = node.tagName && node.tagName.toLowerCase();
+      if (tag === 'label' || tag === 'span' || tag === 'div') {
+        var t = getText(node, tag);
+        if (t && !seen[t]) { seen[t] = true; withType.push({ text: t, type: tag }); }
+      }
+      var prev = node.previousElementSibling;
+      if (prev && (prev.tagName && /^(label|span|div)$/i.test(prev.tagName))) {
+        var tp = getText(prev, prev.tagName.toLowerCase());
+        if (tp && !seen[tp]) { seen[tp] = true; withType.push({ text: tp, type: prev.tagName.toLowerCase() }); }
+      }
+      var next = node.nextElementSibling;
+      if (next && (next.tagName && /^(label|span|div)$/i.test(next.tagName))) {
+        var tn = getText(next, next.tagName.toLowerCase());
+        if (tn && !seen[tn]) { seen[tn] = true; withType.push({ text: tn, type: next.tagName.toLowerCase() }); }
+      }
+      node = node.parentElement || node.parentNode;
+    }
+    var order = { label: 0, span: 1, div: 2 };
+    withType.sort(function (a, b) { return (order[a.type] || 3) - (order[b.type] || 3); });
+    return withType.map(function (x) { return x.text; });
+  }
+
   /** label 要素から紐づくフォーム要素を取得（子または for 先）。 */
   function getControlFromLabel(labelEl) {
     if (!labelEl || !labelEl.tagName || labelEl.tagName.toLowerCase() !== 'label') return null;
@@ -2929,9 +2973,12 @@ var DataFiller = (function () {
       var labelEl = h('div', { class: 'us-df-hover-label' }, '項目名');
       var inputWrap = h('div', { class: 'us-df-hover-input-wrap' });
       var inputEl = h('input', { type: 'text', class: 'us-df-hover-input', placeholder: '例: メールアドレス' });
-      var textPickBtn = h('button', { type: 'button', class: 'us-df-hover-textpick', title: 'ページからテキストを取得' }, 'T');
+      var dropdownBtn = h('button', { type: 'button', class: 'us-df-hover-dropdown-btn', title: '候補から選択' }, '\u25BC');
+      var dropdownEl = h('div', { class: 'us-df-hover-dropdown' });
+      dropdownEl.style.display = 'none';
       inputWrap.appendChild(inputEl);
-      inputWrap.appendChild(textPickBtn);
+      inputWrap.appendChild(dropdownBtn);
+      inputWrap.appendChild(dropdownEl);
       var msgEl = h('div', { class: 'us-df-hover-msg' }, '');
       var actionsEl = h('div', { class: 'us-df-hover-actions' });
       var addBtn = h('button', { type: 'button', class: 'us-df-hover-btn us-df-hover-btn-add' }, '追加');
@@ -2950,10 +2997,10 @@ var DataFiller = (function () {
         self._hideHoverPopover();
       });
       cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); self._hideHoverPopover(); });
-      textPickBtn.addEventListener('click', function (e) {
+      dropdownBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (self._hoverInput.readOnly) return;
-        self._startTextPickMode();
+        self._toggleHoverDropdown();
       });
       box.addEventListener('mouseenter', function () {
         if (self._hoverHideTimer) clearTimeout(self._hoverHideTimer);
@@ -2967,7 +3014,36 @@ var DataFiller = (function () {
       this._hoverInput = inputEl;
       this._hoverMsgEl = msgEl;
       this._hoverActionsEl = actionsEl;
+      this._hoverDropdownEl = dropdownEl;
+      this._hoverDropdownBtn = dropdownBtn;
       return box;
+    },
+
+    _toggleHoverDropdown: function () {
+      var list = this._hoverDropdownEl;
+      if (!list) return;
+      if (list.style.display === 'block') {
+        list.style.display = 'none';
+        return;
+      }
+      while (list.firstChild) list.removeChild(list.firstChild);
+      var candidates = this._hoverCandidates || [];
+      var self = this;
+      if (candidates.length === 0) {
+        var empty = h('button', { type: 'button', class: 'us-df-hover-dropdown-item', disabled: true }, '候補なし');
+        list.appendChild(empty);
+      } else {
+        candidates.forEach(function (text) {
+          var item = h('button', { type: 'button', class: 'us-df-hover-dropdown-item' }, text);
+          item.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (self._hoverInput) self._hoverInput.value = text;
+            list.style.display = 'none';
+          });
+          list.appendChild(item);
+        });
+      }
+      list.style.display = 'block';
     },
 
     _scheduleHideHover: function () {
@@ -2978,68 +3054,9 @@ var DataFiller = (function () {
 
     _hideHoverPopover: function () {
       if (this._hoverHideTimer) { clearTimeout(this._hoverHideTimer); this._hoverHideTimer = null; }
-      this._exitTextPickMode();
+      if (this._hoverDropdownEl) this._hoverDropdownEl.style.display = 'none';
       if (this._hoverPopover) this._hoverPopover.style.display = 'none';
       this._hoverEl = null;
-    },
-
-    _textPickHighlightEl: null,
-    _textPickOver: null,
-    _textPickOut: null,
-    _textPickClick: null,
-
-    _startTextPickMode: function () {
-      var self = this;
-      if (this._textPickOver) return;
-      this._textPickOver = function (e) {
-        if (e.target.closest && e.target.closest('[data-us-cc]')) return;
-        var el = e.target;
-        if (self._textPickHighlightEl) {
-          self._textPickHighlightEl.classList.remove('us-df-text-pick-highlight');
-          self._textPickHighlightEl = null;
-        }
-        if (el && el.nodeType === Node.ELEMENT_NODE) {
-          el.classList.add('us-df-text-pick-highlight');
-          self._textPickHighlightEl = el;
-        }
-      };
-      this._textPickOut = function (e) {
-        if (self._textPickHighlightEl) {
-          self._textPickHighlightEl.classList.remove('us-df-text-pick-highlight');
-          self._textPickHighlightEl = null;
-        }
-      };
-      this._textPickClick = function (e) {
-        if (e.target.closest && e.target.closest('[data-us-cc]')) return;
-        e.preventDefault();
-        e.stopPropagation();
-        var el = e.target;
-        var text = (el && (el.textContent || el.innerText)) ? String(el.textContent || el.innerText).replace(/\s+/g, ' ').trim().slice(0, 80) : '';
-        if (self._hoverInput) self._hoverInput.value = text;
-        self._exitTextPickMode();
-      };
-      document.addEventListener('mouseover', this._textPickOver, true);
-      document.addEventListener('mouseout', this._textPickOut, true);
-      document.addEventListener('click', this._textPickClick, true);
-    },
-
-    _exitTextPickMode: function () {
-      if (this._textPickHighlightEl) {
-        this._textPickHighlightEl.classList.remove('us-df-text-pick-highlight');
-        this._textPickHighlightEl = null;
-      }
-      if (this._textPickOver) {
-        document.removeEventListener('mouseover', this._textPickOver, true);
-        this._textPickOver = null;
-      }
-      if (this._textPickOut) {
-        document.removeEventListener('mouseout', this._textPickOut, true);
-        this._textPickOut = null;
-      }
-      if (this._textPickClick) {
-        document.removeEventListener('click', this._textPickClick, true);
-        this._textPickClick = null;
-      }
     },
 
     _addStepWithName: function (el, logicalName) {
@@ -3099,6 +3116,7 @@ var DataFiller = (function () {
         self._hoverHideTimer = null;
         self._hoverEl = el;
         self._hoverSuggestedName = suggested;
+        self._hoverCandidates = getTextCandidatesFromForm(el);
         self._hoverInput.value = existing ? (existing.logicalName || '') : (suggested || '');
         self._hoverInput.readOnly = !!existing;
         self._hoverInput.style.background = existing ? 'rgba(0,0,0,0.05)' : '#fff';
