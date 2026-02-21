@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.36';
+var US_VERSION = '1.7.0-dev.37';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -496,10 +496,6 @@ var Styles = (function () {
       '  box-shadow: -4px 0 24px rgba(59,130,246,0.12), inset 0 1px 0 rgba(255,255,255,0.2) !important;',
       '}',
       '#us-cc-tab.us-tab-active .us-cc-tab-icon { color: rgba(0,0,0,0.55) !important; }',
-      '.us-cc-tab-toggle-wrap {',
-      '  flex-shrink: 0 !important; padding: 4px 0 !important; overflow: visible !important;',
-      '  display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  transform: scale(0.8) !important; transform-origin: center center !important; }',
 
       /* ── Edit-mode highlight (未定義: 青 / 定義済み: 緑) ── */
       '.us-cc-highlight {',
@@ -1195,6 +1191,7 @@ var EditMode = (function () {
     active: false,
     _highlighted: null,
     _boundHover: null,
+    _boundMouseout: null,
     _boundClick: null,
     _lastMouseX: null,
     _lastMouseY: null,
@@ -1206,9 +1203,10 @@ var EditMode = (function () {
       this.active = true;
       var self = this;
       this._boundHover = function (e) { self._onHover(e); };
+      this._boundMouseout = function (e) { self._clearHighlight(); };
       this._boundClick = function (e) { self._onClick(e); };
       document.addEventListener('mouseover', this._boundHover, true);
-      document.addEventListener('mouseout', function (e) { self._clearHighlight(); }, true);
+      document.addEventListener('mouseout', this._boundMouseout, true);
       document.addEventListener('click', this._boundClick, true);
       Tab.setAggregate(true, false);
       this._persist(true);
@@ -1218,8 +1216,10 @@ var EditMode = (function () {
       this.active = false;
       this._clearHighlight();
       document.removeEventListener('mouseover', this._boundHover, true);
+      document.removeEventListener('mouseout', this._boundMouseout, true);
       document.removeEventListener('click', this._boundClick, true);
       this._boundHover = null;
+      this._boundMouseout = null;
       this._boundClick = null;
       Tab.setAggregate(false, false);
       this._persist(false);
@@ -2201,7 +2201,12 @@ var Panel = (function () {
         listToggle.addEventListener('click', function (e) { e.stopPropagation(); });
         listToggle.checked = EditMode.active;
         listToggle.addEventListener('change', function () {
-          if (this.checked) EditMode.enable(); else EditMode.disable();
+          if (this.checked) {
+            EditMode.enable();
+          } else {
+            EditMode.disable();
+            Tab.setAggregate(false, false);
+          }
           var editT = self._screenColorEditor && self._screenColorEditor.querySelector('#us-p-edit-toggle');
           if (editT) editT.checked = EditMode.active;
         });
@@ -2485,6 +2490,8 @@ var Panel = (function () {
     var editToggle = this._screenColorEditor && this._screenColorEditor.querySelector('#us-p-edit-toggle');
     if (listToggle) listToggle.checked = EditMode.active;
     if (editToggle) editToggle.checked = EditMode.active;
+    // When panel is open, treat toggle as source of truth: if OFF, force EditMode off
+    if (listToggle && !listToggle.checked && EditMode.active) EditMode.disable();
   },
 
   open: async function () {
@@ -3372,28 +3379,13 @@ var Tab = (function () {
     if (this.el) return;
     Styles.inject();
 
-    var toggleWrap = h('div.us-cc-tab-toggle-wrap', { 'data-us-cc': 'tab-toggle' });
-    var switchLabel = document.createElement('label');
-    switchLabel.className = 'us-switch';
-    var tabEditCheck = h('input', { type: 'checkbox', id: 'us-cc-tab-edit-toggle', title: 'Edit Mode' });
-    switchLabel.appendChild(tabEditCheck);
-    switchLabel.appendChild(h('span.us-slider'));
-    toggleWrap.appendChild(switchLabel);
-
     var iconWrap = h('div.us-cc-tab-icon', { title: '設定' });
     var gearEl = h('span.us-cc-tab-gear', { 'aria-hidden': 'true' });
     gearEl.appendChild(createGearNode());
     iconWrap.appendChild(gearEl);
 
     var tab = h('div', { id: 'us-cc-tab', 'data-us-cc': 'tab' });
-    tab.appendChild(toggleWrap);
     tab.appendChild(iconWrap);
-
-    toggleWrap.addEventListener('click', function (e) { e.stopPropagation(); });
-    switchLabel.addEventListener('click', function (e) { e.stopPropagation(); });
-    tabEditCheck.addEventListener('change', function () {
-      if (this.checked) EditMode.enable(); else EditMode.disable();
-    });
 
     iconWrap.addEventListener('click', function () {
         ColorPopover.hide();
@@ -3418,7 +3410,6 @@ var Tab = (function () {
 
     document.body.appendChild(tab);
     this.el = tab;
-    this._tabEditCheck = tabEditCheck;
   },
 
   setActive: function (active) {
@@ -3428,26 +3419,13 @@ var Tab = (function () {
     } else {
       this.el.classList.remove('us-tab-active');
     }
-    if (this._tabEditCheck) {
-      this._tabEditCheck.checked = !!active;
-      this._tabEditCheck.indeterminate = false;
-    }
   },
   setAggregate: function (allOn, someOn) {
-    if (!this.el || !this._tabEditCheck) return;
-    if (someOn) {
+    if (!this.el) return;
+    if (someOn || allOn) {
       this.el.classList.add('us-tab-active');
-      this._tabEditCheck.checked = true;
-      this._tabEditCheck.indeterminate = true;
     } else {
-      this._tabEditCheck.indeterminate = false;
-      if (allOn) {
-        this.el.classList.add('us-tab-active');
-        this._tabEditCheck.checked = true;
-      } else {
-        this.el.classList.remove('us-tab-active');
-        this._tabEditCheck.checked = false;
-      }
+      this.el.classList.remove('us-tab-active');
     }
   }
   };
