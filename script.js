@@ -7,7 +7,7 @@
 (function () {
   if (window.location.hostname === '127.0.0.1') return;
 
-var US_VERSION = '1.7.0-dev.31';
+var US_VERSION = '1.7.0-dev.32';
 console.log('%c[UserScripts] script.js loaded – v' + US_VERSION + ' %c' + new Date().toLocaleTimeString(), 'color:#60a5fa;font-weight:bold', 'color:#888');
 
 // Gear icon: icooon-mono #10194 (https://icooon-mono.com/10194-…), fill=currentColor
@@ -2659,9 +2659,10 @@ var DataFiller = (function () {
     }
     function isLabelRelevant(labelEl) {
       if (!labelEl || labelEl.tagName.toLowerCase() !== 'label') return true;
-      if (labelEl.contains && labelEl.contains(el)) return false;
       var forId = labelEl.getAttribute('for');
       if (isRadioOrCheckbox) {
+        if (labelEl.contains && labelEl.contains(el)) return false;
+        if (labelEl === el.parentElement) return false;
         if (forId != null && forId !== '') return false;
         if (labelEl.querySelector && labelEl.querySelector('input, select, textarea')) return false;
         return true;
@@ -2753,7 +2754,9 @@ var DataFiller = (function () {
       var isRadioOrCheckbox = formEl.tagName && formEl.tagName.toLowerCase() === 'input' && (formEl.type === 'radio' || formEl.type === 'checkbox');
       if (isRadioOrCheckbox) {
         if (labelEl.contains && labelEl.contains(formEl)) return false;
+        if (labelEl === formEl.parentElement) return false;
         if (forId != null && forId !== '' && formEl.id === forId) return false;
+        if (labelEl.querySelector && labelEl.querySelector('input, select, textarea')) return false;
         return true;
       }
       if (forId == null || forId === '') return true;
