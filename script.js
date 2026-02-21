@@ -5,7 +5,8 @@
  * Rules are persisted per-site via GM_* RPC and auto-applied on revisit.
  */
 (function () {
-  var US_VERSION = '1.7.0-dev.50';
+  var US_VERSION = '1.7.0-dev.51';
+  var __US_panelFeatureFns = {};
   if (window.location.hostname === '127.0.0.1') return;
 
   function runMain() {
@@ -43,7 +44,7 @@ var Panel = (function () {
     var features = [];
     var ceCallbacks = { onBack: function () { self._showList(); }, onEditToggleChange: function (checked) { if (checked) Panel.close(); } };
     var dfCallbacks = { onBack: function () { self._showList(); } };
-    var fns = window.__US_panelFeatureFns || {};
+    var fns = __US_panelFeatureFns;
     if (typeof fns.colorEditor === 'function') {
       features.push(fns.colorEditor(h, createGearNode, US_VERSION, ceCallbacks));
     } else if (typeof window.createColorEditorPanelFeature === 'function') {
@@ -138,8 +139,7 @@ var Panel = (function () {
 
   open: async function () {
     if (this.el && this._features && this._features.length === 0) {
-      var fns0 = window.__US_panelFeatureFns || {};
-      var hasFeature = (fns0.colorEditor || fns0.dataFiller || window.createColorEditorPanelFeature || window.createDataFillerPanelFeature);
+      var hasFeature = (__US_panelFeatureFns.colorEditor || __US_panelFeatureFns.dataFiller || window.createColorEditorPanelFeature || window.createDataFillerPanelFeature);
       if (hasFeature) {
         if (this.backdrop && this.backdrop.parentNode) this.backdrop.parentNode.removeChild(this.backdrop);
         if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
@@ -246,9 +246,12 @@ window.US.rpc = RPC;
     (document.head || document.documentElement).appendChild(util);
   }
 
+  var __US_registerPanelFeatureInjected = "var __US_registerPanelFeature = function(key, fn) { __US_panelFeatureFns[key] = fn; }; ";
   function loadByFetchEval(nextUrl, thenRun) {
     if (!nextUrl) { thenRun(); return; }
     fetch(nextUrl).then(function (r) { return r.text(); }).then(function (text) {
+      var name = nextUrl.replace(/^.*\//, '');
+      if (name === 'colorEditor.js' || name === 'dataFiller.js') text = __US_registerPanelFeatureInjected + text;
       try { eval(text); } catch (e) { console.warn('[UserScripts] eval failed for ' + nextUrl, e); }
       thenRun();
     }).catch(function (err) {
@@ -258,8 +261,7 @@ window.US.rpc = RPC;
   }
 
   window.__US_registerPanelFeature = function (key, createFn) {
-    window.__US_panelFeatureFns = window.__US_panelFeatureFns || {};
-    window.__US_panelFeatureFns[key] = createFn;
+    __US_panelFeatureFns[key] = createFn;
   };
   loadByFetchEval(base + '/modules/util.js', function () {
     loadByFetchEval(base + '/modules/colorEditor.js', function () {
