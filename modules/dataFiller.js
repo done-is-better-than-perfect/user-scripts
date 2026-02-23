@@ -327,6 +327,17 @@ var global = typeof window !== 'undefined' ? window : this;
     return 'select';
   }
 
+  /** select 要素の先頭 option（disabled/hidden）のテキストを返す。4文字以下の場合のみ（プレフィルのサフィックス用）。 */
+  function getSelectSuffix(selectEl) {
+    if (!selectEl || selectEl.tagName.toLowerCase() !== 'select') return '';
+    var first = selectEl.options && selectEl.options[0];
+    if (!first) return '';
+    if (!first.disabled && !first.hidden) return '';
+    var t = (first.textContent || '').trim();
+    if (!t || t.length > 4) return '';
+    return t;
+  }
+
   function refreshPanel() {
     var panel = getPanel();
     if (panel && panel._screenDataFiller) panel.refreshDataFillerSteps();
@@ -498,9 +509,14 @@ var global = typeof window !== 'undefined' ? window : this;
       var self = this;
       var xpath = getXPath(el);
       var type = getElementType(el);
+      var typeFallback = type === 'text' ? 'テキスト' : (type === 'select' ? getSelectSuggestedFallback(el) : type);
       var suggested = (suggestedNameOverride != null && suggestedNameOverride !== '')
         ? String(suggestedNameOverride).replace(/\s+/g, ' ').trim().slice(0, 80)
-        : (getLabelNearElement(el) || (type === 'text' ? 'テキスト' : (type === 'select' ? getSelectSuggestedFallback(el) : type)));
+        : (getLabelNearElement(el) || typeFallback);
+      if (type === 'select' && suggested && suggested !== typeFallback) {
+        var suffix = getSelectSuffix(el);
+        if (suffix) suggested = suggested + '(' + suffix + ')';
+      }
       this._showLogicalNamePrompt(suggested, function (logicalName) {
         if (logicalName == null) return;
         logicalName = String(logicalName).trim() || type;
@@ -526,6 +542,13 @@ var global = typeof window !== 'undefined' ? window : this;
             refreshPanel();
           }, function () {});
           return;
+        }
+        // ガードレール: 同じ項目名（異なる XPath）の重複登録を防止
+        for (var k = 0; k < self._steps.length; k++) {
+          if (self._steps[k].logicalName === logicalName && self._steps[k].xpath !== xpath) {
+            self._showAlert('同じ項目名「' + logicalName + '」がすでに登録されています。\n異なる名前を指定してください。', function () {});
+            return;
+          }
         }
         self._steps.push(step);
         self.save(self._steps);
@@ -680,6 +703,13 @@ var global = typeof window !== 'undefined' ? window : this;
         }, function () {});
         return;
       }
+      // ガードレール: 同じ項目名（異なる XPath）の重複登録を防止
+      for (var k = 0; k < this._steps.length; k++) {
+        if (this._steps[k].logicalName === logicalName && this._steps[k].xpath !== xpath) {
+          this._showAlert('同じ項目名「' + logicalName + '」がすでに登録されています。\n異なる名前を指定してください。', function () {});
+          return;
+        }
+      }
       this._steps.push(step);
       this.save(this._steps);
       refreshPanel();
@@ -714,6 +744,11 @@ var global = typeof window !== 'undefined' ? window : this;
         var suggested = isRadioOrCheckbox
           ? (labelPrefill || typeFallback)
           : ((suggestedFromLabel !== '') ? suggestedFromLabel : (labelPrefill || typeFallback));
+        // select: ラベルから取得した名前にプレースホルダ option のテキストをサフィックス付与
+        if (type === 'select' && suggested && suggested !== typeFallback) {
+          var suffix = getSelectSuffix(el);
+          if (suffix) suggested = suggested + '(' + suffix + ')';
+        }
         var includeLabelInCandidates = isRadioOrCheckbox ? true : (!labelPrefill && suggestedFromLabel === '');
         var xpath = getXPath(el);
         var existing = null;
