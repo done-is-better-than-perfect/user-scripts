@@ -80,7 +80,7 @@
 - **id がある場合（radio/checkbox 以外）**: `document.querySelector('label[for="id"]')` で一致する label があれば、その textContent を最優先で使用。
 - **走査**: 対象要素から最大 10 世代親へ遡り、各階層で label → span の順にチェック。最も近い階層で見つかったテキストを返す（近い span は遠い label に優先する）。
 - **radio/checkbox**: 上記の除外を適用したうえで、**グループ見出し**のような「それ以外の label」だけをプレフィルに使用。選択肢の「なし」「あり」などの label は使わない。
-- **`<span>` チェック**: 各階層で label が見つからなかった場合、同じ階層の前後の兄弟とその子孫から `<span>` の `getDirectText` を検索する。`<select>` 内の span は除外。
+- **`<span>` チェック**: 各階層で label が見つからなかった場合、同じ階層の **前方の兄弟（previousElementSibling）** とその子孫から `<span>` の `getDirectText` を検索する。後方の兄弟（nextElementSibling）は検索しない（隣接する無関係な値テキストの誤取得を防止）。`<select>` 内の span は除外。
 
 ### 4.2 候補に使うもの（ドロップダウンで選べるテキスト）
 

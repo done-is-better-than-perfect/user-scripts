@@ -134,14 +134,11 @@ var global = typeof window !== 'undefined' ? window : this;
         }
         if (t) return t;
       }
-      // ---- span チェック（同階層で label が見つからなかった場合） ----
+      // ---- span チェック（同階層で label が見つからなかった場合、前方兄弟のみ） ----
+      // ラベル的テキストはフォーム要素の前方にあるため、nextElementSibling は検索しない
       if (prev) {
         var st = spanTextFrom(prev);
         if (st) return st;
-      }
-      if (next) {
-        var st2 = spanTextFrom(next);
-        if (st2) return st2;
       }
       node = node.parentElement || node.parentNode;
     }
