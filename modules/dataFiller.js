@@ -617,7 +617,6 @@ var global = typeof window !== 'undefined' ? window : this;
       cancelBtn.addEventListener('click', function (e) { e.stopPropagation(); self._hideHoverPopover(); });
       dropdownBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (self._hoverInput.readOnly) return;
         self._toggleHoverDropdown();
       });
       box.addEventListener('mouseenter', function () {
@@ -634,6 +633,7 @@ var global = typeof window !== 'undefined' ? window : this;
       this._hoverOptionalRadio = optionalRadio;
       this._hoverMsgEl = msgEl;
       this._hoverActionsEl = actionsEl;
+      this._hoverAddBtn = addBtn;
       this._hoverDropdownEl = dropdownEl;
       this._hoverDropdownBtn = dropdownBtn;
       return box;
@@ -695,7 +695,20 @@ var global = typeof window !== 'undefined' ? window : this;
       }
       if (existingIndex >= 0) {
         var existing = this._steps[existingIndex];
-        if (existing.logicalName === logicalName) return;
+        if (existing.logicalName === logicalName) {
+          // 同名でも必須/任意が異なれば更新
+          self._steps[existingIndex] = step;
+          self.save(self._steps);
+          refreshPanel();
+          return;
+        }
+        // ガードレール: 新しい名前が別の XPath で既に使われていないか確認
+        for (var m = 0; m < self._steps.length; m++) {
+          if (self._steps[m].logicalName === logicalName && self._steps[m].xpath !== xpath) {
+            self._showAlert('同じ項目名「' + logicalName + '」がすでに登録されています。\n異なる名前を指定してください。', function () {});
+            return;
+          }
+        }
         this._showConfirm(existing.logicalName, logicalName, function () {
           self._steps[existingIndex] = step;
           self.save(self._steps);
@@ -762,17 +775,18 @@ var global = typeof window !== 'undefined' ? window : this;
         self._hoverSuggestedName = suggested;
         self._hoverCandidates = getTextCandidatesFromForm(el, includeLabelInCandidates);
         self._hoverInput.value = existing ? (existing.logicalName || '') : (suggested || '');
-        self._hoverInput.readOnly = !!existing;
-        self._hoverInput.style.background = existing ? 'rgba(0,0,0,0.05)' : '#fff';
+        self._hoverInput.readOnly = false;
+        self._hoverInput.style.background = '#fff';
         if (self._hoverRequiredRadio && self._hoverOptionalRadio) {
           var req = existing ? (existing.required !== false) : true;
           self._hoverRequiredRadio.checked = req;
           self._hoverOptionalRadio.checked = !req;
         }
-        self._hoverMsgEl.textContent = existing ? 'すでに登録済みです' : '';
+        self._hoverMsgEl.textContent = existing ? '登録済み' : '';
         self._hoverMsgEl.style.display = existing ? 'block' : 'none';
         self._hoverMsgEl.style.visibility = existing ? 'visible' : 'hidden';
-        self._hoverActionsEl.style.display = existing ? 'none' : 'flex';
+        self._hoverAddBtn.textContent = existing ? '更新' : '追加';
+        self._hoverActionsEl.style.display = 'flex';
         var rect = el.getBoundingClientRect();
         self._hoverPopover.style.display = 'block';
         self._hoverPopover.style.left = Math.max(4, rect.left) + 'px';
