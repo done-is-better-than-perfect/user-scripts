@@ -768,6 +768,7 @@ var Styles = (function () {
       '#us-cc-popover [data-role="preview-swatch"].us-swatch-mixed {',
       '  background: linear-gradient(to top right, transparent calc(50% - 0.5px), #e53e3e calc(50% - 0.5px), #e53e3e calc(50% + 0.5px), transparent calc(50% + 0.5px)) !important;',
       '}',
+      '#us-cc-popover .us-pop-prop-disabled { opacity: 0.35 !important; pointer-events: none !important; }',
 
       /* ── Popover actions ── */
       '#us-cc-popover .us-pop-actions {',
@@ -1361,8 +1362,15 @@ var PopoversModule = (function () {
       var ps = rows[i].querySelector('[data-role="preview-swatch"]');
       // border-color メイン行はサブ行セット後に mixed 判定で更新するのでスキップ
       if (propKey !== 'border-color') {
-        var computed = getComputedStyle(el).getPropertyValue(propKey);
-        var hexVal = this._rgbToHex(computed);
+        var hexVal;
+        if (propKey === 'background-color') {
+          hexVal = this._resolveBackgroundColor(el);
+        } else if (propKey === 'color') {
+          hexVal = this._resolveColor(el);
+        } else {
+          var computed = getComputedStyle(el).getPropertyValue(propKey);
+          hexVal = this._rgbToHex(computed);
+        }
         rows[i].querySelector('[data-role="flexible"]').value = hexVal;
         if (ps) { ps.classList.remove('us-swatch-mixed'); ps.style.setProperty('background', hexVal, 'important'); }
       }
@@ -1375,6 +1383,23 @@ var PopoversModule = (function () {
         mode: existing ? existing.mode : 'inline'
       };
     }
+    // border-width チェック: 幅が 0 の方向は無効化
+    var cs = getComputedStyle(el);
+    var bwMap = {
+      'border-top-color': parseFloat(cs.getPropertyValue('border-top-width')) || 0,
+      'border-right-color': parseFloat(cs.getPropertyValue('border-right-width')) || 0,
+      'border-bottom-color': parseFloat(cs.getPropertyValue('border-bottom-width')) || 0,
+      'border-left-color': parseFloat(cs.getPropertyValue('border-left-width')) || 0
+    };
+    var anyBorderVisible = false;
+    for (var bk in bwMap) {
+      var subRow = this.el.querySelector('[data-prop-key="' + bk + '"]');
+      if (subRow) subRow.classList.toggle('us-pop-prop-disabled', bwMap[bk] === 0);
+      if (bwMap[bk] > 0) anyBorderVisible = true;
+    }
+    var mainBorderRow = this.el.querySelector('[data-prop-key="border-color"]');
+    if (mainBorderRow) mainBorderRow.classList.toggle('us-pop-prop-disabled', !anyBorderVisible);
+
     // border メイン swatch を 4 方向の値で判定
     this._updateBorderMainSwatch();
 
@@ -1487,6 +1512,7 @@ var PopoversModule = (function () {
       flexible.value = colors[0];
     } else {
       swatch.classList.add('us-swatch-mixed');
+      swatch.style.removeProperty('background');
       flexible.value = '';
     }
   },
@@ -1519,6 +1545,37 @@ var PopoversModule = (function () {
     return '#' + [m[1], m[2], m[3]].map(function (x) {
       return parseInt(x, 10).toString(16).padStart(2, '0');
     }).join('');
+  },
+
+  /** rgba の alpha が 0（transparent）かどうかを判定 */
+  _isTransparent: function (rgb) {
+    if (!rgb || rgb === 'transparent') return true;
+    var m = rgb.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([0-9.]+)\s*\)/);
+    return m && parseFloat(m[1]) === 0;
+  },
+
+  /** background-color: 親を遡って最初の不透明な背景色を解決する */
+  _resolveBackgroundColor: function (el) {
+    var cur = el;
+    while (cur && cur.nodeType === 1) {
+      var bg = getComputedStyle(cur).getPropertyValue('background-color');
+      if (bg && !this._isTransparent(bg)) return this._rgbToHex(bg);
+      cur = cur.parentElement;
+    }
+    return '#ffffff';
+  },
+
+  /** color: 親を遡って継承色を解決する（通常は getComputedStyle で解決済みだが安全策） */
+  _resolveColor: function (el) {
+    var c = getComputedStyle(el).getPropertyValue('color');
+    if (c && !this._isTransparent(c)) return this._rgbToHex(c);
+    var cur = el.parentElement;
+    while (cur && cur.nodeType === 1) {
+      c = getComputedStyle(cur).getPropertyValue('color');
+      if (c && !this._isTransparent(c)) return this._rgbToHex(c);
+      cur = cur.parentElement;
+    }
+    return '#000000';
   }
 };
 
