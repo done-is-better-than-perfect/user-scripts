@@ -785,6 +785,47 @@ var Styles = (function () {
       '  border: 1.5px dashed rgba(0,0,0,0.22) !important; border-radius: 3px !important;',
       '  background: rgba(0,0,0,0.03) !important;',
       '}',
+
+      /* ── Border テキストボックス集約エリア ── */
+      '#us-cc-popover .us-pop-border-inputs {',
+      '  margin-top: 8px !important;',
+      '  display: flex !important;',
+      '  flex-direction: column !important;',
+      '  gap: 4px !important;',
+      '  margin-left: 56px !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-input-row {',
+      '  all: initial !important;',
+      '  display: flex !important;',
+      '  align-items: center !important;',
+      '  gap: 6px !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-input-label {',
+      '  all: initial !important;',
+      '  font-family: inherit !important;',
+      '  font-size: 10px !important;',
+      '  color: rgba(0,0,0,0.6) !important;',
+      '  width: 48px !important;',
+      '  flex-shrink: 0 !important;',
+      '  text-align: right !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-input-field {',
+      '  all: initial !important;',
+      '  flex: 1 !important;',
+      '  min-width: 80px !important;',
+      '  text-align: center !important;',
+      '  padding: 4px 6px !important;',
+      '  font-family: "SF Mono","Menlo",monospace !important;',
+      '  font-size: 11px !important;',
+      '  color: rgba(0,0,0,0.75) !important;',
+      '  background: rgba(255,255,255,0.6) !important;',
+      '  border: 1px solid rgba(255,255,255,0.5) !important;',
+      '  border-radius: 4px !important;',
+      '  outline: none !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-input-field:focus {',
+      '  border-color: rgba(59,130,246,0.5) !important;',
+      '}',
       '#us-cc-popover [data-role="preview-swatch"].us-swatch-mixed {',
       '  background: linear-gradient(to top right, transparent calc(50% - 0.5px), #e53e3e calc(50% - 0.5px), #e53e3e calc(50% + 0.5px), transparent calc(50% + 0.5px)) !important;',
       '}',
@@ -1313,6 +1354,34 @@ var PopoversModule = (function () {
           );
         });
         propsContainer.appendChild(borderBox);
+
+        // 新規: 表示用テキストボックス集約エリア
+        var borderInputs = h('div', { class: 'us-pop-border-inputs' });
+        p.children.forEach(function (child) {
+          var labelText = {
+            'border-top-color': 'Top',
+            'border-right-color': 'Right',
+            'border-bottom-color': 'Bottom',
+            'border-left-color': 'Left'
+          }[child.key] || child.label;
+
+          var visibleInput = h('input', {
+            type: 'text',
+            class: 'us-pop-border-input-field',
+            'data-role': 'border-visible-input',
+            'data-prop-key': child.key,
+            placeholder: '#000000'
+          });
+
+          borderInputs.appendChild(
+            h('div', { class: 'us-pop-border-input-row' },
+              h('span', { class: 'us-pop-border-input-label' }, labelText),
+              visibleInput
+            )
+          );
+        });
+
+        propsContainer.appendChild(borderInputs);
       }
     });
 
@@ -1402,6 +1471,33 @@ var PopoversModule = (function () {
       })(rows[i]);
     }
 
+    // 表示用テキストボックスと隠しテキストボックスの双方向同期
+    var visibleInputs = this.el.querySelectorAll('[data-role="border-visible-input"]');
+    for (var j = 0; j < visibleInputs.length; j++) {
+      (function (visibleInput) {
+        var propKey = visibleInput.getAttribute('data-prop-key');
+        var hiddenRow = self.el.querySelector('[data-prop-key="' + propKey + '"]');
+        var hiddenInput = hiddenRow ? hiddenRow.querySelector('[data-role="flexible"]') : null;
+
+        // 表示用 → 隠し用 同期
+        visibleInput.addEventListener('input', function () {
+          if (hiddenInput) {
+            hiddenInput.value = this.value;
+            hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        });
+
+        // 隠し用 → 表示用 同期
+        if (hiddenInput) {
+          hiddenInput.addEventListener('input', function () {
+            if (visibleInput.value !== this.value) {
+              visibleInput.value = this.value;
+            }
+          });
+        }
+      })(visibleInputs[j]);
+    }
+
     this.el.querySelector('#us-pop-cancel').addEventListener('click', function () { self._cancel(); });
   },
 
@@ -1488,6 +1584,18 @@ var PopoversModule = (function () {
 
     this.el.style.setProperty('left', left + 'px', 'important');
     this.el.style.setProperty('top', top + 'px', 'important');
+
+    // 表示用テキストボックスに初期値を設定
+    var self = this;
+    this.el.querySelectorAll('[data-role="border-visible-input"]').forEach(function (input) {
+      var propKey = input.getAttribute('data-prop-key');
+      var hiddenRow = self.el.querySelector('[data-prop-key="' + propKey + '"]');
+      var hiddenInput = hiddenRow ? hiddenRow.querySelector('[data-role="flexible"]') : null;
+      if (hiddenInput && hiddenInput.value) {
+        input.value = hiddenInput.value;
+      }
+    });
+
     this.el.classList.add('us-visible');
   },
 
