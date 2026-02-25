@@ -754,16 +754,35 @@ var Styles = (function () {
       '#us-cc-popover .us-pop-prop-row input[type="text"]:focus { border-color: rgba(59,130,246,0.5) !important; }',
 
       /* ── Border sub-rows ── */
-      '#us-cc-popover .us-pop-prop-sub-row { margin-bottom: 4px !important; padding: 2px 0 !important; }',
-      '#us-cc-popover .us-pop-prop-sub-row .us-pop-prop-label {',
-      '  width: 56px !important; padding-left: 12px !important;',
-      '  font-size: 10px !important; color: rgba(0,0,0,0.4) !important;',
+      /* ── Border 矩形レイアウト ── */
+      '#us-cc-popover .us-pop-border-box {',
+      '  display: grid !important; grid-template-columns: 22px 1fr 22px !important; grid-template-rows: 22px 28px 22px !important;',
+      '  gap: 2px !important; justify-items: center !important; align-items: center !important;',
+      '  margin-left: 56px !important; margin-bottom: 10px !important;',
       '}',
-      '#us-cc-popover .us-pop-prop-sub-row [data-role="preview-swatch"] {',
-      '  width: 20px !important; height: 20px !important; border-radius: 4px !important;',
+      '#us-cc-popover .us-pop-border-box .us-pop-prop-sub-row {',
+      '  all: initial !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  margin: 0 !important; padding: 0 !important;',
       '}',
-      '#us-cc-popover .us-pop-prop-sub-row [data-role="flexible"] {',
-      '  font-size: 10px !important; padding: 2px 4px !important;',
+      '#us-cc-popover .us-pop-border-box [data-role="flexible"] {',
+      '  position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-box [data-role="preview-swatch"] {',
+      '  display: inline-block !important; width: 20px !important; height: 20px !important; flex-shrink: 0 !important;',
+      '  border: 1px solid rgba(0,0,0,0.12) !important; border-radius: 4px !important; cursor: pointer !important;',
+      '  transition: transform 0.1s, box-shadow 0.15s !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-box [data-role="preview-swatch"]:hover {',
+      '  transform: scale(1.15) !important; box-shadow: 0 0 6px rgba(0,0,0,0.15) !important;',
+      '}',
+      '#us-cc-popover .us-pop-border-box [data-prop-key="border-top-color"]    { grid-row: 1 !important; grid-column: 2 !important; }',
+      '#us-cc-popover .us-pop-border-box [data-prop-key="border-left-color"]   { grid-row: 2 !important; grid-column: 1 !important; }',
+      '#us-cc-popover .us-pop-border-box .us-pop-border-center                 { grid-row: 2 !important; grid-column: 2 !important; }',
+      '#us-cc-popover .us-pop-border-box [data-prop-key="border-right-color"]  { grid-row: 2 !important; grid-column: 3 !important; }',
+      '#us-cc-popover .us-pop-border-box [data-prop-key="border-bottom-color"] { grid-row: 3 !important; grid-column: 2 !important; }',
+      '#us-cc-popover .us-pop-border-center {',
+      '  all: initial !important; display: block !important; width: 100% !important; height: 100% !important;',
+      '  border: 1.5px dashed rgba(0,0,0,0.18) !important; border-radius: 3px !important;',
       '}',
       '#us-cc-popover [data-role="preview-swatch"].us-swatch-mixed {',
       '  background: linear-gradient(to top right, transparent calc(50% - 0.5px), #e53e3e calc(50% - 0.5px), #e53e3e calc(50% + 0.5px), transparent calc(50% + 0.5px)) !important;',
@@ -1272,19 +1291,27 @@ var PopoversModule = (function () {
           rowMain
         )
       );
-      // border 方向別サブ行
+      // border 方向別サブ行（矩形グリッドレイアウト）
       if (p.children) {
-        p.children.forEach(function (child) {
-          var subSwatch = h('span', { 'data-role': 'preview-swatch', title: 'クリックで色を選択' });
+        var borderBox = h('div', { class: 'us-pop-border-box' });
+        // top=0, left=3, center(null), right=1, bottom=2
+        var order = [0, 3, null, 1, 2];
+        order.forEach(function (idx) {
+          if (idx === null) {
+            borderBox.appendChild(h('div', { class: 'us-pop-border-center' }));
+            return;
+          }
+          var child = p.children[idx];
+          var subSwatch = h('span', { 'data-role': 'preview-swatch', title: child.label });
           subSwatch.style.setProperty('background', '#000000', 'important');
-          var subRowMain = h('div.us-pop-prop-row-main', subSwatch, h('input', { type: 'text', 'data-role': 'flexible', placeholder: '#000000' }));
-          propsContainer.appendChild(
+          var subInput = h('input', { type: 'text', 'data-role': 'flexible' });
+          borderBox.appendChild(
             h('div.us-pop-prop-row.us-pop-prop-sub-row', { 'data-prop-key': child.key },
-              h('span.us-pop-prop-label', child.label),
-              subRowMain
+              subSwatch, subInput
             )
           );
         });
+        propsContainer.appendChild(borderBox);
       }
     });
 
