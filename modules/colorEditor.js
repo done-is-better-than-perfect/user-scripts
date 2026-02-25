@@ -807,10 +807,25 @@ var Styles = (function () {
       '  display: none !important;',
       '}',
       '#us-cc-chip-popover.us-visible { display: block !important; }',
+      '#us-cc-chip-popover .us-chip-picker-row {',
+      '  display: flex !important; gap: 6px !important; align-items: stretch !important; margin-bottom: 8px !important;',
+      '}',
       '#us-cc-chip-popover [data-role="picker"] {',
-      '  all: initial !important; display: block !important; width: 100% !important; height: 36px !important;',
+      '  all: initial !important; display: block !important; flex: 1 !important; height: 36px !important;',
       '  border: 2px solid rgba(0,0,0,0.1) !important; border-radius: 6px !important;',
-      '  cursor: pointer !important; background: transparent !important; margin-bottom: 8px !important;',
+      '  cursor: pointer !important; background: transparent !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-transparent-btn {',
+      '  all: initial !important; display: flex !important; align-items: center !important; justify-content: center !important;',
+      '  padding: 0 8px !important; font-family: inherit !important; font-size: 10px !important; font-weight: 500 !important;',
+      '  color: rgba(0,0,0,0.55) !important; border: 2px solid rgba(0,0,0,0.1) !important; border-radius: 6px !important;',
+      '  cursor: pointer !important; white-space: nowrap !important;',
+      '  background: repeating-conic-gradient(rgba(0,0,0,0.08) 0% 25%, transparent 0% 50%) 50%/10px 10px !important;',
+      '}',
+      '#us-cc-chip-popover .us-chip-transparent-btn:hover { border-color: rgba(59,130,246,0.4) !important; color: #2563eb !important; }',
+      /* swatch の透明表示（チェッカーボード） */
+      '#us-cc-popover [data-role="preview-swatch"].us-swatch-transparent {',
+      '  background: repeating-conic-gradient(rgba(0,0,0,0.08) 0% 25%, transparent 0% 50%) 50%/8px 8px !important;',
       '}',
       '#us-cc-chip-popover .us-chip-palette-section {',
       '  margin-top: 6px !important; margin-bottom: 6px !important;',
@@ -1299,13 +1314,30 @@ var PopoversModule = (function () {
         var previewSwatch = row.querySelector('[data-role="preview-swatch"]');
         var propKey = row.getAttribute('data-prop-key');
 
-        var updatePreview = function (hexVal) {
-          if (previewSwatch && /^#[0-9a-fA-F]{6}$/.test(hexVal)) previewSwatch.style.setProperty('background', hexVal, 'important');
+        var updatePreview = function (val) {
+          if (!previewSwatch) return;
+          if (val === 'transparent') {
+            previewSwatch.classList.add('us-swatch-transparent');
+            previewSwatch.classList.remove('us-swatch-mixed');
+            previewSwatch.style.removeProperty('background');
+          } else if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            previewSwatch.classList.remove('us-swatch-transparent');
+            previewSwatch.style.setProperty('background', val, 'important');
+          }
         };
         var isBorderMain = (propKey === 'border-color');
         var isBorderSub = /^border-(top|right|bottom|left)-color$/.test(propKey);
         var applyFromFlexible = function () {
-          var parsed = parseFlexibleColor(flexible.value);
+          var raw = (flexible.value || '').trim();
+          if (raw === 'transparent') {
+            updatePreview('transparent');
+            self._lastActiveProp = propKey;
+            self._previewOne(row);
+            if (isBorderMain) self._syncBorderSubRows('transparent');
+            else if (isBorderSub) self._updateBorderMainSwatch();
+            return;
+          }
+          var parsed = parseFlexibleColor(raw);
           if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) {
             updatePreview(parsed.hex);
             self._lastActiveProp = propKey;
@@ -1317,7 +1349,9 @@ var PopoversModule = (function () {
         flexible.addEventListener('input', applyFromFlexible);
         flexible.addEventListener('blur', function () {
           applyFromFlexible();
-          var parsed = parseFlexibleColor(flexible.value);
+          var raw = (flexible.value || '').trim();
+          if (raw === 'transparent') { self._saveRule(propKey, 'transparent'); return; }
+          var parsed = parseFlexibleColor(raw);
           if (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) self._saveRule(propKey, parsed.hex);
         });
         flexible.addEventListener('focus', function () { self._lastActiveProp = propKey; });
@@ -1372,7 +1406,7 @@ var PopoversModule = (function () {
           hexVal = this._rgbToHex(computed);
         }
         rows[i].querySelector('[data-role="flexible"]').value = hexVal;
-        if (ps) { ps.classList.remove('us-swatch-mixed'); ps.style.setProperty('background', hexVal, 'important'); }
+        if (ps) { ps.classList.remove('us-swatch-mixed', 'us-swatch-transparent'); ps.style.setProperty('background', hexVal, 'important'); }
       }
 
       // Store initial rule state for revert
@@ -1441,8 +1475,14 @@ var PopoversModule = (function () {
     if (!this._currentTarget) return;
     var key = row.getAttribute('data-prop-key');
     var flexible = row.querySelector('[data-role="flexible"]');
-    var parsed = flexible && parseFlexibleColor(flexible.value);
-    var val = (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) ? parsed.hex : '';
+    var raw = flexible ? (flexible.value || '').trim() : '';
+    var val;
+    if (raw === 'transparent') {
+      val = 'transparent';
+    } else {
+      var parsed = parseFlexibleColor(raw);
+      val = (parsed && /^#[0-9a-fA-F]{6}$/.test(parsed.hex)) ? parsed.hex : '';
+    }
     if (key === 'border-color') {
       var self = this;
       this._BORDER_CHILDREN.forEach(function (ck) { StyleApplier.previewOne(self._currentTarget, ck, val); });
@@ -1502,13 +1542,20 @@ var PopoversModule = (function () {
     this._BORDER_CHILDREN.forEach(function (ck) {
       var subRow = self.el.querySelector('[data-prop-key="' + ck + '"]');
       var flex = subRow && subRow.querySelector('[data-role="flexible"]');
-      var parsed = flex && parseFlexibleColor(flex.value);
+      var raw = flex ? (flex.value || '').trim() : '';
+      if (raw === 'transparent') { colors.push('transparent'); return; }
+      var parsed = parseFlexibleColor(raw);
       colors.push(parsed ? parsed.hex : '');
     });
     var allSame = colors[0] && colors.every(function (c) { return c === colors[0]; });
+    swatch.classList.remove('us-swatch-mixed', 'us-swatch-transparent');
     if (allSame) {
-      swatch.classList.remove('us-swatch-mixed');
-      swatch.style.setProperty('background', colors[0], 'important');
+      if (colors[0] === 'transparent') {
+        swatch.classList.add('us-swatch-transparent');
+        swatch.style.removeProperty('background');
+      } else {
+        swatch.style.setProperty('background', colors[0], 'important');
+      }
       flexible.value = colors[0];
     } else {
       swatch.classList.add('us-swatch-mixed');
@@ -1518,22 +1565,29 @@ var PopoversModule = (function () {
   },
 
   /** border-color メイン行の値変更時、4 方向のサブ行を同期する */
-  _syncBorderSubRows: function (hex) {
+  _syncBorderSubRows: function (val) {
     if (!this.el) return;
+    var isTransparent = (val === 'transparent');
     var self = this;
     this._BORDER_CHILDREN.forEach(function (ck) {
       var subRow = self.el.querySelector('[data-prop-key="' + ck + '"]');
       if (!subRow) return;
       var flex = subRow.querySelector('[data-role="flexible"]');
       var ps = subRow.querySelector('[data-role="preview-swatch"]');
-      if (flex) flex.value = hex;
-      if (ps) ps.style.setProperty('background', hex, 'important');
+      if (flex) flex.value = val;
+      if (ps) {
+        ps.classList.toggle('us-swatch-transparent', isTransparent);
+        if (isTransparent) ps.style.removeProperty('background');
+        else ps.style.setProperty('background', val, 'important');
+      }
     });
-    // メイン swatch を通常表示に戻す
+    // メイン swatch を同期
     var mainSwatch = this.el.querySelector('[data-prop-key="border-color"] [data-role="preview-swatch"]');
     if (mainSwatch) {
       mainSwatch.classList.remove('us-swatch-mixed');
-      mainSwatch.style.setProperty('background', hex, 'important');
+      mainSwatch.classList.toggle('us-swatch-transparent', isTransparent);
+      if (isTransparent) mainSwatch.style.removeProperty('background');
+      else mainSwatch.style.setProperty('background', val, 'important');
     }
   },
 
@@ -1589,9 +1643,11 @@ var ChipColorPopover = {
     if (this.el) return;
     this.backdrop = h('div', { id: 'us-cc-chip-popover-backdrop', 'data-us-cc': 'chip-color-popover' });
     var picker = h('input', { type: 'color', 'data-role': 'picker', value: '#000000' });
+    var transparentBtn = h('button', { type: 'button', class: 'us-chip-transparent-btn', title: '透明 (transparent)' }, '透明');
+    var pickerRow = h('div', { class: 'us-chip-picker-row' }, picker, transparentBtn);
     var paletteContainer = h('div', { id: 'us-chip-pop-palette' });
     this.el = h('div', { id: 'us-cc-chip-popover', 'data-us-cc': 'chip-color-popover' },
-      picker,
+      pickerRow,
       paletteContainer
     );
     this.backdrop.appendChild(this.el);
@@ -1609,6 +1665,12 @@ var ChipColorPopover = {
       var hex = this.value;
       if (self._onChoose) {
         self._onChoose(hex);
+        self.hide();
+      }
+    });
+    transparentBtn.addEventListener('click', function () {
+      if (self._onChoose) {
+        self._onChoose('transparent');
         self.hide();
       }
     });
