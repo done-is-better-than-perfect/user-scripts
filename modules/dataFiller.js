@@ -1010,7 +1010,7 @@ var global = typeof window !== 'undefined' ? window : this;
     screenEl.querySelector('[data-df-back="1"]').addEventListener('click', function () { if (onBack) onBack(); });
     var dfMainToggle = screenEl.querySelector('#us-p-df-main-toggle');
     if (dfMainToggle) dfMainToggle.addEventListener('change', function () {
-      RPC.call('storage.set', ['userscripts:features:dataFiller:enabled', this.checked]).catch(function () {});
+      RPC.call('storage.set', [STORAGE_KEY_ENABLED, this.checked]).catch(function () {});
       if (this.checked) dataFillerInstance.enableCapture(); else dataFillerInstance.disableCapture();
     });
     screenEl.querySelector('#us-p-df-template-dl').addEventListener('click', function () { dataFillerInstance.exportCSVTemplate(); });
@@ -1030,7 +1030,7 @@ var global = typeof window !== 'undefined' ? window : this;
     return { el: screenEl, refreshSteps: refreshSteps };
   }
 
-  var STORAGE_KEY_ENABLED = 'userscripts:features:dataFiller:enabled';
+  var STORAGE_KEY_ENABLED = 'userscripts:features:dataFiller:enabled:' + location.hostname;
 
   /**
    * Panel feature: base class instance. script.js calls init(deps) then getListRow() / getScreen() / onPanelOpen().

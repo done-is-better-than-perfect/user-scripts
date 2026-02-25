@@ -816,13 +816,12 @@ var Styles = (function () {
       '  cursor: pointer !important; background: transparent !important;',
       '}',
       '#us-cc-chip-popover .us-chip-transparent-btn {',
-      '  all: initial !important; display: flex !important; align-items: center !important; justify-content: center !important;',
-      '  padding: 0 8px !important; font-family: inherit !important; font-size: 10px !important; font-weight: 500 !important;',
-      '  color: rgba(0,0,0,0.55) !important; border: 2px solid rgba(0,0,0,0.1) !important; border-radius: 6px !important;',
-      '  cursor: pointer !important; white-space: nowrap !important;',
+      '  all: initial !important; display: block !important; width: 36px !important; height: 36px !important; flex-shrink: 0 !important;',
+      '  border: 2px solid rgba(0,0,0,0.1) !important; border-radius: 6px !important;',
+      '  cursor: pointer !important;',
       '  background: repeating-conic-gradient(rgba(0,0,0,0.08) 0% 25%, transparent 0% 50%) 50%/10px 10px !important;',
       '}',
-      '#us-cc-chip-popover .us-chip-transparent-btn:hover { border-color: rgba(59,130,246,0.4) !important; color: #2563eb !important; }',
+      '#us-cc-chip-popover .us-chip-transparent-btn:hover { border-color: rgba(59,130,246,0.4) !important; }',
       /* swatch の透明表示（チェッカーボード） */
       '#us-cc-popover [data-role="preview-swatch"].us-swatch-transparent {',
       '  background: repeating-conic-gradient(rgba(0,0,0,0.08) 0% 25%, transparent 0% 50%) 50%/8px 8px !important;',
@@ -1182,7 +1181,7 @@ var EditMode = (function () {
     },
     _persist: async function (active) {
       try {
-        await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode', active]);
+        await RPC.call('storage.set', ['userscripts:features:colorCustomizer:editMode:' + location.hostname, active]);
       } catch (e) {
         console.error('[ColorCustomizer] Failed to save EditMode state:', e);
       }
@@ -1643,7 +1642,7 @@ var ChipColorPopover = {
     if (this.el) return;
     this.backdrop = h('div', { id: 'us-cc-chip-popover-backdrop', 'data-us-cc': 'chip-color-popover' });
     var picker = h('input', { type: 'color', 'data-role': 'picker', value: '#000000' });
-    var transparentBtn = h('button', { type: 'button', class: 'us-chip-transparent-btn', title: '透明 (transparent)' }, '透明');
+    var transparentBtn = h('button', { type: 'button', class: 'us-chip-transparent-btn', title: 'transparent' });
     var pickerRow = h('div', { class: 'us-chip-picker-row' }, picker, transparentBtn);
     var paletteContainer = h('div', { id: 'us-chip-pop-palette' });
     this.el = h('div', { id: 'us-cc-chip-popover', 'data-us-cc': 'chip-color-popover' },
@@ -2264,7 +2263,7 @@ var Panel = (function () {
       if (dfListToggle) {
         dfListToggle.addEventListener('click', function (e) { e.stopPropagation(); });
         dfListToggle.addEventListener('change', function () {
-          RPC.call('storage.set', ['userscripts:features:dataFiller:enabled', this.checked]).catch(function () {});
+          RPC.call('storage.set', ['userscripts:features:dataFiller:enabled:' + location.hostname, this.checked]).catch(function () {});
           if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
         });
       }
@@ -2296,7 +2295,7 @@ var Panel = (function () {
       if (dfMainToggle) dfMainToggle.addEventListener('change', function () {
         var listT = self._screenList && self._screenList.querySelector('#us-p-feature-dataFiller-toggle');
         if (listT) listT.checked = this.checked;
-        RPC.call('storage.set', ['userscripts:features:dataFiller:enabled', this.checked]).catch(function () {});
+        RPC.call('storage.set', ['userscripts:features:dataFiller:enabled:' + location.hostname, this.checked]).catch(function () {});
         if (this.checked) DataFiller.enableCapture(); else DataFiller.disableCapture();
       });
       var dfTemplateDl = this._screenDataFiller.querySelector('#us-p-df-template-dl');
@@ -2571,7 +2570,7 @@ var Panel = (function () {
     this._showList();
     this.syncColorEditorToggle();
     var dfEnabled = false;
-    try { dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]); } catch (e) {}
+    try { dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled:' + location.hostname, false]); } catch (e) {}
     var dfToggle = this._screenList && this._screenList.querySelector('#us-p-feature-dataFiller-toggle');
     var mainToggle = this._screenDataFiller && this._screenDataFiller.querySelector('#us-p-df-main-toggle');
     if (dfToggle) dfToggle.checked = !!dfEnabled;
@@ -2811,7 +2810,7 @@ var ColorCustomizerFeature = (function () {
       }
       Tab.create();
       // Restore Edit Mode state (① aggregate = colorEditor for now)
-      var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode', false]);
+      var editState = await RPC.call('storage.get', ['userscripts:features:colorCustomizer:editMode:' + location.hostname, false]);
       if (editState) {
         EditMode.enable();
       } else {
@@ -2833,7 +2832,7 @@ var ColorCustomizerFeature = (function () {
         }
       }
       // Restore dataFiller enabled state
-      var dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled', false]);
+      var dfEnabled = await RPC.call('storage.get', ['userscripts:features:dataFiller:enabled:' + location.hostname, false]);
       if (dfEnabled && window.DataFiller) window.DataFiller.enableCapture(); else if (window.DataFiller) window.DataFiller.disableCapture();
       this._initialized = true;
       console.log('[ColorCustomizer] Initialized – ' + RulesManager.getRules().length + ' rule(s), ' + ProfileManager.getProfiles().length + ' profile(s) for ' + window.location.hostname + window.location.pathname);
